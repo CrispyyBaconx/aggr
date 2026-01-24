@@ -7,7 +7,7 @@
     >
       <toggable-group
         class="mb8 mt16"
-        :value="showPairs"
+        :modelValue="showPairs"
         label="Show Symbols"
         @change="$store.commit(paneId + '/TOGGLE_PAIRS')"
         small

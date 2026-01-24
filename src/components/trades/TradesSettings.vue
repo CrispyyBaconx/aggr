@@ -310,7 +310,7 @@
 
       <toggable-group
         class="mb8 mt16"
-        :value="showPrices"
+        :modelValue="showPrices"
         label="Show prices"
         @change="$store.commit(paneId + '/TOGGLE_PREFERENCE', 'showPrices')"
         small
@@ -340,7 +340,7 @@
       <toggable-group
         v-if="isLegacy"
         class="mb8 mt16"
-        :value="showLogos"
+        :modelValue="showLogos"
         label="Show logos"
         @change="$store.commit(paneId + '/TOGGLE_PREFERENCE', 'showLogos')"
         small

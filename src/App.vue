@@ -68,7 +68,7 @@ let stuckTimeout: number | undefined
 let mainPair: string = ''
 let favicons: { up?: string; down?: string } = {}
 
-const showSearch = computed(() => store.state.app.showSearch)
+const showSearch = computed(() => store.state.app?.showSearch)
 
 const isBooted = computed(() => {
   const booted = store.state.app && store.state.app.isBooted
@@ -85,24 +85,24 @@ const isBooted = computed(() => {
   return booted
 })
 
-const isLoading = computed(() => store.state.app.isLoading)
+const isLoading = computed(() => store.state.app?.isLoading)
 
-const theme = computed(() => store.state.settings.theme)
+const theme = computed(() => store.state.settings?.theme)
 
-const autoHideHeaders = computed(() => store.state.settings.autoHideHeaders)
+const autoHideHeaders = computed(() => store.state.settings?.autoHideHeaders)
 
-const autoHideNames = computed(() => store.state.settings.autoHideNames)
+const autoHideNames = computed(() => store.state.settings?.autoHideNames)
 
 const preferedSizingCurrency = computed(() => {
-  return store.state.settings.preferQuoteCurrencySize ? 'quote' : 'base'
+  return store.state.settings?.preferQuoteCurrencySize ? 'quote' : 'base'
 })
 
-const disableAnimations = computed(() => store.state.settings.disableAnimations)
+const disableAnimations = computed(() => store.state.settings?.disableAnimations)
 
 watch(
-  () => store.state.panes.marketsListeners,
+  () => store.state.panes?.marketsListeners,
   (newMarkets, previousMarkets) => {
-    if (newMarkets !== previousMarkets) {
+    if (newMarkets && newMarkets !== previousMarkets) {
       refreshMainMarkets(newMarkets)
     }
   }
@@ -199,7 +199,7 @@ function onDocumentKeyPress(event: KeyboardEvent) {
   const activeElement = document.activeElement as HTMLElement
 
   if (
-    store.state.app.showSearch ||
+    store.state.app?.showSearch ||
     event.metaKey ||
     event.ctrlKey ||
     event.altKey ||

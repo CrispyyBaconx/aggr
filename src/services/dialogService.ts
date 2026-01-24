@@ -1,8 +1,14 @@
 import { createApp, App, Component, ref, reactive, h } from 'vue'
 import store from '@/store'
+import VueTippy from 'vue-tippy'
 
 import ConfirmDialog from '@/components/framework/ConfirmDialog.vue'
 import PromptDialog from '@/components/framework/PromptDialog.vue'
+import Editable from '@/components/framework/Editable.vue'
+import DropdownComponent from '@/components/framework/Dropdown.vue'
+import Presets from '@/components/framework/Presets.vue'
+import autofocus from '@/directives/autofocusDirective'
+import draggableMarket from '@/directives/draggableMarketDirective'
 
 export interface DialogPosition {
   x?: number
@@ -55,6 +61,28 @@ class DialogService {
 
     const app = createApp(WrappedComponent)
     app.use(store)
+    
+    // Register global plugins
+    app.use(VueTippy, {
+      defaultProps: {
+        maxWidth: '200px',
+        duration: 0,
+        arrow: true,
+        animation: 'none',
+        delay: [200, 0],
+        theme: 'dark',
+        distance: 24
+      }
+    })
+    
+    // Register global components
+    app.component('dropdown', DropdownComponent)
+    app.component('editable', Editable)
+    app.component('presets', Presets)
+    
+    // Register global directives
+    app.directive('autofocus', autofocus)
+    app.directive('draggable-market', draggableMarket)
     
     const instance = app.mount(container)
 

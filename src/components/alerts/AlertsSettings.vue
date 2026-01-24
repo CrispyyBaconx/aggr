@@ -1,7 +1,7 @@
 <template>
   <toggable-group
     class="alerts-settings"
-    :value="alerts"
+    :modelValue="alerts"
     label="Price alerts"
     @change="toggleAlerts($event)"
   >

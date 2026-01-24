@@ -1,4 +1,4 @@
-import { computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useStore } from 'vuex'
 import { Pane } from '@/store/panes'
 
@@ -7,50 +7,80 @@ export interface UsePaneOptions {
   onResize?: (width: number, height: number, isMounting?: boolean) => void
 }
 
-export function usePane(options: UsePaneOptions) {
+// Overload signatures
+export function usePane(paneId: string, onResize?: (width: number, height: number, isMounting?: boolean) => void): {
+  el: ReturnType<typeof ref<HTMLElement | null>>
+  pane: ReturnType<typeof computed<Pane>>
+  refreshZoom: () => void
+  focusPane: () => void
+}
+export function usePane(options: UsePaneOptions): {
+  el: ReturnType<typeof ref<HTMLElement | null>>
+  pane: ReturnType<typeof computed<Pane>>
+  refreshZoom: () => void
+  focusPane: () => void
+}
+
+export function usePane(paneIdOrOptions: string | UsePaneOptions, onResizeArg?: (width: number, height: number, isMounting?: boolean) => void) {
   const store = useStore()
-  const instance = getCurrentInstance()
+  
+  // Handle both signatures
+  let paneId: string
+  let onResize: ((width: number, height: number, isMounting?: boolean) => void) | undefined
+  
+  if (typeof paneIdOrOptions === 'string') {
+    paneId = paneIdOrOptions
+    onResize = onResizeArg
+  } else {
+    paneId = paneIdOrOptions.paneId
+    onResize = paneIdOrOptions.onResize
+  }
+
+  // Template ref for the root element
+  const el = ref<HTMLElement | null>(null)
 
   const pane = computed<Pane>(() => {
-    return store.state.panes.panes[options.paneId]
+    return store.state.panes?.panes?.[paneId]
   })
 
   function refreshZoom() {
     store.dispatch('panes/refreshZoom', {
-      id: options.paneId
+      id: paneId
     })
   }
 
   function focusPane() {
-    store.commit('app/SET_FOCUSED_PANE', options.paneId)
+    store.commit('app/SET_FOCUSED_PANE', paneId)
   }
 
   onMounted(() => {
-    const el = instance?.proxy?.$el as HTMLElement
-    if (el) {
-      el.id = options.paneId
-      refreshZoom()
+    if (el.value) {
+      el.value.id = paneId
+      
+      // Only refresh zoom if pane exists in state
+      if (store.state.panes?.panes?.[paneId]) {
+        refreshZoom()
+      }
 
       // Use nextTick equivalent
       setTimeout(() => {
-        const width = el.clientWidth
-        if (options.onResize) {
-          options.onResize(width, el.clientHeight, true)
+        if (el.value && onResize) {
+          onResize(el.value.clientWidth, el.value.clientHeight, true)
         }
       }, 0)
 
-      el.addEventListener('mousedown', focusPane)
+      el.value.addEventListener('mousedown', focusPane)
     }
   })
 
   onBeforeUnmount(() => {
-    const el = instance?.proxy?.$el as HTMLElement
-    if (el) {
-      el.removeEventListener('mousedown', focusPane)
+    if (el.value) {
+      el.value.removeEventListener('mousedown', focusPane)
     }
   })
 
   return {
+    el,
     pane,
     refreshZoom,
     focusPane

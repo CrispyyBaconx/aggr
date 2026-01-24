@@ -62,26 +62,28 @@ const state: PanesState = JSON.parse(JSON.stringify(defaultPanes))
 
 const getters = {
   getName: state => (id: string) => {
-    const name = state.panes[id].name
-    const market = state.marketsListeners[state.panes[id].markets[0]]
+    const pane = state.panes[id]
+    if (!pane) {
+      return id
+    }
+    const name = pane.name
+    const market = state.marketsListeners[pane.markets?.[0]]
 
     if (name) {
       return name.trim()
     } else if (market) {
       return market.local
     } else {
-      return state.panes[id].type
+      return pane.type
     }
   },
   getFocusedPaneId: (state, getters, rootState) => (type: string) => {
-    if (
-      rootState.app.focusedPaneId &&
-      state.panes[rootState.app.focusedPaneId].type === type
-    ) {
+    const focusedPane = rootState.app.focusedPaneId && state.panes[rootState.app.focusedPaneId]
+    if (focusedPane && focusedPane.type === type) {
       return rootState.app.focusedPaneId
     } else {
-      for (const id in state.panes.panes) {
-        if (state.panes.panes[id].type === type) {
+      for (const id in state.panes) {
+        if (state.panes[id]?.type === type) {
           return id
         }
       }
@@ -308,7 +310,11 @@ const actions = {
     { dispatch, state },
     { id, markets }: { id: string; markets: string[] }
   ) {
-    if (state.panes[id].type in StaticPaneType) {
+    const pane = state.panes[id]
+    if (!pane) {
+      return
+    }
+    if (pane.type in StaticPaneType) {
       return dispatch('refreshMarketsListeners', { id, markets: [] })
     }
 
@@ -337,6 +343,9 @@ const actions = {
     { state, rootState },
     { id, data, type }: { id: string; data?: any; type?: string }
   ) {
+    if (!state.panes[id]) {
+      return
+    }
     const pane = JSON.parse(JSON.stringify(state.panes[id]))
 
     const currentPaneState = Object.assign(
@@ -346,6 +355,9 @@ const actions = {
     )
 
     const layoutItem = state.layout.find(a => a.i === id)
+    if (!layoutItem) {
+      return
+    }
     const originalPaneType = layoutItem.type
     layoutItem.type = 'div'
 
@@ -370,11 +382,15 @@ const actions = {
     dispatch('refreshZoom', { id })
   },
   refreshZoom({ state }, { id, zoom }: { id: string; zoom?: number }) {
+    const pane = state.panes[id]
+    if (!pane) {
+      return
+    }
     zoom =
       typeof zoom === 'number'
         ? zoom
-        : state.panes[id].zoom
-          ? Math.max(0.1, state.panes[id].zoom)
+        : pane.zoom
+          ? Math.max(0.1, pane.zoom)
           : 1
     const el = document.getElementById(id) as HTMLElement
 
@@ -461,13 +477,19 @@ const mutations = {
     state,
     { id, markets }: { id: string; markets: string[] }
   ) => {
-    state.panes[id].markets = markets
+    if (state.panes[id]) {
+      state.panes[id].markets = markets
+    }
   },
   SET_PANE_NAME: (state, { id, name }: { id: string; name: string }) => {
-    state.panes[id].name = name
+    if (state.panes[id]) {
+      state.panes[id].name = name
+    }
   },
   SET_PANE_ZOOM: (state, { id, zoom }: { id: string; zoom: number }) => {
-    state.panes[id].zoom = zoom
+    if (state.panes[id]) {
+      state.panes[id].zoom = zoom
+    }
   },
   TOGGLE_SYNC_WITH_PARENT_FRAME: (state, paneId) => {
     const index = state.syncedWithParentFrame.indexOf(paneId)

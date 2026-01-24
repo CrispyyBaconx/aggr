@@ -402,13 +402,13 @@ export default {
     transition: all 0.2s $ease-out-expo;
   }
 
-  &-leave,
+  &-leave-from,
   &-enter-to {
     opacity: 1;
     transform: none;
   }
 
-  &-enter,
+  &-enter-from,
   &-leave-to {
     opacity: 0;
     transform: scale(0.8);

@@ -574,7 +574,7 @@ export default {
     }
   }
 
-  &-enter,
+  &-enter-from,
   &-leave-to {
     opacity: 0;
 

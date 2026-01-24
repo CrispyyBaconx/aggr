@@ -8,7 +8,7 @@
         @touchstart="select"
       ></div>
       <div
-        v-if="showCompletion"
+        v-if="effectiveShowCompletion"
         class="slider__completion"
         :style="`width: ${handle.position}%`"
       ></div>
@@ -46,12 +46,7 @@ export default {
     value: { type: Number, default: 0 },
     showCompletion: {
       type: Boolean,
-      default() {
-        if (this.gradient) {
-          return false
-        }
-        return true
-      }
+      default: null // Will be computed based on gradient if not explicitly set
     },
     log: { type: Boolean, default: false }
   },
@@ -67,6 +62,14 @@ export default {
   computed: {
     sizeRelatedOptions() {
       return [this.log, this.min, this.max, this.step]
+    },
+    effectiveShowCompletion() {
+      // If showCompletion was explicitly set, use that value
+      if (this.showCompletion !== null) {
+        return this.showCompletion
+      }
+      // Otherwise, show completion only when there's no gradient
+      return !this.gradient
     }
   },
   watch: {

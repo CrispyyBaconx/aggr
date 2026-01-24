@@ -280,7 +280,7 @@
     }
   }
 
-  &-enter,
+  &-enter-from,
   &-leave-to {
     opacity: 0;
 
@@ -293,7 +293,7 @@
     }
   }
 
-  &-leave,
+  &-leave-from,
   &-leave-to {
     pointer-events: none;
   }

@@ -188,7 +188,7 @@ export default {
     transition: all 0.25s $ease-out-expo;
   }
 
-  &-enter,
+  &-enter-from,
   &-leave-to {
     opacity: 0;
   }
@@ -209,7 +209,7 @@ export default {
     transition: all 0.15s $ease-out-expo;
   }
 
-  &-enter,
+  &-enter-from,
   &-leave-to {
     opacity: 0;
     transform: scale(0.8);
@@ -223,14 +223,14 @@ export default {
     transition: all 0.25s $ease-out-expo;
   }
 
-  &-enter,
+  &-enter-from,
   &-leave-to {
     opacity: 0;
   }
 }
 
 .slide-fade-left {
-  &-enter {
+  &-enter-from {
     transform: translateX(-2rem);
   }
 
@@ -240,7 +240,7 @@ export default {
 }
 
 .slide-fade-right {
-  &-enter {
+  &-enter-from {
     transform: translateX(2rem);
   }
 

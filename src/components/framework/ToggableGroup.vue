@@ -54,7 +54,7 @@ defineEmits<{
       transition: all 0.52s $ease-out-expo;
     }
 
-    &.toggable-group-enter,
+    &.toggable-group-enter-from,
     &.toggable-group-leave-to {
       transform: translateX(-20%);
       opacity: 0;

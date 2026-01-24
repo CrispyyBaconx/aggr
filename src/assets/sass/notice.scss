@@ -1,3 +1,5 @@
+@use "./variables" as *;
+
 .slide-notice-enter-active,
 .slide-notice-leave-active {
   overflow: hidden;

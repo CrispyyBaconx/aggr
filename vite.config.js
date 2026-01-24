@@ -128,7 +128,8 @@ export default defineConfig(({ mode }) => {
       devSourcemap: true,
       preprocessorOptions: {
         scss: {
-          additionalData: `@import "@/assets/sass/variables.scss";`
+          api: 'modern',
+          additionalData: `@use "sass:color"; @use "@/assets/sass/variables" as *;`
         }
       }
     }

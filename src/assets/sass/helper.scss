@@ -1,3 +1,6 @@
+@use "sass:color";
+@use "./variables" as *;
+
 html {
   height: 100%;
 }
@@ -242,7 +245,7 @@ $unit: 'px';
   color: $blue;
 
   @at-root a#{&}:hover {
-    color: lighten($blue, 5%);
+    color: color.adjust($blue, $lightness: 5%);
   }
 }
 

@@ -1,3 +1,5 @@
+@use "./variables" as *;
+
 .dialog {
   $self: &;
   position: fixed;

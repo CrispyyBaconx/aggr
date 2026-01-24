@@ -1,3 +1,6 @@
+@use "sass:color";
+@use "./variables" as *;
+
 .form-group {
   > label {
     margin-bottom: 0.25rem;
@@ -360,5 +363,5 @@
 }
 
 .form-feedback {
-  color: lighten($red, 10%);
+  color: color.adjust($red, $lightness: 10%);
 }

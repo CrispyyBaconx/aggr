@@ -494,25 +494,35 @@ export async function getApiSupportedMarkets() {
   }
 
   try {
-    const products = await fetch(getApiUrl('products')).then(response =>
-      response.json()
-    )
+    const response = await fetch(getApiUrl('products'))
 
-    if (!products.length) {
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`)
+    }
+
+    const fetchedProducts = await response.json()
+
+    if (!fetchedProducts.length) {
       throw new Error('invalid supported markets list')
     }
 
     localStorage.setItem(
       'API_SUPPORTED_PAIRS',
       JSON.stringify({
-        products,
+        products: fetchedProducts,
         timestamp: now
       })
     )
 
-    return products
+    return fetchedProducts
   } catch (error) {
-    console.error(error)
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      console.warn(
+        `[productsService] API unavailable at ${getApiUrl('products')} - using fallback products`
+      )
+    } else {
+      console.warn('[productsService] Failed to fetch API products:', error.message)
+    }
   }
 
   return products

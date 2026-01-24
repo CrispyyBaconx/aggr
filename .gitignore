@@ -22,3 +22,9 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw?
+
+# api docs
+API.md
+
+# ai shit
+.cursor/

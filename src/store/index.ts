@@ -1,5 +1,4 @@
-import Vue from 'vue'
-import Vuex, { Module, StoreOptions } from 'vuex'
+import { createStore, Module, StoreOptions } from 'vuex'
 import { bootPane, registerModule, scheduleSync } from '@/utils/store'
 
 import app, { AppState } from './app'
@@ -9,8 +8,6 @@ import panes, { PanesState } from './panes'
 import { Workspace } from '@/types/types'
 import { resolvePairs } from '../services/productsService'
 import panesSettings from './panesSettings'
-
-Vue.use(Vuex)
 
 export interface AppModuleTree<R> {
   [key: string]: Module<any, R>
@@ -23,7 +20,7 @@ export interface ModulesState {
   exchanges: ExchangesState
 }
 
-const store = new Vuex.Store({} as StoreOptions<ModulesState>)
+const store = createStore({} as StoreOptions<ModulesState>)
 const modules = {
   app,
   settings,

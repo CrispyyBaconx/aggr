@@ -33,48 +33,37 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
-import Slider from '@/components/framework/picker/Slider.vue'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import { formatAmount } from '@/services/productsService'
 
-@Component({
-  name: 'Exchange',
-  components: {
-    Slider
-  },
-  props: ['id']
-})
-export default class Exchange extends Vue {
+const props = defineProps<{
   id: string
-  expanded = false
+}>()
 
-  get name() {
-    return this.id.replace(/[\W_]+/g, ' ')
-  }
+const store = useStore()
+const expanded = ref(false)
 
-  get settings() {
-    return this.$store.state.exchanges[this.id]
-  }
+const name = computed(() => props.id.replace(/[\W_]+/g, ' '))
 
-  get markets() {
-    return (Object as any)
-      .values(this.$store.state.panes.marketsListeners)
-      .filter(a => a.listeners > 0 && a.exchange === this.id)
-  }
+const settings = computed(() => store.state.exchanges[props.id])
 
-  get active() {
-    return this.markets.length
-  }
+const markets = computed(() => 
+  (Object as any)
+    .values(store.state.panes.marketsListeners)
+    .filter((a: any) => a.listeners > 0 && a.exchange === props.id)
+)
 
-  async toggleExchange() {
-    await this.$store.dispatch('exchanges/toggleExchange', this.id)
-    await this.$store.dispatch('panes/refreshMarketsListeners')
-  }
+const active = computed(() => markets.value.length > 0)
 
-  formatAmount(amount) {
-    return formatAmount(amount)
-  }
+async function toggleExchange() {
+  await store.dispatch('exchanges/toggleExchange', props.id)
+  await store.dispatch('panes/refreshMarketsListeners')
+}
+
+function formatAmountFn(amount: number) {
+  return formatAmount(amount)
 }
 </script>
 

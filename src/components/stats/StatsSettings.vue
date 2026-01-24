@@ -15,7 +15,7 @@
           class="form-control"
           :value="statsWindowStringified"
           placeholder="Window (minutes)"
-          @change="$store.commit(paneId + '/SET_WINDOW', $event.target.value)"
+          @change="$store.commit(paneId + '/SET_WINDOW', ($event.target as HTMLInputElement).value)"
         />
       </div>
       <div class="form-group -tight">
@@ -30,7 +30,7 @@
             class="form-control"
             :checked="enableChart"
             @change="
-              $store.commit(paneId + '/TOGGLE_CHART', $event.target.checked)
+              $store.commit(paneId + '/TOGGLE_CHART', ($event.target as HTMLInputElement).checked)
             "
           />
           <div></div>
@@ -68,7 +68,7 @@
               $store.dispatch(paneId + '/updateBucket', {
                 id: bucket.id,
                 prop: 'enabled',
-                value: $event.target.checked
+                value: ($event.target as HTMLInputElement).checked
               })
             "
           />
@@ -87,44 +87,32 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import dialogService from '@/services/dialogService'
 import StatDialog from '@/components/stats/StatDialog.vue'
-import { Component, Vue } from 'vue-property-decorator'
 import { getHms } from '@/utils/helpers'
 
-@Component({
-  name: 'StatsSettings',
-  props: {
-    paneId: {
-      type: String,
-      required: true
-    }
-  }
-})
-export default class StatsSettings extends Vue {
+const props = defineProps<{
   paneId: string
+}>()
 
-  get enableChart() {
-    return this.$store.state[this.paneId].enableChart
-  }
+const store = useStore()
 
-  get buckets() {
-    return Object.keys(this.$store.state[this.paneId].buckets).map(
-      id => this.$store.state[this.paneId].buckets[id]
-    )
-  }
+const enableChart = computed(() => store.state[props.paneId].enableChart)
 
-  get window() {
-    return this.$store.state[this.paneId].window
-  }
+const buckets = computed(() =>
+  Object.keys(store.state[props.paneId].buckets).map(
+    id => store.state[props.paneId].buckets[id]
+  )
+)
 
-  get statsWindowStringified() {
-    return getHms(this.window || 0)
-  }
+const window = computed(() => store.state[props.paneId].window)
 
-  openStat(id) {
-    dialogService.open(StatDialog, { bucketId: id, paneId: this.paneId })
-  }
+const statsWindowStringified = computed(() => getHms(window.value || 0))
+
+function openStat(id: string) {
+  dialogService.open(StatDialog, { bucketId: id, paneId: props.paneId })
 }
 </script>

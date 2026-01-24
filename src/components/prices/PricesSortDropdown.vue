@@ -1,48 +1,31 @@
 <template>
   <dropdown-button
-    v-model="sortType"
+    :modelValue="sortType"
     :options="['none', 'price', 'volume', 'delta', 'change']"
-    @input="selectSortType($event)"
+    @update:modelValue="selectSortType($event)"
   ></dropdown-button>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
 
-@Component({
-  name: 'PricesSortDropdown',
-  components: {
-    DropdownButton
-  },
-  props: {
-    paneId: {
-      type: String,
-      required: true
-    },
-    buttonClass: {
-      type: String,
-      default: '-text -arrow'
-    }
-  }
-})
-export default class PricesSortDropdown extends Vue {
+const props = defineProps<{
   paneId: string
+  buttonClass?: string
+}>()
 
-  get sortType() {
-    return this.$store.state[this.paneId].sortType
+const store = useStore()
+
+const sortType = computed(() => store.state[props.paneId].sortType)
+const sortOrder = computed(() => store.state[props.paneId].sortOrder)
+
+function selectSortType(option: string) {
+  if (option === sortType.value) {
+    store.commit(props.paneId + '/TOGGLE_SORT_ASC')
   }
 
-  get sortOrder() {
-    return this.$store.state[this.paneId].sortOrder
-  }
-
-  selectSortType(option) {
-    if (option === this.sortType) {
-      this.$store.commit(this.paneId + '/TOGGLE_SORT_ASC')
-    }
-
-    this.$store.commit(this.paneId + '/SET_SORT_TYPE', option)
-  }
+  store.commit(props.paneId + '/SET_SORT_TYPE', option)
 }
 </script>

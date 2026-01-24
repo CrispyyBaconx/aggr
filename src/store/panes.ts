@@ -2,7 +2,7 @@ import aggregatorService from '@/services/aggregatorService'
 import workspacesService from '@/services/workspacesService'
 import { getBucketId, slugify, uniqueName } from '@/utils/helpers'
 import { registerModule } from '@/utils/store'
-import Vue from 'vue'
+import { nextTick } from 'vue'
 import { MutationTree, ActionTree, GetterTree, Module } from 'vuex'
 import { ModulesState } from '.'
 import panesSettings from './panesSettings'
@@ -428,10 +428,10 @@ const actions = {
 
 const mutations = {
   ADD_PANE: (state, pane: Pane) => {
-    Vue.set(state.panes, pane.id, pane)
+    state.panes[pane.id] = pane
   },
   REMOVE_PANE: (state, id: string) => {
-    Vue.delete(state.panes, id)
+    delete state.panes[id]
   },
   ADD_GRID_ITEM: (state, { pane, space }: { pane: Pane; space: GridSpace }) => {
     const item: GridItem = {
@@ -467,7 +467,7 @@ const mutations = {
     state.panes[id].name = name
   },
   SET_PANE_ZOOM: (state, { id, zoom }: { id: string; zoom: number }) => {
-    Vue.set(state.panes[id], 'zoom', zoom)
+    state.panes[id].zoom = zoom
   },
   TOGGLE_SYNC_WITH_PARENT_FRAME: (state, paneId) => {
     const index = state.syncedWithParentFrame.indexOf(paneId)

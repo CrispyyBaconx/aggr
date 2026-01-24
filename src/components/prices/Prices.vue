@@ -1,6 +1,7 @@
 <template>
   <div
     class="pane-prices"
+    ref="el"
     @mouseenter="toggleSort(false)"
     @mouseleave="toggleSort(true)"
   >
@@ -47,7 +48,7 @@
             }}%
           </div>
           <div v-if="showVolume" class="market__volume">
-            {{ formatAmount(market.avgVolume) }}
+            {{ formatAmountValue(market.avgVolume) }}
           </div>
           <div v-if="showVolumeDelta" class="market__volume">
             {{ market.avgVolumeDelta }}%
@@ -58,12 +59,13 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Mixins, Watch } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useStore } from 'vuex'
 import PricesSortDropdown from '@/components/prices/PricesSortDropdown.vue'
 
 import aggregatorService from '@/services/aggregatorService'
-import PaneMixin from '@/mixins/paneMixin'
+import { usePane } from '@/composables/usePane'
 import PaneHeader from '../panes/PaneHeader.vue'
 import { Market, Ticker } from '@/types/types'
 import {
@@ -77,7 +79,7 @@ type TickerStatus = '-pending' | '-up' | '-down' | '-neutral'
 type WatchlistMarket = Market & {
   local: string
   base: string
-  price: string
+  price: string | null
   change: number
   avgChange: number
   volume: number
@@ -87,500 +89,458 @@ type WatchlistMarket = Market & {
   status: TickerStatus
 }
 
-@Component({
-  components: { PaneHeader, PricesSortDropdown },
-  name: 'Prices'
+const props = defineProps<{
+  paneId: string
+}>()
+
+const store = useStore()
+
+const { el, pane } = usePane(props.paneId, onResize)
+
+const mode = ref('vertical')
+const pauseSort = ref(false)
+const showCryptosLogos = ref(false)
+const filteredMarkets = ref<WatchlistMarket[]>([])
+const VITE_APP_BASE_PATH = import.meta.env.VITE_APP_BASE_PATH
+
+// cache sort function
+let sortFunction: ((a: WatchlistMarket, b: WatchlistMarket) => number) | null = null
+
+// markets storage
+let markets: WatchlistMarket[] = []
+
+// prices event contain cumulative data
+// keep track of last period ticker's volume & change
+let lastResetTimestamp: number | null = null
+let lastPeriodTickers: {
+  [id: string]: Ticker & {
+    change: number
+  }
+} = {}
+let periodMs: number = 0
+
+let resetTimeout: number | null = null
+
+const exchanges = computed(() => store.state.exchanges)
+const disableAnimations = computed(() => store.state.settings.disableAnimations)
+const showPairs = computed(() => store.state[props.paneId].showPairs)
+const showChange = computed(() => store.state[props.paneId].showChange)
+const showPrice = computed(() => store.state[props.paneId].showPrice)
+const showVolume = computed(() => store.state[props.paneId].showVolume)
+const showVolumeDelta = computed(() => store.state[props.paneId].showVolumeDelta)
+const animateSort = computed(() => store.state[props.paneId].animateSort)
+const sortType = computed(() => store.state[props.paneId].sortType)
+const sortOrder = computed(() => store.state[props.paneId].sortOrder)
+const period = computed(() => store.state[props.paneId].period)
+const shortSymbols = computed(() => store.state[props.paneId].shortSymbols)
+const avgPeriods = computed(() => store.state[props.paneId].avgPeriods)
+const volumeThreshold = computed(() => store.state[props.paneId].volumeThreshold)
+
+const transitionGroupName = computed(() => {
+  if (animateSort.value) {
+    return 'flip-list'
+  } else {
+    return null
+  }
 })
-export default class Prices extends Mixins(PaneMixin) {
-  mode = 'vertical'
-  pauseSort = false
-  showCryptosLogos = false
-  filteredMarkets: WatchlistMarket[] = []
-  VITE_APP_BASE_PATH = import.meta.env.VITE_APP_BASE_PATH
 
-  // cache sort function
-  private sortFunction: (a: WatchlistMarket, b: WatchlistMarket) => number
-
-  // markets storage
-  private markets: WatchlistMarket[]
-
-  // prices event contain cumulative data
-  // keep track of last period ticker's volume & change
-  private lastResetTimestamp: number
-  private lastPeriodTickers: {
-    [id: string]: Ticker & {
-      change: number
-    }
-  }
-  private periodMs: number
-
-  private resetTimeout: number
-
-  @Watch('pane.markets')
-  private onMarketChange(currentMarket, previousMarkets) {
-    for (const id of previousMarkets) {
-      if (currentMarket.indexOf(id) === -1) {
-        this.removeMarketFromList(id)
-      }
-    }
-
-    for (const id of currentMarket) {
-      if (previousMarkets.indexOf(id) === -1) {
-        const [exchange, pair] = parseMarket(id)
-
-        this.addMarketToList({
-          id,
-          exchange,
-          pair
-        })
-      }
-    }
-
-    this.showCryptosLogos = this.hasMultipleLocals()
-  }
-
-  @Watch('period', { immediate: true })
-  private onPeriodChange(period) {
-    if (period > 0) {
-      this.periodReset()
-    } else {
-      this.clearPeriodReset()
+watch(() => pane.value.markets, (currentMarket, previousMarkets) => {
+  for (const id of previousMarkets) {
+    if (currentMarket.indexOf(id) === -1) {
+      removeMarketFromList(id)
     }
   }
 
-  @Watch('volumeThreshold')
-  private onVolumeThresholdChange(value) {
-    this.toggleSort(true)
+  for (const id of currentMarket) {
+    if (previousMarkets.indexOf(id) === -1) {
+      const [exchange, pair] = parseMarket(id)
 
-    if (!value) {
-      this.filteredMarkets = this.markets
-    } else {
-      this.filterMarkets()
-    }
-  }
-
-  @Watch('shortSymbols')
-  private onShortSymbolsChange(value) {
-    for (const market of this.markets) {
-      if (value) {
-        const product = getMarketProduct(market.exchange, market.pair)
-
-        if (product) {
-          market.local = this.getSymbol(product)
-          continue
-        }
-      }
-
-      market.local = market.pair
-    }
-  }
-
-  @Watch('sortOrder')
-  private onSortOrderChange() {
-    this.cacheSortFunction()
-  }
-
-  @Watch('sortType')
-  private onSortTypeChange() {
-    this.cacheSortFunction()
-  }
-
-  get exchanges() {
-    return this.$store.state.exchanges
-  }
-
-  get disableAnimations() {
-    return this.$store.state.settings.disableAnimations
-  }
-
-  get showPairs() {
-    return this.$store.state[this.paneId].showPairs
-  }
-
-  get showChange() {
-    return this.$store.state[this.paneId].showChange
-  }
-
-  get showPrice() {
-    return this.$store.state[this.paneId].showPrice
-  }
-
-  get showVolume() {
-    return this.$store.state[this.paneId].showVolume
-  }
-
-  get showVolumeDelta() {
-    return this.$store.state[this.paneId].showVolumeDelta
-  }
-
-  get animateSort() {
-    return this.$store.state[this.paneId].animateSort
-  }
-
-  get sortType() {
-    return this.$store.state[this.paneId].sortType
-  }
-
-  get sortOrder() {
-    return this.$store.state[this.paneId].sortOrder
-  }
-
-  get period() {
-    return this.$store.state[this.paneId].period
-  }
-
-  get shortSymbols() {
-    return this.$store.state[this.paneId].shortSymbols
-  }
-
-  get avgPeriods() {
-    return this.$store.state[this.paneId].avgPeriods
-  }
-
-  get volumeThreshold() {
-    return this.$store.state[this.paneId].volumeThreshold
-  }
-
-  get transitionGroupName() {
-    if (this.animateSort) {
-      return 'flip-list'
-    } else {
-      return null
-    }
-  }
-
-  created() {
-    this.cacheSortFunction()
-    this.refreshMarkets()
-  }
-
-  mounted() {
-    aggregatorService.on('tickers', this.updateMarkets)
-
-    // start filter interval
-    this.filterMarkets(true)
-  }
-
-  beforeDestroy() {
-    aggregatorService.off('tickers', this.updateMarkets)
-
-    if (this.resetTimeout) {
-      // clear periodic reset timeout
-      clearTimeout(this.resetTimeout)
-    }
-  }
-
-  refreshMarkets() {
-    // non reactive storages
-    this.markets = []
-    this.lastPeriodTickers = {}
-
-    // active normalized pairs
-    const locals = []
-
-    for (const market of this.pane.markets) {
-      const [exchange, pair] = parseMarket(market)
-
-      const product = this.addMarketToList({
-        id: market,
-        pair,
-        exchange
+      addMarketToList({
+        id,
+        exchange,
+        pair
       })
-
-      if (locals.indexOf(product.local) === -1) {
-        locals.push(product.local)
-      }
     }
-
-    this.showCryptosLogos = this.hasMultipleLocals()
-
-    this.filterMarkets()
   }
 
-  updateMarkets(tickers) {
-    // cache setting getters
-    const showChange = this.showChange
-    const avgPeriods = this.avgPeriods
-    const periodWeight = this.getPeriodWeight(avgPeriods)
+  showCryptosLogos.value = hasMultipleLocals()
+})
 
-    for (const market of this.markets) {
-      const ticker = tickers[market.id]
+watch(period, (newPeriod) => {
+  if (newPeriod > 0) {
+    periodReset()
+  } else {
+    clearPeriodReset()
+  }
+}, { immediate: true })
 
-      if (!ticker) {
+watch(volumeThreshold, (value) => {
+  toggleSort(true)
+
+  if (!value) {
+    filteredMarkets.value = markets
+  } else {
+    filterMarkets()
+  }
+})
+
+watch(shortSymbols, (value) => {
+  for (const market of markets) {
+    if (value) {
+      const product = getMarketProduct(market.exchange, market.pair)
+
+      if (product) {
+        market.local = getSymbol(product)
         continue
       }
-
-      const oldData = this.lastPeriodTickers[market.id]
-
-      if (!oldData.price) {
-        oldData.price = ticker.price
-      }
-
-      market.price = formatMarketPrice(ticker.price, market.id)
-
-      market.volume += ticker.volume
-      market.volumeDelta += ticker.volumeDelta
-
-      if (avgPeriods) {
-        market.avgVolume =
-          market.volume * periodWeight + oldData.volume * (1 - periodWeight)
-        market.avgVolumeDelta = Math.round(
-          ((market.volumeDelta * periodWeight +
-            oldData.volumeDelta * (1 - periodWeight)) /
-            market.avgVolume) *
-            100
-        )
-      } else {
-        market.avgVolume = market.volume
-        market.avgVolumeDelta = Math.round(
-          (market.volumeDelta / market.volume) * 100
-        )
-      }
-
-      if (showChange && ticker.price) {
-        // colorize using price change accross period
-        const change = ticker.price - this.lastPeriodTickers[market.id].price
-
-        market.change = (change / this.lastPeriodTickers[market.id].price) * 100
-
-        if (avgPeriods) {
-          market.avgChange =
-            market.change * periodWeight + oldData.change * (1 - periodWeight)
-        } else {
-          market.avgChange = market.change
-        }
-
-        market.status = market.avgChange > 0 ? '-up' : '-down'
-      } else {
-        // colorize using now vs last value only
-        if (ticker.price === null) {
-          market.status = '-pending'
-        } else if (market.price > ticker.price) {
-          market.status = '-down'
-        } else if (market.price < ticker.price) {
-          market.status = '-up'
-        } else {
-          market.status = '-neutral'
-        }
-      }
     }
 
-    if (!this.pauseSort && this.sortFunction !== null) {
-      this.filteredMarkets = this.filteredMarkets.sort(this.sortFunction)
+    market.local = market.pair
+  }
+})
+
+watch(sortOrder, () => {
+  cacheSortFunction()
+})
+
+watch(sortType, () => {
+  cacheSortFunction()
+})
+
+function refreshMarkets() {
+  // non reactive storages
+  markets = []
+  lastPeriodTickers = {}
+
+  // active normalized pairs
+  const locals: string[] = []
+
+  for (const market of pane.value.markets) {
+    const [exchange, pair] = parseMarket(market)
+
+    const product = addMarketToList({
+      id: market,
+      pair,
+      exchange
+    })
+
+    if (product && locals.indexOf(product.local) === -1) {
+      locals.push(product.local)
     }
   }
 
-  removeMarketFromList(market: string) {
-    if (this.lastPeriodTickers[market]) {
-      delete this.lastPeriodTickers[market]
+  showCryptosLogos.value = hasMultipleLocals()
+
+  filterMarkets()
+}
+
+function updateMarkets(tickers: { [id: string]: Ticker }) {
+  // cache setting getters
+  const showChangeVal = showChange.value
+  const avgPeriodsVal = avgPeriods.value
+  const periodWeight = getPeriodWeight(avgPeriodsVal)
+
+  for (const market of markets) {
+    const ticker = tickers[market.id]
+
+    if (!ticker) {
+      continue
     }
 
-    const index = this.markets.indexOf(this.markets.find(m => m.id === market))
+    const oldData = lastPeriodTickers[market.id]
 
-    if (index !== -1) {
-      this.markets.splice(index, 1)
+    if (!oldData.price) {
+      oldData.price = ticker.price
+    }
+
+    market.price = formatMarketPrice(ticker.price, market.id)
+
+    market.volume += ticker.volume
+    market.volumeDelta += ticker.volumeDelta
+
+    if (avgPeriodsVal) {
+      market.avgVolume =
+        market.volume * periodWeight + oldData.volume * (1 - periodWeight)
+      market.avgVolumeDelta = Math.round(
+        ((market.volumeDelta * periodWeight +
+          oldData.volumeDelta * (1 - periodWeight)) /
+          market.avgVolume) *
+          100
+      )
     } else {
-      console.warn(
-        `[prices] unable to remove market from list after panes.markets change: market doesn't exists in list (${market})`
+      market.avgVolume = market.volume
+      market.avgVolumeDelta = Math.round(
+        (market.volumeDelta / market.volume) * 100
       )
     }
-  }
 
-  addMarketToList(market: Market) {
-    this.lastPeriodTickers[market.id] = {
-      price: 0,
-      change: 0,
-      volume: 0,
-      volumeDelta: 0
-    }
+    if (showChangeVal && ticker.price) {
+      // colorize using price change accross period
+      const change = ticker.price - lastPeriodTickers[market.id].price
 
-    const product = getMarketProduct(market.exchange, market.pair)
+      market.change = (change / lastPeriodTickers[market.id].price) * 100
 
-    if (product) {
-      this.markets.push({
-        ...market,
-        local: this.getSymbol(product),
-        base: product.base.replace(/^1000+/, '').toLowerCase(),
-        status: '-pending',
-        price: null,
-        change: 0,
-        avgChange: 0,
-        volume: 0,
-        avgVolume: 0,
-        volumeDelta: 0,
-        avgVolumeDelta: 0
-      })
-
-      return product
-    }
-  }
-
-  cacheSortFunction() {
-    const order =
-      this.mode === 'horizontal'
-        ? this.sortOrder > 0
-          ? -1
-          : 1
-        : this.sortOrder
-    const by = this.sortType
-
-    if (!by || by === 'none') {
-      this.sortFunction = null
-      return
-    }
-
-    if (by === 'price') {
-      if (order === 1) {
-        this.sortFunction = (a, b) => (a as any).price - (b as any).price
+      if (avgPeriodsVal) {
+        market.avgChange =
+          market.change * periodWeight + oldData.change * (1 - periodWeight)
       } else {
-        this.sortFunction = (a, b) => (b as any).price - (a as any).price
+        market.avgChange = market.change
       }
-    } else if (by === 'change') {
-      if (order === 1) {
-        this.sortFunction = (a, b) => a.avgChange - b.avgChange
+
+      market.status = market.avgChange > 0 ? '-up' : '-down'
+    } else {
+      // colorize using now vs last value only
+      if (ticker.price === null) {
+        market.status = '-pending'
+      } else if ((market.price as any) > ticker.price) {
+        market.status = '-down'
+      } else if ((market.price as any) < ticker.price) {
+        market.status = '-up'
       } else {
-        this.sortFunction = (a, b) => b.avgChange - a.avgChange
-      }
-    } else if (by === 'volume') {
-      if (order === 1) {
-        this.sortFunction = (a, b) => a.avgVolume - b.avgVolume
-      } else {
-        this.sortFunction = (a, b) => b.avgVolume - a.avgVolume
-      }
-    } else if (by === 'delta') {
-      if (order === 1) {
-        this.sortFunction = (a, b) => a.avgVolumeDelta - b.avgVolumeDelta
-      } else {
-        this.sortFunction = (a, b) => b.avgVolumeDelta - a.avgVolumeDelta
+        market.status = '-neutral'
       }
     }
-
-    this.filteredMarkets = this.filteredMarkets.sort(this.sortFunction)
   }
 
-  formatAmount(amount) {
-    return formatAmount(amount, 0)
-  }
-
-  onResize(width: number, height: number) {
-    this.mode = width > height * 3 ? 'horizontal' : 'vertical'
-  }
-
-  getTimeToNextReset() {
-    const now = Date.now()
-    const periodMs = this.period * 1000 * 60
-    const timeOfReset = Math.ceil((now + 10000) / periodMs) * periodMs
-
-    return timeOfReset - now
-  }
-
-  scheduleNextPeriodReset() {
-    if (this.resetTimeout) {
-      clearTimeout(this.resetTimeout)
-    }
-
-    this.resetTimeout = setTimeout(
-      this.periodReset.bind(this),
-      this.getTimeToNextReset()
-    ) as unknown as number
-  }
-
-  periodReset() {
-    if (this.period) {
-      this.periodMs = this.period * 1000 * 60
-      this.lastResetTimestamp = this.resetTimeout ? Date.now() : null
-
-      if (this.markets) {
-        for (const market of this.markets) {
-          this.lastPeriodTickers[market.id].price = +market.price
-          this.lastPeriodTickers[market.id].change = +market.change
-          this.lastPeriodTickers[market.id].volume = +market.volume
-          this.lastPeriodTickers[market.id].volumeDelta = +market.volumeDelta
-
-          market.volume = 0
-          market.volumeDelta = 0
-        }
-      }
-
-      this.scheduleNextPeriodReset()
-    }
-  }
-
-  clearPeriodReset() {
-    for (const market in this.lastPeriodTickers) {
-      this.lastPeriodTickers[market].price =
-        this.lastPeriodTickers[market].volume =
-        this.lastPeriodTickers[market].volumeDelta =
-          0
-    }
-
-    if (this.resetTimeout) {
-      clearTimeout(this.resetTimeout)
-      this.resetTimeout = null
-    }
-  }
-
-  filterMarkets(scheduled?) {
-    const threshold = this.volumeThreshold
-
-    if (!this.pauseSort) {
-      if (threshold) {
-        this.filteredMarkets = this.markets.filter(
-          market => market.avgVolume >= threshold
-        )
-
-        if (this.sortFunction) {
-          this.filteredMarkets = this.filteredMarkets.sort(this.sortFunction)
-        }
-      } else {
-        this.filteredMarkets = this.markets
-      }
-    }
-
-    if (scheduled) {
-      // schedule next filter
-      setTimeout(() => {
-        this.filterMarkets(true)
-      }, Math.random() * 10000)
-    }
-  }
-
-  getPeriodWeight(avgPeriods) {
-    if (!avgPeriods || !this.lastResetTimestamp) {
-      return 1
-    }
-
-    return (Date.now() - this.lastResetTimestamp) / this.periodMs
-  }
-
-  toggleSort(value) {
-    this.pauseSort = !value
-  }
-
-  getSymbol(product) {
-    if (this.shortSymbols) {
-      return product.base.replace(/^1000+/, '').slice(0, 8)
-    }
-
-    return product.pair
-  }
-
-  hasMultipleLocals() {
-    if (!this.markets.length) {
-      return false
-    }
-
-    const base = this.markets[0].base
-
-    for (const market of this.markets) {
-      if (base !== market.base) {
-        return true
-      }
-    }
-
-    return false
+  if (!pauseSort.value && sortFunction !== null) {
+    filteredMarkets.value = filteredMarkets.value.sort(sortFunction)
   }
 }
+
+function removeMarketFromList(market: string) {
+  if (lastPeriodTickers[market]) {
+    delete lastPeriodTickers[market]
+  }
+
+  const index = markets.indexOf(markets.find(m => m.id === market)!)
+
+  if (index !== -1) {
+    markets.splice(index, 1)
+  } else {
+    console.warn(
+      `[prices] unable to remove market from list after panes.markets change: market doesn't exists in list (${market})`
+    )
+  }
+}
+
+function addMarketToList(market: Market) {
+  lastPeriodTickers[market.id] = {
+    price: 0,
+    change: 0,
+    volume: 0,
+    volumeDelta: 0
+  }
+
+  const product = getMarketProduct(market.exchange, market.pair)
+
+  if (product) {
+    markets.push({
+      ...market,
+      local: getSymbol(product),
+      base: product.base.replace(/^1000+/, '').toLowerCase(),
+      status: '-pending',
+      price: null,
+      change: 0,
+      avgChange: 0,
+      volume: 0,
+      avgVolume: 0,
+      volumeDelta: 0,
+      avgVolumeDelta: 0
+    })
+
+    return product
+  }
+}
+
+function cacheSortFunction() {
+  const order =
+    mode.value === 'horizontal'
+      ? sortOrder.value > 0
+        ? -1
+        : 1
+      : sortOrder.value
+  const by = sortType.value
+
+  if (!by || by === 'none') {
+    sortFunction = null
+    return
+  }
+
+  if (by === 'price') {
+    if (order === 1) {
+      sortFunction = (a, b) => (a as any).price - (b as any).price
+    } else {
+      sortFunction = (a, b) => (b as any).price - (a as any).price
+    }
+  } else if (by === 'change') {
+    if (order === 1) {
+      sortFunction = (a, b) => a.avgChange - b.avgChange
+    } else {
+      sortFunction = (a, b) => b.avgChange - a.avgChange
+    }
+  } else if (by === 'volume') {
+    if (order === 1) {
+      sortFunction = (a, b) => a.avgVolume - b.avgVolume
+    } else {
+      sortFunction = (a, b) => b.avgVolume - a.avgVolume
+    }
+  } else if (by === 'delta') {
+    if (order === 1) {
+      sortFunction = (a, b) => a.avgVolumeDelta - b.avgVolumeDelta
+    } else {
+      sortFunction = (a, b) => b.avgVolumeDelta - a.avgVolumeDelta
+    }
+  }
+
+  filteredMarkets.value = filteredMarkets.value.sort(sortFunction!)
+}
+
+function formatAmountValue(amount: number) {
+  return formatAmount(amount, 0)
+}
+
+function onResize(width: number, height: number) {
+  mode.value = width > height * 3 ? 'horizontal' : 'vertical'
+}
+
+function getTimeToNextReset() {
+  const now = Date.now()
+  const periodMsVal = period.value * 1000 * 60
+  const timeOfReset = Math.ceil((now + 10000) / periodMsVal) * periodMsVal
+
+  return timeOfReset - now
+}
+
+function scheduleNextPeriodReset() {
+  if (resetTimeout) {
+    clearTimeout(resetTimeout)
+  }
+
+  resetTimeout = setTimeout(
+    periodReset,
+    getTimeToNextReset()
+  ) as unknown as number
+}
+
+function periodReset() {
+  if (period.value) {
+    periodMs = period.value * 1000 * 60
+    lastResetTimestamp = resetTimeout ? Date.now() : null
+
+    if (markets) {
+      for (const market of markets) {
+        lastPeriodTickers[market.id].price = +(market.price || 0)
+        lastPeriodTickers[market.id].change = +market.change
+        lastPeriodTickers[market.id].volume = +market.volume
+        lastPeriodTickers[market.id].volumeDelta = +market.volumeDelta
+
+        market.volume = 0
+        market.volumeDelta = 0
+      }
+    }
+
+    scheduleNextPeriodReset()
+  }
+}
+
+function clearPeriodReset() {
+  for (const market in lastPeriodTickers) {
+    lastPeriodTickers[market].price =
+      lastPeriodTickers[market].volume =
+      lastPeriodTickers[market].volumeDelta =
+        0
+  }
+
+  if (resetTimeout) {
+    clearTimeout(resetTimeout)
+    resetTimeout = null
+  }
+}
+
+function filterMarkets(scheduled?: boolean) {
+  const threshold = volumeThreshold.value
+
+  if (!pauseSort.value) {
+    if (threshold) {
+      filteredMarkets.value = markets.filter(
+        market => market.avgVolume >= threshold
+      )
+
+      if (sortFunction) {
+        filteredMarkets.value = filteredMarkets.value.sort(sortFunction)
+      }
+    } else {
+      filteredMarkets.value = markets
+    }
+  }
+
+  if (scheduled) {
+    // schedule next filter
+    setTimeout(() => {
+      filterMarkets(true)
+    }, Math.random() * 10000)
+  }
+}
+
+function getPeriodWeight(avgPeriodsVal: number) {
+  if (!avgPeriodsVal || !lastResetTimestamp) {
+    return 1
+  }
+
+  return (Date.now() - lastResetTimestamp) / periodMs
+}
+
+function toggleSort(value: boolean) {
+  pauseSort.value = !value
+}
+
+function getSymbol(product: any) {
+  if (shortSymbols.value) {
+    return product.base.replace(/^1000+/, '').slice(0, 8)
+  }
+
+  return product.pair
+}
+
+function hasMultipleLocals() {
+  if (!markets.length) {
+    return false
+  }
+
+  const base = markets[0].base
+
+  for (const market of markets) {
+    if (base !== market.base) {
+      return true
+    }
+  }
+
+  return false
+}
+
+// Initialize
+cacheSortFunction()
+refreshMarkets()
+
+onMounted(() => {
+  aggregatorService.on('tickers', updateMarkets)
+
+  // start filter interval
+  filterMarkets(true)
+})
+
+onBeforeUnmount(() => {
+  aggregatorService.off('tickers', updateMarkets)
+
+  if (resetTimeout) {
+    // clear periodic reset timeout
+    clearTimeout(resetTimeout)
+  }
+})
+
+defineExpose({
+  onResize
+})
 </script>
 
 <style lang="scss" scoped>

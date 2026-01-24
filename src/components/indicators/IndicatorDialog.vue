@@ -62,7 +62,7 @@
         :pane-id="paneId"
       >
         <DropdownButton
-          @click.native.stop
+          @click.stop
           button-class="dropdown-item"
           :options="{
             revert: 'Revert changes',
@@ -93,7 +93,7 @@
         <i class="icon-warning mr4"></i> {{ error }}
       </p>
       <editor
-        ref="editor"
+        ref="editorRef"
         :value="code"
         :editor-options="navigation.editorOptions"
         @blur="updateScript"
@@ -281,7 +281,7 @@
               <i class="icon-info" v-tippy :title="helps.priceScaleId"></i
             ></label>
             <dropdown-button
-              :value="indicator.options.priceScaleId"
+              :value="indicator?.options?.priceScaleId"
               :options="availableScales"
               placeholder="Default scale"
               class="-outline form-control -arrow w-100"
@@ -328,14 +328,20 @@
   </Dialog>
 </template>
 
-<script lang="ts">
-/* eslint-disable vue/no-unused-components */
-
-import DialogMixin from '../../mixins/dialogMixin'
+<script setup lang="ts">
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick, defineAsyncComponent } from 'vue'
+import { useStore } from 'vuex'
+import Dialog from '@/components/framework/Dialog.vue'
 import Tabs from '@/components/framework/Tabs.vue'
 import Tab from '@/components/framework/Tab.vue'
 import IndicatorDropdown from '@/components/indicators/IndicatorDropdown.vue'
-
+import ToggableSection from '@/components/framework/ToggableSection.vue'
+import IndicatorOption from '@/components/chart/IndicatorOption.vue'
+import DropdownButton from '@/components/framework/DropdownButton.vue'
+import BlobImage from '@/components/framework/BlobImage.vue'
+import Presets from '@/components/framework/Presets.vue'
+import Editable from '@/components/framework/Editable.vue'
+import { useDialog } from '@/composables/useDialog'
 import {
   defaultPlotsOptions,
   defaultSerieOptions,
@@ -343,11 +349,15 @@ import {
   getIndicatorOptionType,
   getIndicatorOptionValue,
   plotTypesMap
-} from '../chart/options'
-import dialogService from '../../services/dialogService'
+} from '@/components/chart/options'
+import dialogService from '@/services/dialogService'
 import merge from 'lodash.merge'
-import IndicatorPresetDialog from '../chart/IndicatorPresetDialog.vue'
+import IndicatorPresetDialog from '@/components/chart/IndicatorPresetDialog.vue'
 import { copyTextToClipboard, getEventCords } from '@/utils/helpers'
+import workspacesService from '@/services/workspacesService'
+import { Preset } from '@/types/types'
+
+const Editor = defineAsyncComponent(() => import('@/components/framework/editor/Editor.vue'))
 
 const ignoredOptionsKeys = [
   'crosshairMarkerVisible',
@@ -357,584 +367,594 @@ const ignoredOptionsKeys = [
   'priceFormat'
 ]
 
-import ToggableSection from '@/components/framework/ToggableSection.vue'
-import IndicatorOption from '@/components/chart/IndicatorOption.vue'
-import DropdownButton from '@/components/framework/DropdownButton.vue'
-import { Preset } from '@/types/types'
-import workspacesService from '@/services/workspacesService'
-import BlobImage from '../framework/BlobImage.vue'
+const props = defineProps<{
+  paneId: string
+  indicatorId: string
+}>()
 
-export default {
-  components: {
-    Tabs,
-    Tab,
-    IndicatorOption,
-    DropdownButton,
-    ToggableSection,
-    BlobImage,
-    IndicatorDropdown,
-    Editor: () => import('@/components/framework/editor/Editor.vue')
-  },
-  props: ['paneId', 'indicatorId'],
-  mixins: [DialogMixin],
-  data() {
-    return {
-      code: '',
-      navigation: {
-        optionsQuery: '',
-        editorOptions: {},
-        columnWidth: 240,
-        tab: 'options'
-      },
-      resizingColumn: false,
-      loadedEditor: false,
-      savedPreview: null,
-      plotTypes: [],
-      defaultOptionsKeys: [],
-      scriptOptionsKeys: [],
-      colorOptionsKeys: [],
-      dropdownIndicatorTrigger: null,
-      helps: {
-        priceScaleId: `Use <u>right</u> for binding indicator to main price scale. Otherwise use it as an id to align multiple indicator on same scale (as overlay)`,
-        lastValueVisible: `Show last value on right axis`,
-        priceLineVisible: `Show horizontal line at current value`,
-        borderVisible: `Only for candlestick series, enable borders of candles`,
-        lineWidth: `Only for line and area series`,
-        lineStyle: `Only for line and area series`,
-        lineType: `Only for line and area series`
-      },
-      ensureOptionValue: true
+const store = useStore()
+const { close } = useDialog()
+
+const editorRef = ref<any>(null)
+const code = ref('')
+const navigation = reactive({
+  optionsQuery: '',
+  editorOptions: {} as Record<string, unknown>,
+  columnWidth: 240,
+  tab: 'options'
+})
+const resizingColumn = ref(false)
+const loadedEditor = ref(false)
+const savedPreview = ref<Blob | null>(null)
+const plotTypes = ref<string[]>([])
+const defaultOptionsKeys = ref<string[]>([])
+const scriptOptionsKeys = ref<string[]>([])
+const colorOptionsKeys = ref<string[]>([])
+const dropdownIndicatorTrigger = ref<HTMLElement | null>(null)
+const ensureOptionValue = ref(true)
+let originalIndicator: any = null
+
+const helps = {
+  priceScaleId: `Use <u>right</u> for binding indicator to main price scale. Otherwise use it as an id to align multiple indicator on same scale (as overlay)`,
+  lastValueVisible: `Show last value on right axis`,
+  priceLineVisible: `Show horizontal line at current value`,
+  borderVisible: `Only for candlestick series, enable borders of candles`,
+  lineWidth: `Only for line and area series`,
+  lineStyle: `Only for line and area series`,
+  lineType: `Only for line and area series`
+}
+
+const indicator = computed(() => {
+  return store.state[props.paneId]?.indicators?.[props.indicatorId]
+})
+
+const libraryId = computed(() => {
+  return indicator.value?.libraryId || props.indicatorId
+})
+
+const displayId = computed(() => {
+  const id = libraryId.value
+
+  if (!id) {
+    return 'n/a'
+  }
+
+  if (id.length <= 16) {
+    return id
+  } else {
+    return id.slice(0, 6) + '..' + id.substr(-6)
+  }
+})
+
+const presetPlaceholder = computed(() => {
+  return `${indicator.value?.name?.replace(/\{.*\}/, '').trim() || ''} preset`
+})
+
+const unsavedChanges = computed(() => {
+  return indicator.value?.unsavedChanges
+})
+
+const error = computed(() => {
+  return store.state[props.paneId]?.indicatorsErrors?.[props.indicatorId]
+})
+
+const name = computed(() => {
+  return indicator.value?.displayName || indicator.value?.name
+})
+
+const script = computed(() => {
+  return indicator.value?.script || ''
+})
+
+const precision = computed(() => {
+  if (
+    !indicator.value?.options?.priceFormat ||
+    indicator.value?.options?.priceFormat.auto
+  ) {
+    return 'auto'
+  }
+
+  return typeof indicator.value?.options?.priceFormat.precision === 'number'
+    ? indicator.value.options.priceFormat.precision
+    : 2
+})
+
+const priceFormat = computed(() => {
+  return (
+    (indicator.value?.options?.priceFormat &&
+      indicator.value?.options?.priceFormat.type) ||
+    'price'
+  )
+})
+
+const availableScales = computed(() => {
+  return getChartScales(
+    store.state[props.paneId]?.indicators,
+    props.indicatorId
+  )
+})
+
+const queryOptionsKeys = computed(() => {
+  if (!navigation.optionsQuery.length) {
+    return []
+  }
+
+  const query = new RegExp(navigation.optionsQuery, 'i')
+
+  return [
+    ...scriptOptionsKeys.value,
+    ...defaultOptionsKeys.value,
+    ...colorOptionsKeys.value
+  ].filter(key => query.test(key))
+})
+
+const lastPreset = computed({
+  get() {
+    if (indicator.value?.lastPreset) {
+      return indicator.value.lastPreset
     }
+
+    return 'Presets'
   },
-  computed: {
-    indicator() {
-      return this.$store.state[this.paneId].indicators[this.indicatorId]
-    },
-    libraryId() {
-      return this.indicator.libraryId || this.indicatorId
-    },
-    displayName() {
-      return this.indicator.displayName
-    },
-    displayId() {
-      const id = this.libraryId
-
-      if (!id) {
-        return 'n/a'
-      }
-
-      if (id.length <= 16) {
-        return id
-      } else {
-        return id.slice(0, 6) + '..' + id.substr(-6)
-      }
-    },
-    presetPlaceholder() {
-      return `${this.indicator.name.replace(/\{.*\}/, '').trim()} preset`
-    },
-    description() {
-      return this.indicator.description
-    },
-    unsavedChanges() {
-      return this.indicator.unsavedChanges
-    },
-    error() {
-      return this.$store.state[this.paneId].indicatorsErrors[this.indicatorId]
-    },
-    name() {
-      return this.indicator.displayName || this.indicator.name
-    },
-    script() {
-      return this.indicator.script
-    },
-    precision() {
-      if (
-        !this.indicator.options.priceFormat ||
-        this.indicator.options.priceFormat.auto
-      ) {
-        return 'auto'
-      }
-
-      return typeof this.indicator.options.priceFormat.precision === 'number'
-        ? this.indicator.options.priceFormat.precision
-        : 2
-    },
-    priceFormat() {
-      return (
-        (this.indicator.options.priceFormat &&
-          this.indicator.options.priceFormat.type) ||
-        'price'
-      )
-    },
-    availableScales() {
-      return getChartScales(
-        this.$store.state[this.paneId].indicators,
-        this.indicatorId
-      )
-    },
-    queryOptionsKeys() {
-      if (!this.navigation.optionsQuery.length) {
-        return []
-      }
-
-      const query = new RegExp(this.navigation.optionsQuery, 'i')
-
-      // script + default + colors
-      return [
-        ...this.scriptOptionsKeys,
-        ...this.defaultOptionsKeys,
-        ...this.colorOptionsKeys
-      ].filter(key => query.test(key))
-    },
-    lastPreset: {
-      get() {
-        if (this.indicator.lastPreset) {
-          return this.indicator.lastPreset
-        }
-
-        return 'Presets'
-      },
-      set(preset: Preset) {
-        this.indicator.lastPreset = (preset && preset.name) || null
-      }
+  set(preset: Preset | null) {
+    if (indicator.value) {
+      indicator.value.lastPreset = (preset && preset.name) || null
     }
-  },
-  watch: {
-    script: {
-      handler(value) {
-        this.code = value
-      },
-      immediate: true
+  }
+})
+
+watch(script, (value) => {
+  code.value = value
+}, { immediate: true })
+
+onMounted(() => {
+  restoreNavigation()
+  getSavedPreview()
+
+  nextTick(() => {
+    getPlotTypes()
+    getOptionsKeys()
+  })
+
+  originalIndicator = JSON.parse(JSON.stringify(indicator.value))
+})
+
+onBeforeUnmount(() => {
+  saveNavigation()
+})
+
+async function getSavedPreview() {
+  const ind = await workspacesService.getIndicator(libraryId.value)
+  savedPreview.value = ind?.preview
+}
+
+function toggleCollapseColum() {
+  if (navigation.columnWidth > 50) {
+    navigation.columnWidth = 0
+  } else {
+    navigation.columnWidth = 240
+  }
+
+  resizeEditor()
+}
+
+function handleColumnResize(startEvent: MouseEvent | TouchEvent) {
+  resizingColumn.value = true
+
+  let refX = getEventCords(startEvent).x
+
+  const moveHandler = (moveEvent: MouseEvent | TouchEvent) => {
+    const endX = getEventCords(moveEvent).x
+
+    navigation.columnWidth += refX - endX
+    refX = endX
+  }
+
+  const endHandler = (endEvent: MouseEvent | TouchEvent) => {
+    if (endEvent instanceof MouseEvent) {
+      document.removeEventListener('mousemove', moveHandler)
+      document.removeEventListener('mouseup', endHandler)
+    } else {
+      document.removeEventListener('touchmove', moveHandler)
+      document.removeEventListener('touchend', endHandler)
     }
-  },
-  created() {
-    this.restoreNavigation()
-    this.getSavedPreview()
 
-    this.$nextTick(() => {
-      this.getPlotTypes()
-      this.getOptionsKeys()
-    })
+    if (navigation.columnWidth < 50) {
+      navigation.columnWidth = 0
+    }
 
-    this.originalIndicator = JSON.parse(JSON.stringify(this.indicator))
-  },
-  beforeDestroy() {
-    this.saveNavigation()
-  },
-  methods: {
-    async getSavedPreview() {
-      const indicator = await workspacesService.getIndicator(this.libraryId)
-      this.savedPreview = indicator?.preview
-    },
-    toggleCollapseColum() {
-      if (this.navigation.columnWidth > 50) {
-        this.navigation.columnWidth = 0
-      } else {
-        this.navigation.columnWidth = 240
+    resizeEditor()
+    resizingColumn.value = false
+  }
+
+  if (startEvent instanceof MouseEvent) {
+    document.addEventListener('mousemove', moveHandler)
+    document.addEventListener('mouseup', endHandler)
+  } else {
+    document.addEventListener('touchmove', moveHandler)
+    document.addEventListener('touchend', endHandler)
+  }
+}
+
+function restoreNavigation() {
+  const navigationState = store.state.settings.indicatorDialogNavigation
+
+  if (navigationState) {
+    try {
+      const json = JSON.parse(navigationState)
+      for (const key in json) {
+        (navigation as any)[key] = json[key]
       }
-
-      this.resizeEditor()
-    },
-    handleColumnResize(startEvent: MouseEvent | TouchEvent) {
-      this.resizingColumn = true
-
-      let refX = getEventCords(startEvent).x
-
-      const moveHandler = moveEvent => {
-        const endX = getEventCords(moveEvent).x
-
-        this.navigation.columnWidth += refX - endX
-        refX = endX
-      }
-
-      const endHandler = endEvent => {
-        if (endEvent instanceof MouseEvent) {
-          document.removeEventListener('mousemove', moveHandler)
-          document.removeEventListener('mouseup', endHandler)
-        } else {
-          document.removeEventListener('touchmove', moveHandler)
-          document.removeEventListener('touchend', endHandler)
-        }
-
-        if (this.navigation.columnWidth < 50) {
-          this.navigation.columnWidth = 0
-        }
-
-        this.resizeEditor()
-        this.resizingColumn = false
-      }
-
-      if (startEvent instanceof MouseEvent) {
-        document.addEventListener('mousemove', moveHandler)
-        document.addEventListener('mouseup', endHandler)
-      } else {
-        document.addEventListener('touchmove', moveHandler)
-        document.addEventListener('touchend', endHandler)
-      }
-    },
-    restoreNavigation() {
-      const navigationState =
-        this.$store.state.settings.indicatorDialogNavigation
-
-      if (navigationState) {
-        try {
-          const json = JSON.parse(navigationState)
-          for (const key in json) {
-            this.navigation[key] = json[key]
-          }
-        } catch (error) {
-          console.error('Failed to parse navigation state', error)
-        }
-      }
-    },
-    saveNavigation() {
-      this.$store.commit(
-        'settings/SET_INDICATOR_DIALOG_NAVIGATION',
-        this.navigation
-      )
-    },
-    setPriceScale(id) {
-      this.$store.dispatch(this.paneId + '/setIndicatorOption', {
-        id: this.indicatorId,
-        key: 'priceScaleId',
-        value: id
-      })
-    },
-    updateScript(script) {
-      this.$store.commit(this.paneId + '/SET_INDICATOR_SCRIPT', {
-        id: this.indicatorId,
-        value: script ? script.trim() : undefined
-      })
-
-      this.getPlotTypes()
-      this.getOptionsKeys()
-    },
-    updateIndicatorOptions(options) {
-      this.$set(this.navigation, 'editorOptions', options)
-    },
-    getScriptOptions(script) {
-      const keys = Object.keys(this.indicator.optionsDefinitions || {})
-      const reg =
-        /options\.([a-zA-Z0-9_]+)|[\s\n]*(\w[\d\w]+)[\s\n]*=[\s\n]*option\(/g
-
-      let match
-
-      do {
-        if (
-          (match = reg.exec(script)) &&
-          match[1] &&
-          keys.indexOf(match[1]) === -1
-        ) {
-          keys.push(match[1])
-        }
-      } while (match)
-
-      return keys
-    },
-    getPlotTypes() {
-      const availableTypes = Object.keys(defaultPlotsOptions).map(a =>
-        a.replace(/[^\w]/g, '')
-      )
-
-      this.plotTypes = (
-        this.script.match(
-          new RegExp(
-            `(?:\\n|\\s|^)(?:plot)?(${availableTypes.join('|')})\\(`,
-            'g'
-          )
-        ) || []
-      )
-        .map(a => {
-          const justType = a.replace(/[^\w]/g, '').replace(/^plot/, '')
-
-          return plotTypesMap[justType] || justType
-        })
-        .filter(
-          (t, index, self) =>
-            self.indexOf(t) === index && defaultPlotsOptions[t]
-        )
-    },
-    async renameIndicator() {
-      const name = await dialogService.prompt({
-        action: 'Rename',
-        input: this.$store.state[this.paneId].indicators[this.indicatorId].name
-      })
-
-      if (typeof name === 'string' && name !== this.name) {
-        this.$store.dispatch(this.paneId + '/renameIndicator', {
-          id: this.indicatorId,
-          name
-        })
-      }
-    },
-    async saveIndicator() {
-      await this.$store.dispatch(
-        this.paneId + '/saveIndicator',
-        this.indicatorId
-      )
-      setTimeout(() => {
-        this.getSavedPreview()
-      }, 500)
-    },
-    async undoIndicator() {
-      if (!(await dialogService.confirm('Undo changes ?'))) {
-        return
-      }
-
-      this.$store.dispatch(this.paneId + '/undoIndicator', {
-        libraryId: this.libraryId,
-        indicatorId: this.indicatorId
-      })
-    },
-    async getIndicatorPreset(originalPreset: Preset) {
-      const optionsKeys = [
-        ...this.colorOptionsKeys,
-        ...this.scriptOptionsKeys,
-        ...this.defaultOptionsKeys
-      ]
-      const payload = await dialogService.openAsPromise(IndicatorPresetDialog, {
-        keys: optionsKeys,
-        plotTypes: this.plotTypes,
-        originalKeys: originalPreset
-          ? Object.keys(originalPreset.data.options)
-          : this.scriptOptionsKeys
-      })
-
-      if (payload) {
-        if (
-          typeof Object.values(payload.selection).find(a => !!a) ===
-            'undefined' &&
-          !payload.script
-        ) {
-          this.$store.dispatch('app/showNotice', {
-            title: 'You did not select anything to save in the preset !',
-            type: 'error'
-          })
-          return
-        }
-
-        const indicatorPreset: any = {
-          options: {}
-        }
-
-        for (const key of optionsKeys) {
-          if (!payload.selection[key]) {
-            continue
-          }
-          indicatorPreset.options[key] = getIndicatorOptionValue(
-            this.paneId,
-            this.indicatorId,
-            key,
-            this.plotTypes
-          )
-        }
-
-        if (payload.script) {
-          indicatorPreset.script = this.script
-        }
-
-        return indicatorPreset
-      }
-    },
-    getOptionsKeys() {
-      // retrieve all options keys more or less linked to that indicator
-      const scriptOptionsKeys = this.getScriptOptions(this.script)
-      const defaultOptionsKeys = Object.keys(defaultSerieOptions)
-      const defaultSeriesOptionsKeys = this.plotTypes.reduce(
-        (typesKeys, key) => [
-          ...typesKeys,
-          ...Object.keys(defaultPlotsOptions[key] || {})
-        ],
-        []
-      )
-
-      // merge / clean duplicates
-      const allKeys = [
-        ...defaultOptionsKeys,
-        ...defaultSeriesOptionsKeys,
-        ...scriptOptionsKeys
-      ].filter((x, i, a) => {
-        if (ignoredOptionsKeys.indexOf(x) === -1 && a.indexOf(x) == i) {
-          return true
-        }
-        return false
-      })
-
-      const colorKeys = []
-      const nonColorScriptKeys = []
-      const otherKeys = []
-
-      // order by type / origin
-      for (let i = 0; i < allKeys.length; i++) {
-        const key = allKeys[i]
-        if (
-          getIndicatorOptionType(
-            key,
-            this.plotTypes,
-            false,
-            this.indicator.options[key]
-          ) === 'color'
-        ) {
-          colorKeys.push(allKeys.shift())
-        } else if (scriptOptionsKeys.indexOf(key) !== -1) {
-          nonColorScriptKeys.push(allKeys.shift())
-        } else {
-          otherKeys.push(allKeys.shift())
-        }
-        i--
-      }
-
-      this.scriptOptionsKeys = nonColorScriptKeys
-      this.defaultOptionsKeys = otherKeys
-      this.colorOptionsKeys = colorKeys
-    },
-    applyIndicatorPreset(preset?: Preset & { name: string }) {
-      const data = preset ? preset.data : null
-
-      const indicator =
-        this.$store.state[this.paneId].indicators[this.indicatorId]
-
-      this.lastPreset = preset
-
-      if (data) {
-        merge(indicator, data)
-      } else {
-        // script + default + colors
-        const keys = this.scriptOptionsKeys.concat(
-          this.defaultOptionsKeys,
-          this.colorOptionsKeys
-        )
-
-        for (const key of keys) {
-          const defaultValue = this.getDefaultValue(key)
-
-          if (typeof defaultValue !== 'undefined') {
-            indicator.options[key] = defaultValue
-          }
-        }
-      }
-
-      this.otherOptionsKeys = this.colorOptionsKeys = []
-
-      this.$nextTick(() => {
-        this.$store.commit(this.paneId + '/SET_INDICATOR_SCRIPT', {
-          id: this.indicatorId
-        })
-
-        this.getPlotTypes()
-        this.getOptionsKeys()
-
-        this.$store.commit(
-          this.paneId + '/FLAG_INDICATOR_AS_UNSAVED',
-          this.indicatorId
-        )
-      })
-    },
-    setPriceFormat(type, precisionInput) {
-      let auto = false
-
-      let precision = Math.round(precisionInput)
-
-      if (precisionInput === '' || isNaN(precision)) {
-        auto = true
-        precision = 2
-      }
-
-      const priceFormat = {
-        type,
-        precision: precision,
-        minMove: 1 / Math.pow(10, precision),
-        auto
-      }
-
-      // updates the indicator now
-      this.$store.dispatch(this.paneId + '/setIndicatorOption', {
-        id: this.indicatorId,
-        key: 'priceFormat',
-        value: priceFormat
-      })
-
-      // persist preference at the priceScale level
-      this.$store.commit(this.paneId + '/SET_PRICE_SCALE', {
-        id: this.indicator.options.priceScaleId,
-        priceScale: {
-          ...this.$store.state[this.paneId].priceScales[
-            this.indicator.options.priceScaleId
-          ],
-          priceFormat: {
-            type,
-            precision: precision,
-            minMove: 1 / Math.pow(10, precision),
-            auto
-          }
-        }
-      })
-    },
-    copyIndicatorId() {
-      copyTextToClipboard(this.indicatorId)
-
-      this.$store.dispatch('app/showNotice', {
-        title: `Copied indicator id to clipboard`
-      })
-    },
-    toggleIndicatorDropdown(event) {
-      if (this.dropdownIndicatorTrigger) {
-        this.dropdownIndicatorTrigger = null
-      } else {
-        this.dropdownIndicatorTrigger = event.currentTarget
-      }
-    },
-    setIndicatorOption({ key, value }) {
-      this.$store.dispatch(this.paneId + '/setIndicatorOption', {
-        id: this.indicatorId,
-        key: key,
-        value
-      })
-    },
-    resizeEditor() {
-      if (this.$refs.editor) {
-        this.$refs.editor.resize()
-      }
-    },
-    onResize() {
-      this.resizeEditor()
-    },
-    async revertChanges(op: 'reset' | 'revert') {
-      if (op === 'reset') {
-        this.ensureOptionValue = false
-        this.indicator.options = {
-          priceScaleId: this.indicator.options.priceScaleId
-        }
-        this.$store.commit(this.paneId + '/SET_INDICATOR_SCRIPT', {
-          id: this.indicatorId
-        })
-      } else if (op === 'revert') {
-        this.applyIndicatorPreset({
-          data: this.originalIndicator
-        })
-      }
-
-      this.scriptOptionsKeys =
-        this.defaultOptionsKeys =
-        this.colorOptionsKeys =
-          []
-      await this.$nextTick()
-      this.getOptionsKeys()
-    },
-    async setTab(value) {
-      this.navigation.tab = value
-
-      if (this.navigation.tab === 'script') {
-        this.loadedEditor = true
-      }
-
-      await this.$nextTick()
-
-      this.resizeEditor()
-      this.saveNavigation()
+    } catch (error) {
+      console.error('Failed to parse navigation state', error)
     }
   }
 }
+
+function saveNavigation() {
+  store.commit('settings/SET_INDICATOR_DIALOG_NAVIGATION', navigation)
+}
+
+function setPriceScale(id: string) {
+  store.dispatch(props.paneId + '/setIndicatorOption', {
+    id: props.indicatorId,
+    key: 'priceScaleId',
+    value: id
+  })
+}
+
+function updateScript(newScript: string) {
+  store.commit(props.paneId + '/SET_INDICATOR_SCRIPT', {
+    id: props.indicatorId,
+    value: newScript ? newScript.trim() : undefined
+  })
+
+  getPlotTypes()
+  getOptionsKeys()
+}
+
+function updateIndicatorOptions(options: Record<string, unknown>) {
+  navigation.editorOptions = options
+}
+
+function getScriptOptions(scriptCode: string) {
+  const keys = Object.keys(indicator.value?.optionsDefinitions || {})
+  const reg =
+    /options\.([a-zA-Z0-9_]+)|[\s\n]*(\w[\d\w]+)[\s\n]*=[\s\n]*option\(/g
+
+  let match
+
+  do {
+    if (
+      (match = reg.exec(scriptCode)) &&
+      match[1] &&
+      keys.indexOf(match[1]) === -1
+    ) {
+      keys.push(match[1])
+    }
+  } while (match)
+
+  return keys
+}
+
+function getPlotTypes() {
+  const availableTypes = Object.keys(defaultPlotsOptions).map(a =>
+    a.replace(/[^\w]/g, '')
+  )
+
+  plotTypes.value = (
+    script.value.match(
+      new RegExp(
+        `(?:\\n|\\s|^)(?:plot)?(${availableTypes.join('|')})\\(`,
+        'g'
+      )
+    ) || []
+  )
+    .map(a => {
+      const justType = a.replace(/[^\w]/g, '').replace(/^plot/, '')
+
+      return plotTypesMap[justType] || justType
+    })
+    .filter(
+      (t, index, self) =>
+        self.indexOf(t) === index && defaultPlotsOptions[t]
+    )
+}
+
+async function renameIndicator() {
+  const newName = await dialogService.prompt({
+    action: 'Rename',
+    input: store.state[props.paneId].indicators[props.indicatorId].name
+  })
+
+  if (typeof newName === 'string' && newName !== name.value) {
+    store.dispatch(props.paneId + '/renameIndicator', {
+      id: props.indicatorId,
+      name: newName
+    })
+  }
+}
+
+async function saveIndicator() {
+  await store.dispatch(
+    props.paneId + '/saveIndicator',
+    props.indicatorId
+  )
+  setTimeout(() => {
+    getSavedPreview()
+  }, 500)
+}
+
+async function undoIndicator() {
+  if (!(await dialogService.confirm('Undo changes ?'))) {
+    return
+  }
+
+  store.dispatch(props.paneId + '/undoIndicator', {
+    libraryId: libraryId.value,
+    indicatorId: props.indicatorId
+  })
+}
+
+async function getIndicatorPreset(originalPreset?: Preset) {
+  const optionsKeys = [
+    ...colorOptionsKeys.value,
+    ...scriptOptionsKeys.value,
+    ...defaultOptionsKeys.value
+  ]
+  const payload = await dialogService.openAsPromise(IndicatorPresetDialog, {
+    keys: optionsKeys,
+    plotTypes: plotTypes.value,
+    originalKeys: originalPreset
+      ? Object.keys(originalPreset.data.options)
+      : scriptOptionsKeys.value
+  })
+
+  if (payload) {
+    if (
+      typeof Object.values(payload.selection).find(a => !!a) ===
+        'undefined' &&
+      !payload.script
+    ) {
+      store.dispatch('app/showNotice', {
+        title: 'You did not select anything to save in the preset !',
+        type: 'error'
+      })
+      return
+    }
+
+    const indicatorPreset: any = {
+      options: {}
+    }
+
+    for (const key of optionsKeys) {
+      if (!payload.selection[key]) {
+        continue
+      }
+      indicatorPreset.options[key] = getIndicatorOptionValue(
+        props.paneId,
+        props.indicatorId,
+        key,
+        plotTypes.value
+      )
+    }
+
+    if (payload.script) {
+      indicatorPreset.script = script.value
+    }
+
+    return indicatorPreset
+  }
+}
+
+function getOptionsKeys() {
+  const scriptOpts = getScriptOptions(script.value)
+  const defaultOpts = Object.keys(defaultSerieOptions)
+  const defaultSeriesOpts = plotTypes.value.reduce(
+    (typesKeys: string[], key) => [
+      ...typesKeys,
+      ...Object.keys(defaultPlotsOptions[key] || {})
+    ],
+    []
+  )
+
+  const allKeys = [
+    ...defaultOpts,
+    ...defaultSeriesOpts,
+    ...scriptOpts
+  ].filter((x, i, a) => {
+    if (ignoredOptionsKeys.indexOf(x) === -1 && a.indexOf(x) == i) {
+      return true
+    }
+    return false
+  })
+
+  const colorKeys: string[] = []
+  const nonColorScriptKeys: string[] = []
+  const otherKeys: string[] = []
+
+  for (let i = 0; i < allKeys.length; i++) {
+    const key = allKeys[i]
+    if (
+      getIndicatorOptionType(
+        key,
+        plotTypes.value,
+        false,
+        indicator.value?.options?.[key]
+      ) === 'color'
+    ) {
+      colorKeys.push(allKeys.shift()!)
+    } else if (scriptOpts.indexOf(key) !== -1) {
+      nonColorScriptKeys.push(allKeys.shift()!)
+    } else {
+      otherKeys.push(allKeys.shift()!)
+    }
+    i--
+  }
+
+  scriptOptionsKeys.value = nonColorScriptKeys
+  defaultOptionsKeys.value = otherKeys
+  colorOptionsKeys.value = colorKeys
+}
+
+function applyIndicatorPreset(preset?: Preset & { name: string }) {
+  const data = preset ? preset.data : null
+
+  const ind = store.state[props.paneId].indicators[props.indicatorId]
+
+  lastPreset.value = preset || null
+
+  if (data) {
+    merge(ind, data)
+  } else {
+    const keys = scriptOptionsKeys.value.concat(
+      defaultOptionsKeys.value,
+      colorOptionsKeys.value
+    )
+
+    for (const key of keys) {
+      const defaultValue = getDefaultValue(key)
+
+      if (typeof defaultValue !== 'undefined') {
+        ind.options[key] = defaultValue
+      }
+    }
+  }
+
+  colorOptionsKeys.value = []
+
+  nextTick(() => {
+    store.commit(props.paneId + '/SET_INDICATOR_SCRIPT', {
+      id: props.indicatorId
+    })
+
+    getPlotTypes()
+    getOptionsKeys()
+
+    store.commit(
+      props.paneId + '/FLAG_INDICATOR_AS_UNSAVED',
+      props.indicatorId
+    )
+  })
+}
+
+function getDefaultValue(key: string): any {
+  // Implementation depends on your logic
+  return undefined
+}
+
+function setPriceFormat(type: string, precisionInput: string | number) {
+  let auto = false
+
+  let precisionNum = Math.round(Number(precisionInput))
+
+  if (precisionInput === '' || isNaN(precisionNum)) {
+    auto = true
+    precisionNum = 2
+  }
+
+  const priceFormatValue = {
+    type,
+    precision: precisionNum,
+    minMove: 1 / Math.pow(10, precisionNum),
+    auto
+  }
+
+  store.dispatch(props.paneId + '/setIndicatorOption', {
+    id: props.indicatorId,
+    key: 'priceFormat',
+    value: priceFormatValue
+  })
+
+  store.commit(props.paneId + '/SET_PRICE_SCALE', {
+    id: indicator.value?.options?.priceScaleId,
+    priceScale: {
+      ...store.state[props.paneId].priceScales[
+        indicator.value?.options?.priceScaleId
+      ],
+      priceFormat: {
+        type,
+        precision: precisionNum,
+        minMove: 1 / Math.pow(10, precisionNum),
+        auto
+      }
+    }
+  })
+}
+
+function copyIndicatorId() {
+  copyTextToClipboard(props.indicatorId)
+
+  store.dispatch('app/showNotice', {
+    title: `Copied indicator id to clipboard`
+  })
+}
+
+function toggleIndicatorDropdown(event: MouseEvent) {
+  if (dropdownIndicatorTrigger.value) {
+    dropdownIndicatorTrigger.value = null
+  } else {
+    dropdownIndicatorTrigger.value = event.currentTarget as HTMLElement
+  }
+}
+
+function setIndicatorOption({ key, value }: { key: string; value: any }) {
+  store.dispatch(props.paneId + '/setIndicatorOption', {
+    id: props.indicatorId,
+    key: key,
+    value
+  })
+}
+
+function resizeEditor() {
+  if (editorRef.value) {
+    editorRef.value.resize()
+  }
+}
+
+function onResize() {
+  resizeEditor()
+}
+
+async function revertChanges(op: 'reset' | 'revert') {
+  if (op === 'reset') {
+    ensureOptionValue.value = false
+    if (indicator.value) {
+      indicator.value.options = {
+        priceScaleId: indicator.value.options.priceScaleId
+      }
+    }
+    store.commit(props.paneId + '/SET_INDICATOR_SCRIPT', {
+      id: props.indicatorId
+    })
+  } else if (op === 'revert') {
+    applyIndicatorPreset({
+      data: originalIndicator,
+      name: ''
+    })
+  }
+
+  scriptOptionsKeys.value = []
+  defaultOptionsKeys.value = []
+  colorOptionsKeys.value = []
+  await nextTick()
+  getOptionsKeys()
+}
+
+async function setTab(value: string) {
+  navigation.tab = value
+
+  if (navigation.tab === 'script') {
+    loadedEditor.value = true
+  }
+
+  await nextTick()
+
+  resizeEditor()
+  saveNavigation()
+}
+
+defineExpose({ close })
 </script>
 <style lang="scss" scoped>
 .indicator-dialog {
@@ -973,7 +993,7 @@ export default {
     object-fit: cover;
   }
 
-  ::v-deep .dialog__content {
+  :deep(.dialog__content) {
     width: 755px;
     overflow: visible;
 

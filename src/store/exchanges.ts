@@ -1,5 +1,5 @@
 import aggregatorService from '@/services/aggregatorService'
-import Vue from 'vue'
+import { nextTick } from 'vue'
 import { ActionTree, GetterTree, Module, MutationTree } from 'vuex'
 import { ModulesState } from '.'
 
@@ -104,7 +104,7 @@ const mutations = {
       disabled = !state[id].disabled
     }
 
-    Vue.set(state[id], 'disabled', disabled)
+    state[id].disabled = disabled
   }
 } as MutationTree<ExchangesState>
 

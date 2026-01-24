@@ -13,13 +13,7 @@
         :options="availableTypes"
         class="mlauto"
         button-class="-text -arrow"
-        @input="
-          $store.dispatch(paneId + '/updateBucket', {
-            id: bucketId,
-            prop: 'type',
-            value: $event
-          })
-        "
+        @input="updateBucketType"
       ></dropdown-button>
     </template>
     <div class="column mb8">
@@ -29,28 +23,17 @@
           type="text"
           class="form-control"
           :value="name"
-          @input="
-            $store.dispatch(paneId + '/renameBucket', {
-              id: bucketId,
-              name: $event.target.value
-            })
-          "
+          @input="renameBucket"
         />
       </div>
       <div
         v-if="!conditionnalColor"
         class="form-group -end mtauto -tight"
-        ref="colorContainer"
+        ref="colorContainerRef"
       >
         <color-picker-control
           :value="color"
-          @input="
-            $store.dispatch(paneId + '/updateBucket', {
-              id: bucketId,
-              prop: 'color',
-              value: $event
-            })
-          "
+          @input="updateBucketColor"
         ></color-picker-control>
       </div>
       <div v-if="type === 'histogram'" class="form-group -tight -end mtauto">
@@ -63,9 +46,7 @@
             type="checkbox"
             class="form-control"
             :checked="conditionnalColor"
-            @change="
-              $store.commit(paneId + '/TOGGLE_BUCKET_COLOR_CONDITION', bucketId)
-            "
+            @change="toggleConditionnalColor"
           />
           <div on="dynamic" off="fixed"></div>
         </label>
@@ -85,13 +66,7 @@
         rows="2"
         spellcheck="false"
         :value="color"
-        @change="
-          $store.dispatch(paneId + '/updateBucket', {
-            id: bucketId,
-            prop: 'color',
-            value: $event.target.value
-          })
-        "
+        @change="updateBucketColorCondition"
       ></textarea>
     </div>
     <div class="column">
@@ -108,14 +83,8 @@
           type="text"
           class="form-control"
           :value="window"
-          :placeholder="getHms($store.state[paneId].window) + ' (default)'"
-          @change="
-            $store.dispatch(paneId + '/updateBucket', {
-              id: bucketId,
-              prop: 'window',
-              value: $event.target.value
-            })
-          "
+          :placeholder="getHmsValue(store.state[paneId].window) + ' (default)'"
+          @change="updateBucketWindow"
         />
       </div>
       <div class="form-group mb8">
@@ -127,13 +96,7 @@
           class="form-control"
           placeholder="auto"
           :value="precision"
-          @input="
-            $store.dispatch(paneId + '/updateBucket', {
-              id: bucketId,
-              prop: 'precision',
-              value: $event
-            })
-          "
+          @input="updateBucketPrecision"
         ></editable>
       </div>
     </div>
@@ -151,13 +114,7 @@
         rows="5"
         spellcheck="false"
         :value="input"
-        @change="
-          $store.dispatch(paneId + '/updateBucket', {
-            id: bucketId,
-            prop: 'input',
-            value: $event.target.value
-          })
-        "
+        @change="updateBucketInput"
       ></textarea>
       <p class="help-text mt-8">
         Sum <code>{{ input }}</code> over {{ window }} window
@@ -169,7 +126,7 @@
           class="checkbox-control"
           v-tippy="{ placement: 'bottom' }"
           :title="enabled ? 'Disable' : 'Enable'"
-          @change="disable(bucketId, $event)"
+          @change="disable"
         >
           <input type="checkbox" class="form-control" :checked="enabled" />
           <div></div>
@@ -185,84 +142,127 @@
   </Dialog>
 </template>
 
-<script>
-import store from '@/store'
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import { getHms } from '@/utils/helpers'
-
 import Dialog from '@/components/framework/Dialog.vue'
-import DialogMixin from '@/mixins/dialogMixin'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
-import ColorPickerControl from '../framework/picker/ColorPickerControl.vue'
+import ColorPickerControl from '@/components/framework/picker/ColorPickerControl.vue'
+import Editable from '@/components/framework/Editable.vue'
+import { useDialog } from '@/composables/useDialog'
 
-export default {
-  props: ['paneId', 'bucketId'],
-  mixins: [DialogMixin],
-  components: {
-    Dialog,
-    DropdownButton,
-    ColorPickerControl
-  },
-  computed: {
-    color: function () {
-      return store.state[this.paneId].buckets[this.bucketId].color
-    },
-    conditionnalColor: function () {
-      const bucket = store.state[this.paneId].buckets[this.bucketId]
+const props = defineProps<{
+  paneId: string
+  bucketId: string
+}>()
 
-      if (typeof bucket.conditionnalColor === 'undefined') {
-        this.setConditionnalColor(false)
-      }
-      return bucket.conditionnalColor
-    },
-    enabled: function () {
-      return store.state[this.paneId].buckets[this.bucketId].enabled
-    },
-    name: function () {
-      return store.state[this.paneId].buckets[this.bucketId].name
-    },
-    type: function () {
-      return store.state[this.paneId].buckets[this.bucketId].type
-    },
-    input: function () {
-      return store.state[this.paneId].buckets[this.bucketId].input
-    },
-    precision: function () {
-      return store.state[this.paneId].buckets[this.bucketId].precision || null
-    },
-    window: function () {
-      const window = store.state[this.paneId].buckets[this.bucketId].window
+const store = useStore()
+const { close } = useDialog()
 
-      if (window) {
-        return getHms(window)
-      } else {
-        return null
-      }
-    }
-  },
-  data: () => ({
-    availableTypes: { line: 'Line', area: 'Area', histogram: 'Histogram' }
-  }),
-  methods: {
-    getHms(value) {
-      return getHms(value)
-    },
-    disable(id, event) {
-      this.$store.dispatch(this.paneId + '/updateBucket', {
-        id: id,
-        prop: 'enabled',
-        value: event.target.checked
-      })
-      this.close()
-    },
-    async remove() {
-      await this.close()
+const availableTypes = { line: 'Line', area: 'Area', histogram: 'Histogram' }
 
-      this.$store.commit(this.paneId + '/REMOVE_BUCKET', this.bucketId)
-    },
-    setConditionnalColor(value) {
-      const bucket = store.state[this.paneId].buckets[this.bucketId]
-      this.$set(bucket, 'conditionnalColor', value)
-    }
+const bucket = computed(() => store.state[props.paneId]?.buckets?.[props.bucketId])
+
+const color = computed(() => bucket.value?.color)
+const conditionnalColor = computed(() => bucket.value?.conditionnalColor ?? false)
+const enabled = computed(() => bucket.value?.enabled)
+const name = computed(() => bucket.value?.name)
+const type = computed(() => bucket.value?.type)
+const input = computed(() => bucket.value?.input)
+const precision = computed(() => bucket.value?.precision || null)
+
+const window = computed(() => {
+  const windowValue = bucket.value?.window
+
+  if (windowValue) {
+    return getHms(windowValue)
+  } else {
+    return null
   }
+})
+
+function getHmsValue(value: number) {
+  return getHms(value)
 }
+
+function updateBucketType(value: string) {
+  store.dispatch(props.paneId + '/updateBucket', {
+    id: props.bucketId,
+    prop: 'type',
+    value
+  })
+}
+
+function renameBucket(event: Event) {
+  const target = event.target as HTMLInputElement
+  store.dispatch(props.paneId + '/renameBucket', {
+    id: props.bucketId,
+    name: target.value
+  })
+}
+
+function updateBucketColor(value: string) {
+  store.dispatch(props.paneId + '/updateBucket', {
+    id: props.bucketId,
+    prop: 'color',
+    value
+  })
+}
+
+function toggleConditionnalColor() {
+  store.commit(props.paneId + '/TOGGLE_BUCKET_COLOR_CONDITION', props.bucketId)
+}
+
+function updateBucketColorCondition(event: Event) {
+  const target = event.target as HTMLTextAreaElement
+  store.dispatch(props.paneId + '/updateBucket', {
+    id: props.bucketId,
+    prop: 'color',
+    value: target.value
+  })
+}
+
+function updateBucketWindow(event: Event) {
+  const target = event.target as HTMLInputElement
+  store.dispatch(props.paneId + '/updateBucket', {
+    id: props.bucketId,
+    prop: 'window',
+    value: target.value
+  })
+}
+
+function updateBucketPrecision(value: string | number) {
+  store.dispatch(props.paneId + '/updateBucket', {
+    id: props.bucketId,
+    prop: 'precision',
+    value
+  })
+}
+
+function updateBucketInput(event: Event) {
+  const target = event.target as HTMLTextAreaElement
+  store.dispatch(props.paneId + '/updateBucket', {
+    id: props.bucketId,
+    prop: 'input',
+    value: target.value
+  })
+}
+
+function disable(event: Event) {
+  const target = event.target as HTMLInputElement
+  store.dispatch(props.paneId + '/updateBucket', {
+    id: props.bucketId,
+    prop: 'enabled',
+    value: target.checked
+  })
+  close()
+}
+
+async function remove() {
+  await close()
+  store.commit(props.paneId + '/REMOVE_BUCKET', props.bucketId)
+}
+
+defineExpose({ close })
 </script>

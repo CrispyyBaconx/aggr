@@ -1,4 +1,4 @@
-import Vue from 'vue'
+import { createApp, h, App, Component } from 'vue'
 import store from '@/store'
 
 const DAY = 60 * 60 * 24
@@ -545,28 +545,23 @@ export function getClosestValue(array, value) {
   })
 }
 
-export function createComponent(componentModule, props: any = {}): Vue {
-  const Factory = Vue.extend(Object.assign({ store }, componentModule))
-
-  const cmp: any = new Factory(
-    Object.assign(
-      {},
-      {
-        propsData: Object.assign({}, props)
-      }
-    )
-  )
-
-  return cmp
+export function createComponent(componentModule: Component, props: any = {}): { app: App; el: HTMLElement } {
+  const container = document.createElement('div')
+  
+  const app = createApp(componentModule, props)
+  app.use(store)
+  
+  const instance = app.mount(container)
+  
+  return { app, el: container }
 }
 
-export function mountComponent(cmp: Vue, container?: HTMLElement): void {
+export function mountComponent(result: { app: App; el: HTMLElement }, container?: HTMLElement): void {
   if (!container) {
     container = document.getElementById('app') || document.body
   }
 
-  const mounted = cmp.$mount()
-  container.appendChild(mounted.$el)
+  container.appendChild(result.el)
 }
 
 let popupWindow: WindowProxy

@@ -2,7 +2,7 @@
   <div class="markdown-editor form-control">
     <Loader v-if="isLoading" class="markdown-editor__loader" small />
     <template v-if="isLoaded">
-      <div ref="editor" class="markdown-editor__monaco" style=""></div>
+      <div ref="editorRef" class="markdown-editor__monaco" style=""></div>
       <template v-if="showPreview">
         <div class="markdown-editor__divider">
           <span class="markdown-editor__divider-badge badge ml4">
@@ -15,176 +15,167 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { marked } from 'marked'
 import Loader from '@/components/framework/Loader.vue'
 
-@Component({
-  name: 'MarkdownEditor',
-  components: {
-    Loader
-  },
-  props: {
-    value: {
-      type: String,
-      default: ''
-    },
-    minimal: {
-      type: Boolean,
-      default: false
-    },
-    autofocus: {
-      type: Boolean,
-      default: false
-    },
-    showPreview: {
-      type: Boolean,
-      default: false
-    }
+const props = withDefaults(defineProps<{
+  modelValue?: string
+  minimal?: boolean
+  autofocus?: boolean
+  showPreview?: boolean
+}>(), {
+  modelValue: '',
+  minimal: false,
+  autofocus: false,
+  showPreview: false
+})
+
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+}>()
+
+const editorRef = ref<HTMLElement | null>(null)
+const isLoaded = ref(false)
+const isLoading = ref(false)
+
+let editorInstance: any = null
+
+const preview = computed(() => {
+  return marked(props.modelValue)
+})
+
+watch(() => props.modelValue, (value) => {
+  if (editorInstance && value !== editorInstance.getValue()) {
+    editorInstance.setValue(value)
   }
 })
-export default class MarkdownEditor extends Vue {
-  private value: string
-  private editorInstance: any
-  private minimal: boolean
-  private autofocus: boolean
 
-  isLoaded = false
-  isLoading = false
+watch(() => props.showPreview, () => {
+  resize()
+})
 
-  get preview() {
-    return marked(this.value)
-  }
+onMounted(async () => {
+  await loadMonaco()
+})
 
-  @Watch('value')
-  onValueChange(value) {
-    if (value !== this.editorInstance.getValue()) {
-      this.editorInstance.setValue(value)
-    }
-  }
+onBeforeUnmount(() => {
+  editorInstance?.dispose()
+})
 
-  @Watch('showPreview')
-  onShowPreviewChange() {
-    this.resize()
-  }
+async function loadMonaco() {
+  isLoading.value = true
+  try {
+    const { default: monaco } = await import('./editor')
 
-  async mounted() {
-    await this.loadMonaco()
-  }
+    isLoaded.value = true
 
-  beforeDestroy() {
-    this.editorInstance.dispose()
-  }
+    await nextTick()
 
-  async loadMonaco() {
-    this.isLoading = true
-    try {
-      const { default: monaco } = await import('./editor')
+    createEditor(monaco)
 
-      this.isLoaded = true
-
-      await this.$nextTick()
-
-      this.createEditor(monaco)
-
-      await this.$nextTick()
-    } catch (error) {
-      console.error('Failed to load editor:', error)
-    } finally {
-      this.isLoading = false
-    }
-  }
-
-  async resize() {
-    this.editorInstance.layout({ width: 0, height: 0 })
-
-    await this.$nextTick()
-    this.editorInstance.layout()
-  }
-
-  getDefaultOptions(): any {
-    return {
-      padding: {
-        top: 8,
-        bottom: 8
-      },
-      value: this.value,
-      tabSize: 2,
-      insertSpaces: true,
-      fontSize: 12,
-      lineNumbers: 'off',
-      overviewRulerLanes: 0,
-      overviewRulerBorder: false,
-      contextmenu: false,
-      theme: 'aggr',
-
-      minimap: {
-        enabled: false
-      },
-      glyphMargin: false,
-      folding: false,
-      lineNumbersMinChars: 3,
-      renderLineHighlight: 'none',
-      renderIndentGuides: false,
-      renderLineHighlightOnlyWhenFocus: true,
-      renderValidationDecorations: 'off',
-      renderWhitespace: 'none',
-      rulers: [],
-      language: 'markdown',
-      scrollBeyondLastLine: false,
-      automaticLayout: false,
-      scrollbar: {
-        vertical: 'hidden',
-        horizontal: 'auto'
-      }
-    }
-  }
-
-  async createEditor(monaco) {
-    console.log('create editor', monaco, this.$refs.editor)
-    this.editorInstance = monaco.create(
-      this.$refs.editor as HTMLElement,
-      this.getDefaultOptions()
-    )
-
-    const containerEl = this.$refs.editor as HTMLElement
-
-    let previousHeight = 0
-
-    this.editorInstance.onDidContentSizeChange(() => {
-      const contentHeight = this.editorInstance.getContentHeight()
-      if (contentHeight !== previousHeight) {
-        previousHeight = contentHeight
-        containerEl.style.height = `${contentHeight}px`
-        this.editorInstance.layout()
-      }
-    })
-    this.editorInstance.onDidChangeModelContent(() => {
-      console.log('monaco change')
-      this.$emit('input', this.editorInstance.getValue())
-    })
-
-    if (this.autofocus) {
-      await this.$nextTick()
-      this.editorInstance.focus()
-      const model = this.editorInstance.getModel()
-      const lastLine = model.getLineCount()
-      const lastColumn = model.getLineMaxColumn(lastLine)
-      this.editorInstance.setPosition({
-        lineNumber: lastLine,
-        column: lastColumn
-      })
-    }
-
-    window.instance = this.editorInstance
-
-    await this.$nextTick()
-
-    this.editorInstance.layout()
+    await nextTick()
+  } catch (error) {
+    console.error('Failed to load editor:', error)
+  } finally {
+    isLoading.value = false
   }
 }
+
+async function resize() {
+  editorInstance?.layout({ width: 0, height: 0 })
+
+  await nextTick()
+  editorInstance?.layout()
+}
+
+function getDefaultOptions(): any {
+  return {
+    padding: {
+      top: 8,
+      bottom: 8
+    },
+    value: props.modelValue,
+    tabSize: 2,
+    insertSpaces: true,
+    fontSize: 12,
+    lineNumbers: 'off',
+    overviewRulerLanes: 0,
+    overviewRulerBorder: false,
+    contextmenu: false,
+    theme: 'aggr',
+
+    minimap: {
+      enabled: false
+    },
+    glyphMargin: false,
+    folding: false,
+    lineNumbersMinChars: 3,
+    renderLineHighlight: 'none',
+    renderIndentGuides: false,
+    renderLineHighlightOnlyWhenFocus: true,
+    renderValidationDecorations: 'off',
+    renderWhitespace: 'none',
+    rulers: [],
+    language: 'markdown',
+    scrollBeyondLastLine: false,
+    automaticLayout: false,
+    scrollbar: {
+      vertical: 'hidden',
+      horizontal: 'auto'
+    }
+  }
+}
+
+async function createEditor(monaco: any) {
+  console.log('create editor', monaco, editorRef.value)
+  editorInstance = monaco.create(
+    editorRef.value as HTMLElement,
+    getDefaultOptions()
+  )
+
+  const containerEl = editorRef.value as HTMLElement
+
+  let previousHeight = 0
+
+  editorInstance.onDidContentSizeChange(() => {
+    const contentHeight = editorInstance.getContentHeight()
+    if (contentHeight !== previousHeight) {
+      previousHeight = contentHeight
+      containerEl.style.height = `${contentHeight}px`
+      editorInstance.layout()
+    }
+  })
+  editorInstance.onDidChangeModelContent(() => {
+    console.log('monaco change')
+    emit('update:modelValue', editorInstance.getValue())
+  })
+
+  if (props.autofocus) {
+    await nextTick()
+    editorInstance.focus()
+    const model = editorInstance.getModel()
+    const lastLine = model.getLineCount()
+    const lastColumn = model.getLineMaxColumn(lastLine)
+    editorInstance.setPosition({
+      lineNumber: lastLine,
+      column: lastColumn
+    })
+  }
+
+  ;(window as any).instance = editorInstance
+
+  await nextTick()
+
+  editorInstance.layout()
+}
+
+defineExpose({
+  resize
+})
 </script>
+
 <style lang="scss" scoped>
 .markdown-editor {
   padding: 0;

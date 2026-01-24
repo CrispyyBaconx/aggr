@@ -1,4 +1,4 @@
-import vue from '@vitejs/plugin-vue2'
+import vue from '@vitejs/plugin-vue'
 import gitprocess from 'child_process'
 import path from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
@@ -128,7 +128,7 @@ export default defineConfig(({ mode }) => {
       devSourcemap: true,
       preprocessorOptions: {
         scss: {
-          api: 'modern',
+          api: 'modern-compiler',
           additionalData: `@use "sass:color"; @use "@/assets/sass/variables" as *;`
         }
       }

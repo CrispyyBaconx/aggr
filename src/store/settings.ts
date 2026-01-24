@@ -1,4 +1,4 @@
-import Vue from 'vue'
+import { nextTick } from 'vue'
 
 import { ActionTree, Module, MutationTree } from 'vuex'
 
@@ -99,7 +99,7 @@ const actions = {
 
     dispatch('updateCSS')
 
-    Vue.nextTick(() => {
+    nextTick(() => {
       if (state.useAudio) {
         audioService.connect()
       } else {
@@ -460,19 +460,16 @@ const mutations = {
     state.autoHideNames = !state.autoHideNames
   },
   TOGGLE_SEARCH_TYPE(state, key: string) {
-    Vue.set(state.searchTypes, key, !state.searchTypes[key])
+    state.searchTypes[key] = !state.searchTypes[key]
   },
   TOGGLE_SEARCH_QUOTE(state, { key, value }: { key: string; value: boolean }) {
-    Vue.set(state.searchQuotes, key, value)
+    state.searchQuotes[key] = value
   },
   TOGGLE_SEARCH_EXCHANGE(state, key: string) {
-    Vue.set(
-      state.searchExchanges,
-      key,
+    state.searchExchanges[key] =
       typeof state.searchExchanges[key] === 'boolean'
         ? !state.searchExchanges[key]
         : false
-    )
   },
   CLEAR_SEARCH_FILTERS(state) {
     for (const key in state.searchTypes) {
@@ -483,14 +480,14 @@ const mutations = {
       state.searchTypes[key] = false
     }
 
-    Vue.set(state, 'searchTypes', state.searchTypes)
-    Vue.set(state, 'searchQuotes', {})
+    state.searchTypes = { ...state.searchTypes }
+    state.searchQuotes = {}
   },
   TOGGLE_FAVORITE_TIMEFRAME(state, value) {
     if (typeof state.favoriteTimeframes[value] === 'undefined') {
-      Vue.set(state.favoriteTimeframes, value, getTimeframeForHuman(value))
+      state.favoriteTimeframes[value] = getTimeframeForHuman(value)
     } else {
-      Vue.delete(state.favoriteTimeframes, value)
+      delete state.favoriteTimeframes[value]
     }
   },
   TOGGLE_ALERTS(state, value) {

@@ -13,7 +13,7 @@
               class="form-control"
               :checked="useAudio"
               @change="
-                $store.commit('settings/TOGGLE_AUDIO', $event.target.checked)
+                $store.commit('settings/TOGGLE_AUDIO', ($event.target as HTMLInputElement).checked)
               "
             />
             <div></div>
@@ -47,7 +47,7 @@
               @change="
                 $store.commit('settings/SET_AUDIO_FILTER', {
                   id: filter,
-                  value: $event.target.checked
+                  value: ($event.target as HTMLInputElement).checked
                 })
               "
             />
@@ -59,45 +59,37 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import audioService from '@/services/audioService'
-import { Component, Vue } from 'vue-property-decorator'
 import Slider from '../framework/picker/Slider.vue'
 
-@Component({
-  components: { Slider },
-  name: 'AudioSettings'
-})
-export default class AudioSettings extends Vue {
-  filters: string[] = []
-  filtersDescriptions = {
-    HighPassFilter:
-      'High-Pass Filter passes frequencies above its cutoff frequency and attenuates frequencies below its cutoff frequency',
-    LowPassFilter:
-      'Low-Pass Filter passes frequencies below its cutoff frequency and attenuates frequencies above its cutoff frequency. This effect can therefore be used to reduce high pitched noise',
-    Compressor:
-      'A compressor has the ability to reduce the difference in order for the quiet notes to be louder and the peak notes to be quieter',
-    Delay:
-      'A delay effect is similar to an echo, in that the sound is repeated one or more times after the original sound',
-    PingPongDelay:
-      'Ping Pong Delay is a time-sensitive delay that pans the delay to the left and right speakers one after the other',
-    Chorus:
-      'An equal mix of the wet and dry signal is used with the wet signal being delayed and pitch modulated'
-  }
+const store = useStore()
 
-  get useAudio() {
-    return this.$store.state.settings.useAudio
-  }
-
-  get audioVolume() {
-    return this.$store.state.settings.audioVolume
-  }
-
-  created() {
-    this.filters = Object.keys(audioService.filtersOptions)
-  }
+const filters = ref<string[]>([])
+const filtersDescriptions: Record<string, string> = {
+  HighPassFilter:
+    'High-Pass Filter passes frequencies above its cutoff frequency and attenuates frequencies below its cutoff frequency',
+  LowPassFilter:
+    'Low-Pass Filter passes frequencies below its cutoff frequency and attenuates frequencies above its cutoff frequency. This effect can therefore be used to reduce high pitched noise',
+  Compressor:
+    'A compressor has the ability to reduce the difference in order for the quiet notes to be louder and the peak notes to be quieter',
+  Delay:
+    'A delay effect is similar to an echo, in that the sound is repeated one or more times after the original sound',
+  PingPongDelay:
+    'Ping Pong Delay is a time-sensitive delay that pans the delay to the left and right speakers one after the other',
+  Chorus:
+    'An equal mix of the wet and dry signal is used with the wet signal being delayed and pitch modulated'
 }
+
+const useAudio = computed(() => store.state.settings.useAudio)
+const audioVolume = computed(() => store.state.settings.audioVolume)
+
+// created equivalent
+filters.value = Object.keys(audioService.filtersOptions)
 </script>
+
 <style lang="scss" scoped>
 .checkbox-control.-auto > div {
   padding: 0.25rem;

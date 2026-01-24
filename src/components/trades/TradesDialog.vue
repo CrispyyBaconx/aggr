@@ -21,13 +21,22 @@
   </Dialog>
 </template>
 
-<script>
-import DialogMixin from '../../mixins/dialogMixin'
-import PaneDialogMixin from '../../mixins/paneDialogMixin'
+<script setup lang="ts">
+import Dialog from '@/components/framework/Dialog.vue'
+import Presets from '@/components/framework/Presets.vue'
 import TradesSettings from './TradesSettings.vue'
+import { useDialog } from '@/composables/useDialog'
+import { usePaneDialog } from '@/composables/usePaneDialog'
 
-export default {
-  components: { TradesSettings },
-  mixins: [DialogMixin, PaneDialogMixin]
-}
+const props = defineProps<{
+  paneId: string
+}>()
+
+const { close } = useDialog()
+const { name, renamePane, resetPane, getPreset } = usePaneDialog({
+  paneId: props.paneId,
+  close
+})
+
+defineExpose({ close })
 </script>

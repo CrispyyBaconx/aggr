@@ -398,7 +398,6 @@
 import Loader from '@/components/framework/Loader.vue'
 import Btn from '@/components/framework/Btn.vue'
 import Dialog from '@/components/framework/Dialog.vue'
-import DialogMixin from '@/mixins/dialogMixin'
 import { copyTextToClipboard, getBucketId } from '@/utils/helpers'
 import dialogService from '@/services/dialogService'
 import workspacesService from '@/services/workspacesService'
@@ -419,7 +418,6 @@ const selectedProducts = {}
 let flattenedProducts = []
 
 export default {
-  mixins: [DialogMixin],
   components: {
     ToggableSection,
     Dialog,
@@ -440,6 +438,7 @@ export default {
     }
   },
   data: () => ({
+    output: null,
     page: 0,
     query: '',
     markets: [],
@@ -853,6 +852,23 @@ export default {
     }
   },
   methods: {
+    close(data) {
+      if (typeof data !== 'undefined' && data !== null) {
+        this.output = data
+      }
+
+      // In Vue 3, we need to handle unmounting differently
+      const el = this.$el
+      if (el?.parentNode) {
+        try {
+          el.parentNode.removeChild(el)
+        } catch (error) {
+          // ignore
+        }
+      }
+
+      return Promise.resolve()
+    },
     onInput(event) {
       this.page = 0
       this.query = event.target.value
@@ -1271,7 +1287,7 @@ export default {
 </script>
 <style lang="scss" scoped>
 .search-dialog {
-  ::v-deep .dialog__content {
+  :deep(.dialog__content) {
     .dialog__body {
       padding: 0;
       flex-direction: row;
@@ -1420,7 +1436,7 @@ export default {
         margin: 0;
       }
 
-      ::v-deep button {
+      :deep(button) {
         text-decoration: underline;
         cursor: pointer;
       }

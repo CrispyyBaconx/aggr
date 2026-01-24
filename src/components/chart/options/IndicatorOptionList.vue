@@ -5,43 +5,46 @@
       :value="value"
       :options="options"
       class="-outline form-control -arrow"
-      :placeholder="definition.placeholder"
+      :placeholder="(definition as any)?.placeholder"
       @input="$emit('input', $event)"
     ></dropdown-button>
   </label>
 </template>
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
-import IndicatorOptionMixin from '@/mixins/indicatorOptionMixin'
+
+<script setup lang="ts">
+import { computed } from 'vue'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
 
-@Component({
-  name: 'IndicatorOptionDropdown',
-  mixins: [IndicatorOptionMixin],
-  components: {
-    DropdownButton
+const props = defineProps<{
+  paneId: string
+  indicatorId: string
+  label: string
+  value: string
+  definition?: Record<string, unknown>
+}>()
+
+defineEmits<{
+  (e: 'input', value: string): void
+}>()
+
+const options = computed(() => {
+  if (!(props.definition as any)?.options) {
+    return []
   }
+
+  const defOptions = (props.definition as any).options
+
+  if (Array.isArray(defOptions)) {
+    return defOptions.reduce((acc: Record<string, string>, option: string) => {
+      if (!option) {
+        acc[option] = 'Choose'
+      } else {
+        acc[option] = option
+      }
+      return acc
+    }, {})
+  }
+
+  return defOptions
 })
-export default class IndicatorOptionDropdown extends Vue {
-  private definition
-
-  get options() {
-    if (!this.definition.options) {
-      return []
-    }
-
-    if (Array.isArray(this.definition.options)) {
-      return this.definition.options.reduce((acc, option) => {
-        if (!option) {
-          acc[option] = 'Choose'
-        } else {
-          acc[option] = option
-        }
-        return acc
-      }, {})
-    }
-
-    return this.definition.options
-  }
-}
 </script>

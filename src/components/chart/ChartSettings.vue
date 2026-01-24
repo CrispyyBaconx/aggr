@@ -12,9 +12,9 @@
         :step="100"
         :show-completion="true"
         class="mt8"
-        :value="refreshRate"
-        @input="$store.commit(paneId + '/SET_REFRESH_RATE', $event)"
-        @reset="$store.commit(paneId + '/SET_REFRESH_RATE', 500)"
+        :model-value="refreshRate"
+        @update:model-value="store.commit(paneId + '/SET_REFRESH_RATE', $event)"
+        @reset="store.commit(paneId + '/SET_REFRESH_RATE', 500)"
       ></slider>
     </div>
     <p v-if="refreshRate < 500" class="form-feedback">
@@ -27,7 +27,7 @@
           type="checkbox"
           class="form-control"
           :checked="showLegend"
-          @change="$store.commit(paneId + '/TOGGLE_LEGEND')"
+          @change="store.commit(paneId + '/TOGGLE_LEGEND')"
         />
         <div></div>
         <span class="-inline">Show legend</span>
@@ -38,9 +38,9 @@
         <label
           class="checkbox-control"
           @change="
-            $store.commit(paneId + '/SET_GRIDLINES', {
+            store.commit(paneId + '/SET_GRIDLINES', {
               type: 'vertical',
-              value: $event.target.checked
+              value: ($event.target as HTMLInputElement).checked
             })
           "
         >
@@ -55,11 +55,11 @@
         <color-picker-control
           v-if="showVerticalGridlines"
           class="ml8"
-          :value="verticalGridlinesColor"
+          :model-value="verticalGridlinesColor"
           label="Vertical line color"
-          @input="
+          @update:model-value="
             $event !== verticalGridlinesColor &&
-              $store.commit(paneId + '/SET_GRIDLINES', {
+              store.commit(paneId + '/SET_GRIDLINES', {
                 type: 'vertical',
                 value: $event
               })
@@ -72,9 +72,9 @@
         <label
           class="checkbox-control"
           @change="
-            $store.commit(paneId + '/SET_GRIDLINES', {
+            store.commit(paneId + '/SET_GRIDLINES', {
               type: 'horizontal',
-              value: $event.target.checked
+              value: ($event.target as HTMLInputElement).checked
             })
           "
         >
@@ -91,11 +91,11 @@
           v-if="showHorizontalGridlines"
           class="ml8"
           model="rgb"
-          :value="horizontalGridlinesColor"
+          :model-value="horizontalGridlinesColor"
           label="Horizontal line color"
-          @input="
+          @update:model-value="
             $event !== horizontalGridlinesColor &&
-              $store.commit(paneId + '/SET_GRIDLINES', {
+              store.commit(paneId + '/SET_GRIDLINES', {
                 type: 'horizontal',
                 value: $event
               })
@@ -107,8 +107,8 @@
       <label
         class="checkbox-control"
         @change="
-          $store.commit(paneId + '/SET_WATERMARK', {
-            value: $event.target.checked
+          store.commit(paneId + '/SET_WATERMARK', {
+            value: ($event.target as HTMLInputElement).checked
           })
         "
       >
@@ -119,11 +119,11 @@
       <color-picker-control
         v-if="showWatermark"
         class="ml8"
-        :value="watermarkColor"
+        :model-value="watermarkColor"
         label="Watermark color"
-        @input="
+        @update:model-value="
           $event !== watermarkColor &&
-            $store.commit(paneId + '/SET_WATERMARK', { value: $event })
+            store.commit(paneId + '/SET_WATERMARK', { value: $event })
         "
       ></color-picker-control>
     </div>
@@ -131,8 +131,8 @@
       <label
         class="checkbox-control"
         @change="
-          $store.commit(paneId + '/SET_BORDER', {
-            value: $event.target.checked
+          store.commit(paneId + '/SET_BORDER', {
+            value: ($event.target as HTMLInputElement).checked
           })
         "
       >
@@ -143,20 +143,20 @@
       <color-picker-control
         v-if="showBorder"
         class="ml8"
-        :value="borderColor"
+        :model-value="borderColor"
         label="Border color"
-        @input="
+        @update:model-value="
           $event !== borderColor &&
-            $store.commit(paneId + '/SET_BORDER', { value: $event })
+            store.commit(paneId + '/SET_BORDER', { value: $event })
         "
       ></color-picker-control>
       <color-picker-control
         class="ml8"
-        :value="textColor"
+        :model-value="textColor"
         label="Text color"
-        @input="
+        @update:model-value="
           $event !== textColor &&
-            $store.commit(paneId + '/SET_TEXT_COLOR', { value: $event })
+            store.commit(paneId + '/SET_TEXT_COLOR', { value: $event })
         "
       ></color-picker-control>
     </div>
@@ -165,7 +165,7 @@
       <div class="form-group mb8 column">
         <label
           class="checkbox-control"
-          @change="$store.commit(paneId + '/TOGGLE_AXIS', 'left')"
+          @change="store.commit(paneId + '/TOGGLE_AXIS', 'left')"
         >
           <input
             type="checkbox"
@@ -177,7 +177,7 @@
         </label>
         <label
           class="checkbox-control"
-          @change="$store.commit(paneId + '/TOGGLE_AXIS', 'right')"
+          @change="store.commit(paneId + '/TOGGLE_AXIS', 'right')"
         >
           <input
             type="checkbox"
@@ -189,7 +189,7 @@
         </label>
         <label
           class="checkbox-control"
-          @change="$store.commit(paneId + '/TOGGLE_AXIS', 'time')"
+          @change="store.commit(paneId + '/TOGGLE_AXIS', 'time')"
         >
           <input
             type="checkbox"
@@ -206,7 +206,7 @@
       <div class="form-group column">
         <label
           class="checkbox-control"
-          @change="$store.commit(paneId + '/TOGGLE_FILL_GAPS_WITH_EMPTY')"
+          @change="store.commit(paneId + '/TOGGLE_FILL_GAPS_WITH_EMPTY')"
         >
           <input
             type="checkbox"
@@ -223,96 +223,36 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import { getHms } from '@/utils/helpers'
-import { Component, Vue } from 'vue-property-decorator'
 import Slider from '@/components/framework/picker/Slider.vue'
 import ToggableGroup from '@/components/framework/ToggableGroup.vue'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
 import ColorPickerControl from '@/components/framework/picker/ColorPickerControl.vue'
 import AlertsSettings from '@/components/alerts/AlertsSettings.vue'
 
-@Component({
-  components: {
-    AlertsSettings,
-    Slider,
-    ToggableGroup,
-    DropdownButton,
-    ColorPickerControl
-  },
-  name: 'ChartSettings',
-  props: {
-    paneId: {
-      type: String,
-      required: true
-    }
-  }
-})
-export default class ChartSettings extends Vue {
+const props = defineProps<{
   paneId: string
+}>()
 
-  get showLegend() {
-    return this.$store.state[this.paneId].showLegend
-  }
+const store = useStore()
 
-  get fillGapsWithEmpty() {
-    return this.$store.state[this.paneId].fillGapsWithEmpty
-  }
-
-  get refreshRate() {
-    return this.$store.state[this.paneId].refreshRate
-  }
-
-  get showVerticalGridlines() {
-    return this.$store.state[this.paneId].showVerticalGridlines
-  }
-
-  get verticalGridlinesColor() {
-    return this.$store.state[this.paneId].verticalGridlinesColor
-  }
-
-  get showHorizontalGridlines() {
-    return this.$store.state[this.paneId].showHorizontalGridlines
-  }
-
-  get horizontalGridlinesColor() {
-    return this.$store.state[this.paneId].horizontalGridlinesColor
-  }
-
-  get showWatermark() {
-    return this.$store.state[this.paneId].showWatermark
-  }
-
-  get watermarkColor() {
-    return this.$store.state[this.paneId].watermarkColor
-  }
-
-  get showBorder() {
-    return this.$store.state[this.paneId].showBorder
-  }
-
-  get borderColor() {
-    return this.$store.state[this.paneId].borderColor
-  }
-
-  get textColor() {
-    return this.$store.state[this.paneId].textColor
-  }
-
-  get showRightScale() {
-    return this.$store.state[this.paneId].showRightScale
-  }
-
-  get showLeftScale() {
-    return this.$store.state[this.paneId].showLeftScale
-  }
-
-  get showTimeScale() {
-    return this.$store.state[this.paneId].showTimeScale
-  }
-
-  get refreshRateHms() {
-    return getHms(this.refreshRate)
-  }
-}
+const showLegend = computed(() => store.state[props.paneId].showLegend)
+const fillGapsWithEmpty = computed(() => store.state[props.paneId].fillGapsWithEmpty)
+const refreshRate = computed(() => store.state[props.paneId].refreshRate)
+const showVerticalGridlines = computed(() => store.state[props.paneId].showVerticalGridlines)
+const verticalGridlinesColor = computed(() => store.state[props.paneId].verticalGridlinesColor)
+const showHorizontalGridlines = computed(() => store.state[props.paneId].showHorizontalGridlines)
+const horizontalGridlinesColor = computed(() => store.state[props.paneId].horizontalGridlinesColor)
+const showWatermark = computed(() => store.state[props.paneId].showWatermark)
+const watermarkColor = computed(() => store.state[props.paneId].watermarkColor)
+const showBorder = computed(() => store.state[props.paneId].showBorder)
+const borderColor = computed(() => store.state[props.paneId].borderColor)
+const textColor = computed(() => store.state[props.paneId].textColor)
+const showRightScale = computed(() => store.state[props.paneId].showRightScale)
+const showLeftScale = computed(() => store.state[props.paneId].showLeftScale)
+const showTimeScale = computed(() => store.state[props.paneId].showTimeScale)
+const refreshRateHms = computed(() => getHms(refreshRate.value))
 </script>

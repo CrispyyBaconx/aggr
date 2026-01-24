@@ -3,7 +3,7 @@
     <template v-slot:header>
       <div class="dialog__title">Timeframe</div>
     </template>
-    <form @submit.prevent="submit" ref="form">
+    <form @submit.prevent="submit" ref="formRef">
       <div class="text-center">
         <timeframe-input
           :placeholder="placeholder"
@@ -31,68 +31,79 @@
   </Dialog>
 </template>
 
-<script>
-import DialogMixin from '@/mixins/dialogMixin'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import Dialog from '@/components/framework/Dialog.vue'
+import { useDialog } from '@/composables/useDialog'
 import { getTimeframeForHuman } from '@/utils/helpers'
 import TimeframeInput from './chart/TimeframeInput.vue'
 
-export default {
-  components: { TimeframeInput },
-  props: {
-    timeframe: {
-      type: String
-    }
-  },
-  mixins: [DialogMixin],
-  data: () => ({
-    newTimeframe: '',
-    paneId: null
-  }),
-  computed: {
-    paneName() {
-      return this.$store.state.panes.panes[this.paneId].name || this.paneId
-    },
-    timeframeForHuman() {
-      return getTimeframeForHuman(this.newTimeframe)
-    },
-    valid() {
-      return this.timeframeForHuman !== null
-    }
-  },
-  watch: {
-    '$store.state.app.showSearch': function (value) {
-      if (!value) {
-        this.close(false)
-      }
-    }
-  },
-  created() {
-    this.paneId = this.$store.state.app.focusedPaneId
+const props = defineProps<{
+  timeframe?: string
+}>()
 
-    if (this.timeframe) {
-      this.newTimeframe = this.timeframe
-    }
+const store = useStore()
+const { close } = useDialog()
 
-    this.placeholder = this.$store.state[this.paneId].timeframe
-  },
-  methods: {
-    hide() {
-      this.$store.dispatch('app/hideSearch')
-    },
-    onTimeframe(timeframe) {
-      this.newTimeframe = timeframe ? timeframe.value : null
-    },
-    submit() {
-      if (!this.valid) {
-        return
-      }
+const formRef = ref<HTMLFormElement | null>(null)
+const newTimeframe = ref('')
+const paneId = ref<string | null>(null)
+const placeholder = ref('')
 
-      this.$store.commit(this.paneId + '/SET_TIMEFRAME', this.newTimeframe)
+const paneName = computed(() => {
+  if (!paneId.value) return ''
+  return store.state.panes.panes[paneId.value].name || paneId.value
+})
 
-      this.hide()
+const timeframeForHuman = computed(() => {
+  return getTimeframeForHuman(newTimeframe.value)
+})
+
+const valid = computed(() => {
+  return timeframeForHuman.value !== null
+})
+
+watch(
+  () => store.state.app.showSearch,
+  (value) => {
+    if (!value) {
+      close(false)
     }
   }
+)
+
+onMounted(() => {
+  paneId.value = store.state.app.focusedPaneId
+
+  if (props.timeframe) {
+    newTimeframe.value = props.timeframe
+  }
+
+  if (paneId.value) {
+    placeholder.value = store.state[paneId.value].timeframe
+  }
+})
+
+function hide() {
+  store.dispatch('app/hideSearch')
 }
+
+function onTimeframe(timeframe: { value: string } | null) {
+  newTimeframe.value = timeframe ? timeframe.value : ''
+}
+
+function submit() {
+  if (!valid.value || !paneId.value) {
+    return
+  }
+
+  store.commit(paneId.value + '/SET_TIMEFRAME', newTimeframe.value)
+
+  hide()
+}
+
+defineExpose({ close })
 </script>
 <style lang="scss">
 .dialog.-timeframe {

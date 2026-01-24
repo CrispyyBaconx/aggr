@@ -406,10 +406,7 @@ import Btn from '@/components/framework/Btn.vue'
 import importService from '@/services/importService'
 import workspacesService from '@/services/workspacesService'
 
-import DialogMixin from '@/mixins/dialogMixin'
-
 export default {
-  mixins: [DialogMixin],
   components: {
     Btn,
     // eslint-disable-next-line vue/no-reserved-component-names
@@ -423,6 +420,7 @@ export default {
   },
   data() {
     return {
+      output: null,
       currentWorkspace: null,
       workspaces: [],
       workspaceDropdownId: null,
@@ -489,6 +487,10 @@ export default {
   },
 
   methods: {
+    close(data) {
+      this.output = data
+      this.$emit('close')
+    },
     async getWorkspaces() {
       const workspaces = (await workspacesService.getWorkspaces()).sort(
         (a, b) => b.updatedAt - a.updatedAt

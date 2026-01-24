@@ -19,13 +19,13 @@
 
         <div class="column -center"></div>
       </template>
-      <form ref="form" class="alert-dialog__form" @submit.prevent="create">
+      <form ref="formRef" class="alert-dialog__form" @submit.prevent="create">
         <div class="form-group">
           <label>Label</label>
 
           <div class="input-group">
             <input
-              ref="input"
+              ref="inputRef"
               type="text"
               class="form-control w-100"
               placeholder="Custom message (optional)"
@@ -59,72 +59,73 @@
   </transition>
 </template>
 
-<script lang="ts">
-import DialogMixin from '@/mixins/dialogMixin'
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import Dialog from '@/components/framework/Dialog.vue'
 import EmojiPicker from '@/components/framework/EmojiPicker.vue'
+import { useDialog } from '@/composables/useDialog'
 
-export default {
-  name: 'CreateAlertDialog',
-  props: {
-    price: {
-      type: Number
-    },
-    input: {
-      type: String,
-      default: null
-    },
-    edit: {
-      type: Boolean,
-      default: false
-    }
-  },
-  mixins: [DialogMixin, EmojiPicker],
-  data() {
-    return {
-      dialogOpened: false,
-      value: ''
-    }
-  },
-  mounted() {
-    if (this.input) {
-      this.value = this.input
-    }
+const props = withDefaults(defineProps<{
+  price?: number
+  input?: string | null
+  edit?: boolean
+}>(), {
+  input: null,
+  edit: false
+})
 
-    this.show()
-  },
-  computed: {
-    submitLabel() {
-      if (!this.edit) {
-        return 'Create'
-      }
+const { close } = useDialog()
 
-      return 'Update'
-    }
-  },
-  methods: {
-    show() {
-      this.dialogOpened = true
-    },
-    hide() {
-      this.dialogOpened = false
-    },
-    onHide() {
-      this.close(typeof this.data === 'string' ? this.data : null)
-    },
-    onShow() {
-      //
-    },
-    create() {
-      this.data = this.value
-      this.hide()
-    },
-    appendEmoji(str) {
-      this.value += str
+const formRef = ref<HTMLFormElement | null>(null)
+const inputRef = ref<HTMLInputElement | null>(null)
+const dialogOpened = ref(false)
+const value = ref('')
+const data = ref<string | null>(null)
 
-      this.$refs.input.focus()
-    }
+const submitLabel = computed(() => {
+  if (!props.edit) {
+    return 'Create'
   }
+
+  return 'Update'
+})
+
+onMounted(() => {
+  if (props.input) {
+    value.value = props.input
+  }
+
+  show()
+})
+
+function show() {
+  dialogOpened.value = true
 }
+
+function hide() {
+  dialogOpened.value = false
+}
+
+function onHide() {
+  close(typeof data.value === 'string' ? data.value : null)
+}
+
+function onShow() {
+  //
+}
+
+function create() {
+  data.value = value.value
+  hide()
+}
+
+function appendEmoji(str: string) {
+  value.value += str
+
+  inputRef.value?.focus()
+}
+
+defineExpose({ close })
 </script>
 <style lang="scss">
 .alert-dialog {

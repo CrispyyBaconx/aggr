@@ -1,5 +1,5 @@
 <template>
-  <div class="pane-trades" @mouseenter="bindScroll">
+  <div class="pane-trades" ref="el" @mouseenter="bindScroll">
     <pane-header
       :paneId="paneId"
       ref="paneHeader"
@@ -23,13 +23,13 @@
           :gradient="gradient"
           :value="thresholdsMultipler"
           @input="
-            $store.commit(paneId + '/SET_THRESHOLDS_MULTIPLER', {
+            store.commit(paneId + '/SET_THRESHOLDS_MULTIPLER', {
               value: $event,
               market: market
             })
           "
           @reset="
-            $store.commit(paneId + '/SET_THRESHOLDS_MULTIPLER', {
+            store.commit(paneId + '/SET_THRESHOLDS_MULTIPLER', {
               value: 1,
               market: market
             })
@@ -37,7 +37,7 @@
           log
         >
           <template v-slot:tooltip>
-            {{ formatAmount(thresholdsMultipler * minAmount) }}
+            {{ formatAmountValue(thresholdsMultipler * minAmountValue) }}
           </template>
         </slider>
       </dropdown>
@@ -47,7 +47,7 @@
         @click="
           sliderDropdownTrigger = sliderDropdownTrigger
             ? null
-            : $event.currentTarget
+            : ($event.currentTarget as HTMLElement)
         "
       >
         <i class="icon-gauge"></i>
@@ -60,9 +60,10 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Mixins } from 'vue-property-decorator'
-import PaneMixin from '../../mixins/paneMixin'
+<script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, getCurrentInstance } from 'vue'
+import { useStore } from 'vuex'
+import { usePane } from '../../composables/usePane'
 import aggregatorService from '../../services/aggregatorService'
 import { formatAmount, formatMarketPrice } from '../../services/productsService'
 import { Threshold, TradesPaneState } from '../../store/panesSettings/trades'
@@ -85,1099 +86,1115 @@ import { Trade } from '../../types/types'
 
 const DEBUG = false
 const GRADIENT_DETAIL = 5
-const LOGOS = {}
+const LOGOS: { [key: string]: HTMLCanvasElement } = {}
 
 enum TradeType {
   trade,
   liquidation
 }
 
-@Component({
-  name: 'TradesLite',
-  components: {
-    PaneHeader,
-    Slider
-  }
-})
-export default class TradesLite extends Mixins(PaneMixin) {
-  private ctx: CanvasRenderingContext2D
-  private width: number
-  private maxWidth: number
-  private pairOffset: number
-  private priceOffset: number
-  private amountOffset: number
-  private height: number
-  private lineHeight: number
-  private fontSize: number
-  private paddingTop: number
-  private paddingLeft: number
-  private margin: number
-  private logoWidth: number
-  private timeWidth: number
-  private pxRatio: number
-  private maxLines: number
-  private maxHistory: number
-  private buyColorBase: string
-  private buyColor100: string
-  private sellColorBase: string
-  private sellColor100: string
-  private themeBase: string
-  private renderTrades: boolean
-  private showPairs: boolean
-  private showPrices: boolean
-  private showHistograms: boolean
-  private drawOffset: number
-
-  // prepared thresholds by type (trade or liquidation)
-  private minAmount: number
-  private minAudio: number
-  private colors: {
-    [type: string]: {
-      lastRangeIndex: number
-      minAmount: number
-      maxAmount: number
-      significantAmount: number
-      ranges: {
-        from: number
-        to: number
-        buy: {
-          background: string
-          color: string
-          step: number
-        }[]
-        sell: {
-          background: string
-          color: string
-          step: number
-        }[]
-        max?: boolean
-      }[]
-    }
-  }
-  private sounds: {
-    [type: string]: { buy: AudioFunction; sell: AudioFunction }[]
-  }
-
-  private baseSizingCurrency: boolean
-  private filters: {
-    [key in TradeType]: boolean
-  }
-  private rendering: boolean
-  private tradesRendering: {
-    type: TradeType
-    background: number[]
-    color: number[]
+interface ColorRange {
+  from: number
+  to: number
+  buy: {
+    background: string
+    color: string
     step: number
-    exchange: string
-    amount: number
-    count: number
-    price: number
-    side: string
-    time: string
   }[]
+  sell: {
+    background: string
+    color: string
+    step: number
+  }[]
+  max?: boolean
+}
 
-  private tradesHistory: any[]
-  private paneMarkets: { [market: string]: boolean }
-  private volumeBySide: { buy: number; sell: number }
-  private insignificantVolumeBySide: { buy: number; sell: number }
-  private addedVolumeBySide: { buy: number; sell: number }
-  private offset: number
-  private maxCount: number
-  private showAvgPrice: boolean
-  private limit: number
-  private batchSize = 1
+interface ColorConfig {
+  lastRangeIndex: number
+  minAmount: number
+  maxAmount: number
+  significantAmount: number
+  ranges: ColorRange[]
+}
 
-  sliderDropdownTrigger = null
-  paused = 0
+interface TradeRendering {
+  type: TradeType
+  background: string
+  color: string
+  step: number
+  exchange: string
+  pair: string
+  amount: number
+  count: number
+  price: number
+  side: string
+  time: string | null
+}
 
-  $refs!: {
-    canvas: HTMLCanvasElement
+const props = defineProps<{
+  paneId: string
+}>()
+
+const store = useStore()
+const instance = getCurrentInstance()
+
+const { el, pane } = usePane(props.paneId, onResize)
+
+const canvas = ref<HTMLCanvasElement | null>(null)
+const paneHeader = ref<InstanceType<typeof PaneHeader> | null>(null)
+const sliderDropdownTrigger = ref<HTMLElement | null>(null)
+const paused = ref(0)
+
+let ctx: CanvasRenderingContext2D | null = null
+let width = 0
+let maxWidth = 0
+let pairOffset = 0
+let priceOffset = 0
+let amountOffset = 0
+let height = 0
+let lineHeight = 0
+let fontSize = 0
+let paddingTop = 0
+let paddingLeft = 0
+let margin = 0
+let logoWidth = 0
+let timeWidth = 0
+let pxRatio = 1
+let maxLines = 0
+let maxHistory = 0
+let buyColorBase = ''
+let buyColor100 = ''
+let sellColorBase = ''
+let sellColor100 = ''
+let themeBase = ''
+let renderTrades = false
+let showPairs = false
+let showPrices = false
+let showHistograms = false
+let drawOffset = 0
+
+let minAmount = 0
+let minAudio = 0
+let colors: { [type: string]: ColorConfig } = {}
+let sounds: { [type: string]: { buy: AudioFunction; sell: AudioFunction }[] } = {}
+
+let baseSizingCurrency = false
+let filters: { [key: number]: boolean } = {}
+let rendering = false
+let tradesRendering: TradeRendering[] = []
+let tradesHistory: TradeRendering[] = []
+let paneMarkets: { [market: string]: boolean } = {}
+let volumeBySide = { buy: 0, sell: 0 }
+let insignificantVolumeBySide = { buy: 0, sell: 0 }
+let addedVolumeBySide = { buy: 0, sell: 0 }
+let offset = 0
+let maxCount = 100
+let showAvgPrice = false
+let limit = 0
+let batchSize = 1
+
+let scrollHandler: ((event: WheelEvent) => void) | null = null
+let blurHandler: (() => void) | null = null
+let _onStoreMutation: (() => void) | null = null
+
+const market = computed(() => pane.value.markets[0])
+
+const thresholdsMultipler = computed(() => store.state[props.paneId].thresholdsMultipler)
+
+const minAmountValue = computed(() => minAmount)
+
+const gradient = computed(() => [
+  store.state[props.paneId].thresholds[0].buyColor,
+  store.state[props.paneId].thresholds[
+    store.state[props.paneId].thresholds.length - 1
+  ].buyColor
+])
+
+function formatAmountValue(v: number) {
+  return formatAmount(v)
+}
+
+function getThresholdsByType(type: TradeType | number): Threshold[] {
+  const paneSettings = store.state[props.paneId] as TradesPaneState
+
+  if (type === TradeType.liquidation) {
+    return paneSettings.liquidations
   }
 
-  private scrollHandler: (event) => void
-  private blurHandler: (event) => void
+  return paneSettings.thresholds
+}
 
-  get market() {
-    return this.pane.markets[0]
-  }
+function onTrades(trades: Trade[]) {
+  let date: Date | null = null
+  let side: string | null = null
 
-  get thresholdsMultipler() {
-    return this.$store.state[this.paneId].thresholdsMultipler
-  }
+  for (let i = 0; i < trades.length; i++) {
+    const marketKey = trades[i].exchange + ':' + trades[i].pair
+    const type = trades[i].liquidation
+      ? TradeType.liquidation
+      : TradeType.trade
 
-  get gradient() {
-    return [
-      this.$store.state[this.paneId].thresholds[0].buyColor,
-      this.$store.state[this.paneId].thresholds[
-        this.$store.state[this.paneId].thresholds.length - 1
-      ].buyColor
-    ]
-  }
-
-  created() {
-    this._onStoreMutation = this.$store.subscribe(mutation => {
-      switch (mutation.type) {
-        case 'panes/SET_PANE_MARKETS':
-          if (mutation.payload.id === this.paneId) {
-            this.clear()
-            this.prepareMarkets()
-            this.renderHistory()
-          }
-          break
-        case 'app/EXCHANGE_UPDATED':
-        case this.paneId + '/SET_MAX_ROWS':
-        case this.paneId + '/TOGGLE_PREFERENCE':
-          this.prepareTypeFilter(true)
-          this.prepareDisplaySettings()
-          this.refreshColumnsWidth()
-          this.renderHistory()
-          break
-        case this.paneId + '/SET_THRESHOLD_AUDIO':
-        case this.paneId + '/SET_AUDIO_VOLUME':
-        case this.paneId + '/SET_AUDIO_PITCH':
-        case this.paneId + '/TOGGLE_MUTED':
-        case 'settings/SET_AUDIO_VOLUME':
-        case 'settings/TOGGLE_AUDIO':
-          this.prepareAudio()
-          break
-        case this.paneId + '/SET_AUDIO_THRESHOLD':
-          this.prepareAudio(false)
-          break
-        case 'settings/SET_BACKGROUND_COLOR':
-        case this.paneId + '/SET_THRESHOLD_COLOR':
-        case this.paneId + '/SET_THRESHOLD_AMOUNT':
-        case this.paneId + '/SET_THRESHOLDS_MULTIPLER':
-        case this.paneId + '/TOGGLE_THRESHOLD_MAX':
-        case this.paneId + '/DELETE_THRESHOLD':
-        case this.paneId + '/ADD_THRESHOLD':
-          this.prepareColors()
-          this.renderHistory()
-
-          if (
-            mutation.type === this.paneId + '/DELETE_THRESHOLD' ||
-            mutation.type === this.paneId + '/SET_THRESHOLDS_MULTIPLER' ||
-            mutation.type === this.paneId + '/ADD_THRESHOLD'
-          ) {
-            this.prepareAudio()
-          }
-          break
-      }
-    })
-  }
-
-  mounted() {
-    this.ctx = this.$refs.canvas.getContext('2d', { alpha: false })
-
-    this.$nextTick(this.prepareEverything)
-
-    aggregatorService.on('trades', this.onTrades)
-  }
-
-  async prepareEverything() {
-    this.reset()
-
-    this.prepareTypeFilter()
-    this.prepareMarkets()
-    this.prepareColors()
-    await this.prepareAudio()
-
-    this.renderHistory()
-  }
-
-  beforeDestroy() {
-    aggregatorService.off('trades', this.onTrades)
-
-    this._onStoreMutation()
-
-    if (this.blurHandler) {
-      this.onBlur()
+    if (!filters[type] || !paneMarkets[marketKey]) {
+      continue
     }
-  }
-
-  formatAmount(v) {
-    return formatAmount(v)
-  }
-
-  onTrades(trades: Trade[]) {
-    let date = null
-    let side = null
-
-    for (let i = 0; i < trades.length; i++) {
-      const marketKey = trades[i].exchange + ':' + trades[i].pair
-      const type = trades[i].liquidation
-        ? TradeType.liquidation
-        : TradeType.trade
-
-      if (!this.filters[type] || !this.paneMarkets[marketKey]) {
-        continue
-      }
-
-      if (
-        trades[i].amount < this.colors[type].minAmount ||
-        trades[i].amount > this.colors[type].maxAmount
-      ) {
-        if (trades[i].amount > this.minAudio) {
-          this.sounds[type][0][trades[i].side](
-            audioService,
-            trades[i].amount / this.colors[type].significantAmount
-          )
-        }
-
-        this.insignificantVolumeBySide[trades[i].side] += trades[i].amount
-        continue
-      }
-
-      this.volumeBySide[trades[i].side] += trades[i].amount
-
-      if (side === null) {
-        side = trades[i].side
-      }
-
-      const { background, color, step } = this.getColors(
-        trades[i].amount,
-        trades[i].side,
-        type
-      )
-
-      this.maxCount = Math.max(this.maxCount, trades[i].count)
-
-      const trade = {
-        type,
-        background,
-        color,
-        step,
-        exchange: trades[i].exchange,
-        pair: trades[i].pair,
-        amount: trades[i].amount,
-        count: trades[i].count,
-        price: this.showAvgPrice ? trades[i].avgPrice : trades[i].price,
-        side: trades[i].side,
-        time: null
-      }
-
-      if (!date) {
-        date = new Date(+trades[i].timestamp)
-
-        trade.time = `${date.getHours().toString().padStart(2, '0')}:${date
-          .getMinutes()
-          .toString()
-          .padStart(2, '0')}`
-      }
-
-      if (trade.amount > this.minAudio) {
-        this.sounds[type][Math.floor(trade.step / GRADIENT_DETAIL)][trade.side](
-          audioService,
-          trade.amount / this.colors[type].significantAmount
-        )
-      }
-
-      this.tradesRendering.push(trade)
-    }
-
-    if (date && !this.rendering) {
-      this.volumeBySide[side] += this.insignificantVolumeBySide[side]
-      this.addedVolumeBySide[side] += this.insignificantVolumeBySide[side]
-      this.insignificantVolumeBySide[side] = 0
-      this.renderTradesBatch()
-    }
-
-    this.renderVolumeBySide()
-  }
-
-  getThresholdsByType(type: TradeType | string): Threshold[] {
-    const paneSettings = this.$store.state[this.paneId] as TradesPaneState
-
-    if (type === TradeType.liquidation) {
-      return paneSettings.liquidations
-    }
-
-    return paneSettings.thresholds
-  }
-
-  async openSettings() {
-    dialogService.open(
-      (await import('@/components/trades/TradesDialog.vue')).default,
-      {
-        paneId: this.paneId
-      }
-    )
-  }
-
-  async prepareTypeFilter(checkRequirements?: boolean) {
-    this.filters = {
-      [TradeType.trade]: this.$store.state[this.paneId].showTrades,
-      [TradeType.liquidation]: this.$store.state[this.paneId].showLiquidations
-    }
-
-    this.baseSizingCurrency =
-      !this.$store.state.settings.preferQuoteCurrencySize
-
-    if (checkRequirements) {
-      // check for unused or missing colors / audio
-
-      for (const type in this.filters) {
-        if (!this.filters[type] && typeof this.colors[type] !== 'undefined') {
-          // clear unused colors
-          delete this.colors[type]
-        } else if (
-          this.filters[type] &&
-          typeof this.colors[type] === 'undefined'
-        ) {
-          // generate required colors
-          this.prepareThresholds(
-            type as unknown as TradeType,
-            this.getThresholdsByType(type)
-          )
-        }
-
-        if (!this.filters[type] && typeof this.sounds[type] !== 'undefined') {
-          // clear unused sounds
-          delete this.sounds[type]
-        } else if (
-          this.filters[type] &&
-          typeof this.sounds[type] === 'undefined' &&
-          this.minAudio > 0
-        ) {
-          // generate required sounds
-          await this.prepareSounds(type, this.getThresholdsByType(+type))
-        }
-      }
-    }
-
-    for (let i = 0; i < this.tradesHistory.length; i++) {
-      if (!this.filters[(this.tradesHistory as any).type]) {
-        this.tradesHistory.splice(i, 1)
-        i--
-      }
-    }
-  }
-
-  prepareMarkets() {
-    this.paneMarkets = this.$store.state.panes.panes[
-      this.paneId
-    ].markets.reduce((output, marketKey) => {
-      const [exchange] = marketKey.split(':')
-
-      if (!this.$store.state.app.activeExchanges[exchange]) {
-        output[marketKey] = false
-        return output
-      }
-
-      output[marketKey] = true
-      return output
-    }, {})
-  }
-
-  async prepareAudio(prepareSounds = true) {
-    const audioThreshold = this.$store.state[this.paneId].audioThreshold
 
     if (
-      !this.$store.state.settings.useAudio ||
-      this.$store.state[this.paneId].muted ||
-      this.$store.state[this.paneId].audioVolume === 0
+      trades[i].amount < colors[type].minAmount ||
+      trades[i].amount > colors[type].maxAmount
     ) {
-      this.minAudio = Infinity
-      this.sounds = {}
-      return
-    }
-
-    if (audioThreshold) {
-      if (
-        typeof audioThreshold === 'string' &&
-        /\d\s*%$/.test(audioThreshold)
-      ) {
-        this.minAudio = this.minAmount * (parseFloat(audioThreshold) / 100)
-      } else {
-        this.minAudio = +audioThreshold
-      }
-    } else {
-      this.minAudio = this.minAmount * 0.1
-    }
-
-    if (prepareSounds) {
-      for (const type in this.filters) {
-        if (this.filters[type]) {
-          await this.prepareSounds(type, this.getThresholdsByType(+type))
-        }
-      }
-    }
-  }
-
-  async prepareSounds(type: string, thresholds: Threshold[]) {
-    const sounds = []
-    const audioPitch = this.$store.state[this.paneId].audioPitch
-
-    for (let i = 0; i < thresholds.length; i++) {
-      sounds.push({
-        buy: await audioService.buildAudioFunction(
-          thresholds[i].buyAudio,
-          'buy',
-          audioPitch
-        ),
-        sell: await audioService.buildAudioFunction(
-          thresholds[i].sellAudio,
-          'sell',
-          audioPitch
-        )
-      })
-    }
-
-    this.sounds[type] = sounds
-  }
-
-  prepareColors() {
-    const style = getComputedStyle(document.documentElement)
-    this.themeBase = style.getPropertyValue('--theme-base')
-
-    let baseColorThreshold
-
-    if (this.filters[TradeType.trade]) {
-      baseColorThreshold =
-        this.$store.state[this.paneId].thresholds[
-          this.$store.state[this.paneId].thresholds.length - 2
-        ]
-    } else {
-      baseColorThreshold =
-        this.$store.state[this.paneId].liquidations[
-          this.$store.state[this.paneId].thresholds.length - 2
-        ]
-    }
-
-    this.buyColorBase = baseColorThreshold.buyColor
-    this.buyColor100 = joinRgba(
-      getLinearShade(splitColorCode(this.buyColorBase), 0.25)
-    )
-    this.sellColorBase = baseColorThreshold.sellColor
-    this.sellColor100 = joinRgba(
-      getLinearShade(splitColorCode(this.sellColorBase), 0.25)
-    )
-
-    // cache color counters
-    for (const type in this.filters) {
-      if (this.filters[type]) {
-        this.prepareThresholds(
-          type as unknown as TradeType,
-          this.getThresholdsByType(+type)
+      if (trades[i].amount > minAudio) {
+        sounds[type][0][trades[i].side](
+          audioService,
+          trades[i].amount / colors[type].significantAmount
         )
       }
+
+      insignificantVolumeBySide[trades[i].side] += trades[i].amount
+      continue
     }
 
-    // recalculate trades respective colors
-    for (let i = 0; i < this.tradesHistory.length; i++) {
-      if (this.tradesHistory[i].amount < this.minAmount) {
-        this.tradesHistory.splice(i, 1)
-        i--
-        continue
-      }
+    volumeBySide[trades[i].side] += trades[i].amount
 
-      const color = this.getColors(
-        this.tradesHistory[i].amount,
-        this.tradesHistory[i].side,
-        this.tradesHistory[i].type
+    if (side === null) {
+      side = trades[i].side
+    }
+
+    const colorResult = getColors(
+      trades[i].amount,
+      trades[i].side,
+      type
+    )
+
+    maxCount = Math.max(maxCount, trades[i].count || 1)
+
+    const trade: TradeRendering = {
+      type,
+      background: colorResult.background,
+      color: colorResult.color,
+      step: colorResult.step,
+      exchange: trades[i].exchange,
+      pair: trades[i].pair,
+      amount: trades[i].amount,
+      count: trades[i].count || 1,
+      price: showAvgPrice ? trades[i].avgPrice : trades[i].price,
+      side: trades[i].side,
+      time: null
+    }
+
+    if (!date) {
+      date = new Date(+trades[i].timestamp)
+
+      trade.time = `${date.getHours().toString().padStart(2, '0')}:${date
+        .getMinutes()
+        .toString()
+        .padStart(2, '0')}`
+    }
+
+    if (trade.amount > minAudio) {
+      sounds[type][Math.floor(trade.step / GRADIENT_DETAIL)][trade.side](
+        audioService,
+        trade.amount / colors[type].significantAmount
       )
-
-      Object.assign(this.tradesHistory[i], color)
     }
+
+    tradesRendering.push(trade)
   }
 
-  prepareThresholds(type: TradeType, thresholds: Threshold[]) {
-    // app background color for computed threshold color
-    const themeBackgroundColor = splitColorCode(this.themeBase)
-    const appBackgroundColor = getAppBackgroundColor()
+  if (date && !rendering && side) {
+    volumeBySide[side] += insignificantVolumeBySide[side]
+    addedVolumeBySide[side] += insignificantVolumeBySide[side]
+    insignificantVolumeBySide[side] = 0
+    renderTradesBatch()
+  }
 
-    const ranges = []
-    let significantAmount
-    const total = thresholds.length * GRADIENT_DETAIL
+  renderVolumeBySide()
+}
 
-    // loop through thresholds
-    // thresholds [0, 1, 2, 3]
-    // ranges [0-1, 1-2, 2-3]
-    for (let i = 0; i < thresholds.length - 1; i++) {
-      const from = thresholds[i].amount
-      const to = thresholds[i + 1].amount
+async function prepareTypeFilter(checkRequirements?: boolean) {
+  filters = {
+    [TradeType.trade]: store.state[props.paneId].showTrades,
+    [TradeType.liquidation]: store.state[props.paneId].showLiquidations
+  }
 
-      if (i === 0) {
-        significantAmount = to
-      }
+  baseSizingCurrency =
+    !store.state.settings.preferQuoteCurrencySize
 
-      const buyColorFrom = splitColorCode(thresholds[i].buyColor)
-      const buyColorTo = splitColorCode(thresholds[i + 1].buyColor)
-      const buyAlpha =
-        typeof buyColorFrom[3] === 'undefined' ? 1 : buyColorFrom[3]
-
-      const buyColorRange = [
-        rgbaToRgb(buyColorFrom, appBackgroundColor),
-        rgbaToRgb(buyColorTo, appBackgroundColor)
-      ]
-
-      const buyColorRangeTheme = [
-        rgbaToRgb(buyColorFrom, themeBackgroundColor),
-        rgbaToRgb(buyColorTo, themeBackgroundColor)
-      ]
-
-      const sellColorFrom = splitColorCode(thresholds[i].sellColor)
-      const sellColorTo = splitColorCode(thresholds[i + 1].sellColor)
-      const sellAlpha =
-        typeof sellColorFrom[3] === 'undefined' ? 1 : sellColorFrom[3]
-
-      const sellColorRange = [
-        rgbaToRgb(sellColorFrom, appBackgroundColor),
-        rgbaToRgb(sellColorTo, appBackgroundColor)
-      ]
-
-      const sellColorRangeTheme = [
-        rgbaToRgb(sellColorFrom, themeBackgroundColor),
-        rgbaToRgb(sellColorTo, themeBackgroundColor)
-      ]
-
-      const buy = []
-      const sell = []
-
-      // for every range, slice the range into n colors
-      for (let j = 0; j < GRADIENT_DETAIL; j++) {
-        const position = j / (GRADIENT_DETAIL - 1) // 0 to 1
-
-        // get a color between buyColorRange[0] and buyColorRange[1]
-        // get a optimal text color
-        const buyBackground = getColorByWeight(
-          buyColorRange[0],
-          buyColorRange[1],
-          position
+  if (checkRequirements) {
+    for (const type in filters) {
+      if (!filters[+type] && typeof colors[type] !== 'undefined') {
+        delete colors[type]
+      } else if (
+        filters[+type] &&
+        typeof colors[type] === 'undefined'
+      ) {
+        prepareThresholds(
+          +type as TradeType,
+          getThresholdsByType(+type)
         )
-        const buyTextColor = getColorByWeight(
-          buyColorRangeTheme[0],
-          buyColorRangeTheme[1],
-          position
-        )
-        const buyText = getLinearShadeText(
-          buyTextColor,
-          0.5 + Math.min(1, (i * GRADIENT_DETAIL + j) / total),
-          Math.exp(1 - buyAlpha) / 5
-        )
-
-        buy.push({
-          background: joinRgba(buyBackground),
-          color: joinRgba(buyText),
-          step: i * GRADIENT_DETAIL + j
-        })
-
-        // same for the sells
-        const sellBackground = getColorByWeight(
-          sellColorRange[0],
-          sellColorRange[1],
-          position
-        )
-        const sellTextColor = getColorByWeight(
-          sellColorRangeTheme[0],
-          sellColorRangeTheme[1],
-          position
-        )
-        const sellText = getLinearShadeText(
-          sellTextColor,
-          0.5 + Math.min(1, (i * GRADIENT_DETAIL + j) / total),
-          Math.exp(1 - sellAlpha) / 5
-        )
-
-        sell.push({
-          background: joinRgba(sellBackground),
-          color: joinRgba(sellText),
-          step: i * GRADIENT_DETAIL + j
-        })
       }
 
-      ranges.push({
-        from,
-        to,
-        buy,
-        sell
-      })
-
-      if (thresholds[i + 1].max) {
-        // next threshold as the max checkbox ticked -> last range pushed will be the last
-        ranges[ranges.length - 1].max = true
-        break
-      }
-    }
-
-    // cache min / max
-    const lastRangeIndex = ranges.length - 1
-    const minAmount = ranges[0].from
-
-    let maxAmount
-
-    if (!ranges[ranges.length - 1].max) {
-      maxAmount = Infinity
-    } else {
-      maxAmount = ranges[ranges.length - 1].to
-    }
-
-    this.colors[type] = {
-      lastRangeIndex,
-      minAmount,
-      maxAmount,
-      significantAmount,
-      ranges
-    }
-
-    if (type == TradeType.trade || !this.filters[TradeType.trade]) {
-      this.minAmount = minAmount
-    }
-  }
-
-  prepareDisplaySettings() {
-    const pane = this.$store.state[this.paneId] as TradesPaneState
-    this.maxHistory = pane.maxRows
-    this.showHistograms = pane.showHistograms
-    this.showPairs = pane.showPairs
-    this.showAvgPrice = pane.showAvgPrice
-    this.renderTrades =
-      !pane.showHistograms || this.height > window.innerHeight / 24
-    this.showPrices = pane.showPrices
-    this.offset = 0
-    this.drawOffset = this.showHistograms ? this.lineHeight : 0
-
-    this.refreshColumnsWidth()
-  }
-
-  onResize(width, height, isMounting) {
-    this.resize()
-
-    if (!isMounting) {
-      this.renderHistory()
-    }
-  }
-
-  resize() {
-    const canvas = this.$refs.canvas
-
-    let headerHeight = 0
-
-    if (!this.$store.state.settings.autoHideHeaders) {
-      headerHeight =
-        (this.$store.state.panes.panes[this.paneId].zoom || 1) * 2 * 16
-    }
-
-    this.pxRatio = window.devicePixelRatio || 1
-    const zoom = this.$store.state.panes.panes[this.paneId].zoom || 1
-
-    this.width = canvas.width = this.$el.clientWidth * this.pxRatio
-    this.height = canvas.height =
-      (this.$el.clientHeight - headerHeight) * this.pxRatio
-    this.fontSize = Math.round(12 * zoom * this.pxRatio)
-    this.logoWidth = this.fontSize
-    this.paddingTop = Math.round(
-      Math.max(this.width * 0.005 * zoom, 2) * this.pxRatio
-    )
-    this.lineHeight = Math.round(this.fontSize + this.paddingTop)
-    this.drawOffset = this.showHistograms ? this.lineHeight : 0
-    this.maxLines = Math.ceil(this.height / this.lineHeight)
-    this.renderTrades =
-      !this.$store.state[this.paneId].showHistograms ||
-      this.height > window.innerHeight / 24
-    this.offset = this.offset || 0
-    this.limit = this.offset + this.maxLines
-
-    this.ctx.font = `${zoom > 1.25 ? '600 ' : ''}${
-      this.fontSize
-    }px Spline Sans Mono`
-    this.ctx.textBaseline = 'middle'
-
-    this.refreshColumnsWidth()
-  }
-
-  refreshColumnsWidth() {
-    if (typeof this.showPairs === 'undefined') {
-      return
-    }
-
-    const zoom = this.$store.state.panes.panes[this.paneId].zoom || 1
-    const count = (this.showPairs ? 1 : 0) + (this.showPrices ? 1 : 0) + 2
-
-    this.paddingLeft =
-      Math.round(Math.max(this.width * 0.01 * zoom, 2) * this.pxRatio) *
-      (count < 3 ? 4 : 1)
-    this.margin = Math.round(
-      Math.max(this.width * 0.01 * zoom, 4) * this.pxRatio
-    )
-
-    const contentWidth =
-      this.width - this.margin * 2 - this.logoWidth - this.paddingLeft * count
-    this.timeWidth = contentWidth * (0.75 / count)
-    this.maxWidth = (contentWidth - this.timeWidth) / (count - 1)
-    this.amountOffset =
-      this.width - this.timeWidth - this.margin - this.paddingLeft
-    this.priceOffset = this.margin + this.logoWidth + this.paddingLeft
-    this.pairOffset =
-      this.priceOffset +
-      (this.showPrices ? this.paddingLeft + this.maxWidth : 0)
-  }
-
-  getColors(amount, side, type) {
-    const colors = this.colors[type]
-
-    for (let i = 0; i < colors.ranges.length; i++) {
-      if (i === colors.lastRangeIndex || amount < colors.ranges[i].to) {
-        let innerStep = GRADIENT_DETAIL - 1
-
-        if (amount < colors.ranges[i].to) {
-          innerStep = Math.floor(
-            ((amount - colors.ranges[i].from) /
-              (colors.ranges[i].to - colors.ranges[i].from)) *
-              GRADIENT_DETAIL
-          )
-        }
-
-        return colors.ranges[i][side][innerStep]
+      if (!filters[+type] && typeof sounds[type] !== 'undefined') {
+        delete sounds[type]
+      } else if (
+        filters[+type] &&
+        typeof sounds[type] === 'undefined' &&
+        minAudio > 0
+      ) {
+        await prepareSounds(type, getThresholdsByType(+type))
       }
     }
   }
 
-  clear() {
-    this.ctx.resetTransform()
-    const style = getComputedStyle(document.documentElement)
-    const themeBase = splitColorCode(style.getPropertyValue('--theme-base'))
-    const backgroundColor = splitColorCode(
-      style.getPropertyValue('--theme-background-base'),
-      themeBase
-    )
-    themeBase[3] = 0.1
-    this.ctx.fillStyle = joinRgba(
-      splitColorCode(joinRgba(themeBase), backgroundColor)
-    )
-    this.ctx.fillRect(0, 0, this.width, this.height)
-  }
-
-  reset() {
-    if (this.ctx) {
-      this.clear()
-    }
-
-    this.tradesRendering = []
-    this.tradesHistory = []
-    this.volumeBySide = { buy: 0, sell: 0 }
-    this.insignificantVolumeBySide = { buy: 0, sell: 0 }
-    this.addedVolumeBySide = { buy: 0, sell: 0 }
-    this.colors = {}
-    this.sounds = {}
-    this.offset = 0
-    this.limit = 0
-    this.maxCount = 100
-
-    this.prepareDisplaySettings()
-  }
-
-  renderTradesBatch() {
-    if (this.paused) {
-      this.paused = this.tradesRendering.length
-      this.rendering = false
-      return
-    }
-
-    let count = Math.ceil(this.tradesRendering.length * 0.1)
-    let i = 0
-    while (count-- && ++i <= this.batchSize) {
-      const trade = this.tradesRendering.shift()
-
-      if (this.renderTrades) {
-        this.renderTrade(trade)
-
-        if (this.offset >= 1) {
-          this.offset++
-        }
-      }
-
-      this.tradesHistory.unshift(trade)
-
-      if (this.tradesHistory.length > this.maxHistory) {
-        const trade = this.tradesHistory.pop()
-
-        if (this.addedVolumeBySide[trade.side]) {
-          trade.amount += this.addedVolumeBySide[trade.side]
-          this.addedVolumeBySide[trade.side] = 0
-        }
-
-        this.volumeBySide[trade.side] -= trade.amount
-      }
-    }
-
-    const rate = Math.ceil(this.tradesRendering.length / 10)
-    this.batchSize = rate
-
-    this.rendering = this.tradesRendering.length > 0
-
-    if (this.rendering) {
-      return requestAnimationFrame(this.renderTradesBatch)
-    }
-  }
-
-  renderTrade(trade) {
-    const market = trade.exchange + ':' + trade.pair
-
-    const paddingTop =
-      this.paddingTop + Math.round((trade.step / 2) * this.pxRatio)
-    const height = this.lineHeight + paddingTop * 2
-
-    this.ctx.drawImage(this.ctx.canvas, 0, height)
-    this.ctx.fillStyle = trade.background
-    this.ctx.fillRect(0, this.drawOffset, this.width, height)
-
-    this.drawHistogram(trade, height)
-    this.ctx.fillStyle = trade.color
-
-    this.drawLogo(
-      trade.exchange,
-      this.margin,
-      this.drawOffset + height / 2 - this.logoWidth / 2
-    )
-
-    if (this.showPairs) {
-      this.drawPair(trade, height)
-    }
-
-    if (this.showPrices) {
-      this.drawPrice(trade, market, height)
-    }
-
-    this.drawAmount(trade, height, trade.type === TradeType.liquidation)
-
-    if (trade.time) {
-      this.drawTime(trade, height)
-    }
-  }
-
-  drawTime(trade, height) {
-    this.ctx.fillText(
-      trade.time,
-      this.width - this.margin,
-      this.drawOffset + height / 2 + 1,
-      this.timeWidth
-    )
-  }
-
-  drawHistogram(trade, height) {
-    this.ctx.fillStyle = 'rgba(255,255,255,0.05)'
-    this.ctx.fillRect(
-      0,
-      0,
-      Math.min(1, trade.count / 100) * this.width,
-      this.drawOffset + height
-    )
-  }
-
-  drawPair(trade, height) {
-    this.ctx.textAlign = 'left'
-    this.ctx.fillText(
-      trade.pair,
-      this.pairOffset,
-      this.drawOffset + height / 2 + 1,
-      this.maxWidth
-    )
-  }
-
-  drawPrice(trade, market, height) {
-    this.ctx.textAlign = 'left'
-    this.ctx.fillText(
-      formatMarketPrice(trade.price, market),
-      this.priceOffset,
-      this.drawOffset + height / 2 + 1,
-      this.maxWidth
-    )
-  }
-
-  drawAmount(trade: Trade, height, liquidation) {
-    this.ctx.textAlign = 'right'
-    const backupFont = this.ctx.font
-    this.ctx.font = this.ctx.font.replace(
-      new RegExp(`^(${this.fontSize}px)`),
-      'bold $1'
-    )
-    const amount = this.baseSizingCurrency
-      ? Math.round(trade.amount * 1e6) / 1e6
-      : formatAmount(trade.amount)
-
-    this.ctx.fillText(
-      amount + (liquidation ? (trade.side === 'buy' ? '🐻' : '🐂') : ''),
-      this.amountOffset,
-      this.drawOffset + height / 2 + 1,
-      this.maxWidth
-    )
-
-    this.ctx.font = backupFont
-  }
-
-  renderHistory() {
-    this.clear()
-
-    if (!this.renderTrades) {
-      return
-    }
-
-    if (DEBUG) {
-      this.renderDebug()
-    }
-
-    const offset = Math.round(this.offset)
-    const limit = Math.round(this.limit)
-
-    if (limit - offset <= 0) {
-      this.ctx.fillText('waiting for trades', 8, 8)
-      return
-    }
-
-    for (let i = limit - 1; i >= offset; i--) {
-      if (!this.tradesHistory[i]) {
-        continue
-      }
-
-      this.renderTrade(this.tradesHistory[i])
-    }
-  }
-
-  renderVolumeBySide() {
-    if (!this.showHistograms) {
-      return
-    }
-
-    const insignificantVolume =
-      this.insignificantVolumeBySide.buy + this.insignificantVolumeBySide.sell
-    const volume = this.volumeBySide.buy + this.volumeBySide.sell
-    const total = insignificantVolume + volume
-    const buyWidth = this.width * (this.volumeBySide.buy / total)
-    const buyWidthFast =
-      this.width * (this.insignificantVolumeBySide.buy / total)
-    const sellWidthFast =
-      this.width * (this.insignificantVolumeBySide.sell / total)
-    const sellWidth = this.width * (this.volumeBySide.sell / total)
-
-    const lineHeight = this.renderTrades ? this.lineHeight : this.height
-
-    this.ctx.fillStyle = this.buyColorBase
-    this.ctx.fillRect(0, 0, buyWidth, lineHeight)
-    this.ctx.fillStyle = this.buyColor100
-    this.ctx.fillRect(buyWidth, 0, buyWidthFast, lineHeight)
-    this.ctx.fillStyle = this.sellColor100
-    this.ctx.fillRect(buyWidth + buyWidthFast, 0, sellWidthFast, lineHeight)
-    this.ctx.fillStyle = this.sellColorBase
-    this.ctx.fillRect(this.width - sellWidth, 0, sellWidth, lineHeight)
-  }
-
-  renderDebug() {
-    const quarterWidth = this.width / 4
-    this.ctx.fillStyle = this.buyColorBase
-    this.ctx.fillRect(0, 0, quarterWidth, this.lineHeight)
-    this.ctx.fillStyle = this.buyColor100
-    this.ctx.fillRect(quarterWidth, 0, quarterWidth, this.lineHeight)
-    this.ctx.fillStyle = this.sellColor100
-    this.ctx.fillRect(quarterWidth * 2, 0, quarterWidth, this.lineHeight)
-    this.ctx.fillStyle = this.sellColorBase
-    this.ctx.fillRect(quarterWidth * 3, 0, quarterWidth, this.lineHeight)
-
-    for (const type in this.filters) {
-      if (this.filters[type]) {
-        for (const range of this.colors[type].ranges) {
-          for (let i = 0; i < range.buy.length; i++) {
-            this.ctx.translate(0, this.lineHeight)
-            const buy = range.buy[i]
-            this.ctx.fillStyle = buy.background
-            this.ctx.fillRect(0, 0, this.width / 2, this.lineHeight)
-            this.ctx.fillStyle = buy.color
-            this.ctx.textAlign = 'left'
-            this.ctx.fillText('B:' + buy.color, 0, this.lineHeight / 2)
-
-            const sell = range.sell[i]
-            this.ctx.fillStyle = sell.background
-            this.ctx.fillRect(
-              this.width / 2,
-              0,
-              this.width / 2,
-              this.lineHeight
-            )
-            this.ctx.fillStyle = sell.color
-            this.ctx.textAlign = 'left'
-            this.ctx.fillText(
-              'S: ' + sell.color,
-              this.width / 2,
-              this.lineHeight / 2
-            )
-          }
-        }
-      }
-    }
-
-    this.ctx.resetTransform()
-  }
-
-  onBlur() {
-    this.$el.removeEventListener('mouseleave', this.blurHandler)
-    this.$el.removeEventListener('wheel', this.scrollHandler)
-    delete this.scrollHandler
-    delete this.blurHandler
-    this.paused = 0
-    this.offset = 0
-    this.limit = this.maxLines
-    this.renderHistory()
-    this.renderTradesBatch()
-  }
-
-  onScroll(event) {
-    event.preventDefault()
-
-    const direction = Math.sign(event.deltaY) * (event.shiftKey ? 2 : 1)
-
-    const offset = Math.max(
-      0,
-      Math.min(this.tradesHistory.length, this.offset + direction)
-    )
-    const limit = Math.min(
-      this.tradesHistory.length,
-      Math.max(offset + this.maxLines, this.limit + direction)
-    )
-
-    const redraw = Math.round(offset) !== Math.round(this.offset)
-
-    this.paused = offset
-    this.offset = offset
-    this.limit = limit
-
-    if (redraw) {
-      this.renderHistory()
-    }
-  }
-
-  bindScroll() {
-    if (this.scrollHandler) {
-      this.onBlur()
-      return
-    }
-
-    this.paused = 1
-
-    this.blurHandler = this.onBlur.bind(this)
-    this.scrollHandler = this.onScroll.bind(this)
-    this.$el.addEventListener('wheel', this.scrollHandler)
-    this.$el.addEventListener('mouseleave', this.blurHandler)
-  }
-
-  drawLogo(exchange, x, y) {
-    if (!LOGOS[exchange]) {
-      const canvas = document.createElement('canvas')
-      canvas.width = this.logoWidth
-      canvas.height = this.logoWidth
-
-      const image = new Image()
-      image.onload = () => {
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(image, 0, 0, this.logoWidth, this.logoWidth)
-      }
-      image.src = logos[exchange]
-
-      LOGOS[exchange] = canvas
-    } else {
-      this.ctx.drawImage(LOGOS[exchange], x, y, this.logoWidth, this.logoWidth)
+  for (let i = 0; i < tradesHistory.length; i++) {
+    if (!filters[tradesHistory[i].type]) {
+      tradesHistory.splice(i, 1)
+      i--
     }
   }
 }
+
+function prepareMarkets() {
+  paneMarkets = store.state.panes.panes[
+    props.paneId
+  ].markets.reduce((output: { [key: string]: boolean }, marketKey: string) => {
+    const [exchange] = marketKey.split(':')
+
+    if (!store.state.app.activeExchanges[exchange]) {
+      output[marketKey] = false
+      return output
+    }
+
+    output[marketKey] = true
+    return output
+  }, {})
+}
+
+async function prepareAudio(prepareSoundsFlag = true) {
+  const audioThreshold = store.state[props.paneId].audioThreshold
+
+  if (
+    !store.state.settings.useAudio ||
+    store.state[props.paneId].muted ||
+    store.state[props.paneId].audioVolume === 0
+  ) {
+    minAudio = Infinity
+    sounds = {}
+    return
+  }
+
+  if (audioThreshold) {
+    if (
+      typeof audioThreshold === 'string' &&
+      /\d\s*%$/.test(audioThreshold)
+    ) {
+      minAudio = minAmount * (parseFloat(audioThreshold) / 100)
+    } else {
+      minAudio = +audioThreshold
+    }
+  } else {
+    minAudio = minAmount * 0.1
+  }
+
+  if (prepareSoundsFlag) {
+    for (const type in filters) {
+      if (filters[+type]) {
+        await prepareSounds(type, getThresholdsByType(+type))
+      }
+    }
+  }
+}
+
+async function prepareSounds(type: string, thresholds: Threshold[]) {
+  const soundsArr: { buy: AudioFunction; sell: AudioFunction }[] = []
+  const audioPitch = store.state[props.paneId].audioPitch
+
+  for (let i = 0; i < thresholds.length; i++) {
+    soundsArr.push({
+      buy: await audioService.buildAudioFunction(
+        thresholds[i].buyAudio,
+        'buy',
+        audioPitch
+      ),
+      sell: await audioService.buildAudioFunction(
+        thresholds[i].sellAudio,
+        'sell',
+        audioPitch
+      )
+    })
+  }
+
+  sounds[type] = soundsArr
+}
+
+function prepareColors() {
+  const style = getComputedStyle(document.documentElement)
+  themeBase = style.getPropertyValue('--theme-base')
+
+  let baseColorThreshold: Threshold
+
+  if (filters[TradeType.trade]) {
+    baseColorThreshold =
+      store.state[props.paneId].thresholds[
+        store.state[props.paneId].thresholds.length - 2
+      ]
+  } else {
+    baseColorThreshold =
+      store.state[props.paneId].liquidations[
+        store.state[props.paneId].thresholds.length - 2
+      ]
+  }
+
+  buyColorBase = baseColorThreshold.buyColor
+  buyColor100 = joinRgba(
+    getLinearShade(splitColorCode(buyColorBase), 0.25)
+  )
+  sellColorBase = baseColorThreshold.sellColor
+  sellColor100 = joinRgba(
+    getLinearShade(splitColorCode(sellColorBase), 0.25)
+  )
+
+  for (const type in filters) {
+    if (filters[+type]) {
+      prepareThresholds(
+        +type as TradeType,
+        getThresholdsByType(+type)
+      )
+    }
+  }
+
+  for (let i = 0; i < tradesHistory.length; i++) {
+    if (tradesHistory[i].amount < minAmount) {
+      tradesHistory.splice(i, 1)
+      i--
+      continue
+    }
+
+    const color = getColors(
+      tradesHistory[i].amount,
+      tradesHistory[i].side,
+      tradesHistory[i].type
+    )
+
+    Object.assign(tradesHistory[i], color)
+  }
+}
+
+function prepareThresholds(type: TradeType, thresholds: Threshold[]) {
+  const themeBackgroundColor = splitColorCode(themeBase)
+  const appBackgroundColor = getAppBackgroundColor()
+
+  const ranges: ColorRange[] = []
+  let significantAmount = 0
+  const total = thresholds.length * GRADIENT_DETAIL
+
+  for (let i = 0; i < thresholds.length - 1; i++) {
+    const from = thresholds[i].amount
+    const to = thresholds[i + 1].amount
+
+    if (i === 0) {
+      significantAmount = to
+    }
+
+    const buyColorFrom = splitColorCode(thresholds[i].buyColor)
+    const buyColorTo = splitColorCode(thresholds[i + 1].buyColor)
+    const buyAlpha =
+      typeof buyColorFrom[3] === 'undefined' ? 1 : buyColorFrom[3]
+
+    const buyColorRange = [
+      rgbaToRgb(buyColorFrom, appBackgroundColor),
+      rgbaToRgb(buyColorTo, appBackgroundColor)
+    ]
+
+    const buyColorRangeTheme = [
+      rgbaToRgb(buyColorFrom, themeBackgroundColor),
+      rgbaToRgb(buyColorTo, themeBackgroundColor)
+    ]
+
+    const sellColorFrom = splitColorCode(thresholds[i].sellColor)
+    const sellColorTo = splitColorCode(thresholds[i + 1].sellColor)
+    const sellAlpha =
+      typeof sellColorFrom[3] === 'undefined' ? 1 : sellColorFrom[3]
+
+    const sellColorRange = [
+      rgbaToRgb(sellColorFrom, appBackgroundColor),
+      rgbaToRgb(sellColorTo, appBackgroundColor)
+    ]
+
+    const sellColorRangeTheme = [
+      rgbaToRgb(sellColorFrom, themeBackgroundColor),
+      rgbaToRgb(sellColorTo, themeBackgroundColor)
+    ]
+
+    const buy: { background: string; color: string; step: number }[] = []
+    const sell: { background: string; color: string; step: number }[] = []
+
+    for (let j = 0; j < GRADIENT_DETAIL; j++) {
+      const position = j / (GRADIENT_DETAIL - 1)
+
+      const buyBackground = getColorByWeight(
+        buyColorRange[0],
+        buyColorRange[1],
+        position
+      )
+      const buyTextColor = getColorByWeight(
+        buyColorRangeTheme[0],
+        buyColorRangeTheme[1],
+        position
+      )
+      const buyText = getLinearShadeText(
+        buyTextColor,
+        0.5 + Math.min(1, (i * GRADIENT_DETAIL + j) / total),
+        Math.exp(1 - buyAlpha) / 5
+      )
+
+      buy.push({
+        background: joinRgba(buyBackground),
+        color: joinRgba(buyText),
+        step: i * GRADIENT_DETAIL + j
+      })
+
+      const sellBackground = getColorByWeight(
+        sellColorRange[0],
+        sellColorRange[1],
+        position
+      )
+      const sellTextColor = getColorByWeight(
+        sellColorRangeTheme[0],
+        sellColorRangeTheme[1],
+        position
+      )
+      const sellText = getLinearShadeText(
+        sellTextColor,
+        0.5 + Math.min(1, (i * GRADIENT_DETAIL + j) / total),
+        Math.exp(1 - sellAlpha) / 5
+      )
+
+      sell.push({
+        background: joinRgba(sellBackground),
+        color: joinRgba(sellText),
+        step: i * GRADIENT_DETAIL + j
+      })
+    }
+
+    ranges.push({
+      from,
+      to,
+      buy,
+      sell
+    })
+
+    if (thresholds[i + 1].max) {
+      ranges[ranges.length - 1].max = true
+      break
+    }
+  }
+
+  const lastRangeIndex = ranges.length - 1
+  const minAmountVal = ranges[0].from
+
+  let maxAmount: number
+
+  if (!ranges[ranges.length - 1].max) {
+    maxAmount = Infinity
+  } else {
+    maxAmount = ranges[ranges.length - 1].to
+  }
+
+  colors[type] = {
+    lastRangeIndex,
+    minAmount: minAmountVal,
+    maxAmount,
+    significantAmount,
+    ranges
+  }
+
+  if (type == TradeType.trade || !filters[TradeType.trade]) {
+    minAmount = minAmountVal
+  }
+}
+
+function prepareDisplaySettings() {
+  const paneState = store.state[props.paneId] as TradesPaneState
+  maxHistory = paneState.maxRows
+  showHistograms = paneState.showHistograms
+  showPairs = paneState.showPairs
+  showAvgPrice = paneState.showAvgPrice
+  renderTrades =
+    !paneState.showHistograms || height > window.innerHeight / 24
+  showPrices = paneState.showPrices
+  offset = 0
+  drawOffset = showHistograms ? lineHeight : 0
+
+  refreshColumnsWidth()
+}
+
+function onResize(newWidth?: number, newHeight?: number, isMounting?: boolean) {
+  resize()
+
+  if (!isMounting) {
+    renderHistory()
+  }
+}
+
+function resize() {
+  const canvasEl = canvas.value
+  if (!canvasEl) return
+
+  const rootEl = instance?.proxy?.$el as HTMLElement
+  if (!rootEl) return
+
+  let headerHeight = 0
+
+  if (!store.state.settings.autoHideHeaders) {
+    headerHeight =
+      (store.state.panes.panes[props.paneId].zoom || 1) * 2 * 16
+  }
+
+  pxRatio = window.devicePixelRatio || 1
+  const zoom = store.state.panes.panes[props.paneId].zoom || 1
+
+  width = canvasEl.width = rootEl.clientWidth * pxRatio
+  height = canvasEl.height =
+    (rootEl.clientHeight - headerHeight) * pxRatio
+  fontSize = Math.round(12 * zoom * pxRatio)
+  logoWidth = fontSize
+  paddingTop = Math.round(
+    Math.max(width * 0.005 * zoom, 2) * pxRatio
+  )
+  lineHeight = Math.round(fontSize + paddingTop)
+  drawOffset = showHistograms ? lineHeight : 0
+  maxLines = Math.ceil(height / lineHeight)
+  renderTrades =
+    !store.state[props.paneId].showHistograms ||
+    height > window.innerHeight / 24
+  offset = offset || 0
+  limit = offset + maxLines
+
+  if (ctx) {
+    ctx.font = `${zoom > 1.25 ? '600 ' : ''}${fontSize}px Spline Sans Mono`
+    ctx.textBaseline = 'middle'
+  }
+
+  refreshColumnsWidth()
+}
+
+function refreshColumnsWidth() {
+  if (typeof showPairs === 'undefined') {
+    return
+  }
+
+  const zoom = store.state.panes.panes[props.paneId].zoom || 1
+  const count = (showPairs ? 1 : 0) + (showPrices ? 1 : 0) + 2
+
+  paddingLeft =
+    Math.round(Math.max(width * 0.01 * zoom, 2) * pxRatio) *
+    (count < 3 ? 4 : 1)
+  margin = Math.round(
+    Math.max(width * 0.01 * zoom, 4) * pxRatio
+  )
+
+  const contentWidth =
+    width - margin * 2 - logoWidth - paddingLeft * count
+  timeWidth = contentWidth * (0.75 / count)
+  maxWidth = (contentWidth - timeWidth) / (count - 1)
+  amountOffset =
+    width - timeWidth - margin - paddingLeft
+  priceOffset = margin + logoWidth + paddingLeft
+  pairOffset =
+    priceOffset +
+    (showPrices ? paddingLeft + maxWidth : 0)
+}
+
+function getColors(amount: number, side: string, type: TradeType) {
+  const colorsConfig = colors[type]
+
+  for (let i = 0; i < colorsConfig.ranges.length; i++) {
+    if (i === colorsConfig.lastRangeIndex || amount < colorsConfig.ranges[i].to) {
+      let innerStep = GRADIENT_DETAIL - 1
+
+      if (amount < colorsConfig.ranges[i].to) {
+        innerStep = Math.floor(
+          ((amount - colorsConfig.ranges[i].from) /
+            (colorsConfig.ranges[i].to - colorsConfig.ranges[i].from)) *
+            GRADIENT_DETAIL
+        )
+      }
+
+      return colorsConfig.ranges[i][side as 'buy' | 'sell'][innerStep]
+    }
+  }
+
+  return { background: '', color: '', step: 0 }
+}
+
+function clear() {
+  if (!ctx) return
+
+  ctx.resetTransform()
+  const style = getComputedStyle(document.documentElement)
+  const themeBaseColor = splitColorCode(style.getPropertyValue('--theme-base'))
+  const backgroundColor = splitColorCode(
+    style.getPropertyValue('--theme-background-base'),
+    themeBaseColor
+  )
+  themeBaseColor[3] = 0.1
+  ctx.fillStyle = joinRgba(
+    splitColorCode(joinRgba(themeBaseColor), backgroundColor)
+  )
+  ctx.fillRect(0, 0, width, height)
+}
+
+function reset() {
+  if (ctx) {
+    clear()
+  }
+
+  tradesRendering = []
+  tradesHistory = []
+  volumeBySide = { buy: 0, sell: 0 }
+  insignificantVolumeBySide = { buy: 0, sell: 0 }
+  addedVolumeBySide = { buy: 0, sell: 0 }
+  colors = {}
+  sounds = {}
+  offset = 0
+  limit = 0
+  maxCount = 100
+
+  prepareDisplaySettings()
+}
+
+function renderTradesBatch() {
+  if (paused.value) {
+    paused.value = tradesRendering.length
+    rendering = false
+    return
+  }
+
+  let count = Math.ceil(tradesRendering.length * 0.1)
+  let i = 0
+  while (count-- && ++i <= batchSize) {
+    const trade = tradesRendering.shift()
+
+    if (!trade) break
+
+    if (renderTrades) {
+      renderTrade(trade)
+
+      if (offset >= 1) {
+        offset++
+      }
+    }
+
+    tradesHistory.unshift(trade)
+
+    if (tradesHistory.length > maxHistory) {
+      const oldTrade = tradesHistory.pop()
+
+      if (oldTrade && addedVolumeBySide[oldTrade.side as 'buy' | 'sell']) {
+        oldTrade.amount += addedVolumeBySide[oldTrade.side as 'buy' | 'sell']
+        addedVolumeBySide[oldTrade.side as 'buy' | 'sell'] = 0
+      }
+
+      if (oldTrade) {
+        volumeBySide[oldTrade.side as 'buy' | 'sell'] -= oldTrade.amount
+      }
+    }
+  }
+
+  const rate = Math.ceil(tradesRendering.length / 10)
+  batchSize = rate
+
+  rendering = tradesRendering.length > 0
+
+  if (rendering) {
+    return requestAnimationFrame(renderTradesBatch)
+  }
+}
+
+function renderTrade(trade: TradeRendering) {
+  if (!ctx) return
+
+  const tradeHeight =
+    paddingTop + Math.round((trade.step / 2) * pxRatio)
+  const totalHeight = lineHeight + tradeHeight * 2
+
+  ctx.drawImage(ctx.canvas, 0, totalHeight)
+  ctx.fillStyle = trade.background
+  ctx.fillRect(0, drawOffset, width, totalHeight)
+
+  drawHistogram(trade, totalHeight)
+  ctx.fillStyle = trade.color
+
+  drawLogo(
+    trade.exchange,
+    margin,
+    drawOffset + totalHeight / 2 - logoWidth / 2
+  )
+
+  if (showPairs) {
+    drawPair(trade, totalHeight)
+  }
+
+  if (showPrices) {
+    const marketKey = trade.exchange + ':' + trade.pair
+    drawPrice(trade, marketKey, totalHeight)
+  }
+
+  drawAmount(trade, totalHeight, trade.type === TradeType.liquidation)
+
+  if (trade.time) {
+    drawTime(trade, totalHeight)
+  }
+}
+
+function drawTime(trade: TradeRendering, tradeHeight: number) {
+  if (!ctx) return
+
+  ctx.fillText(
+    trade.time || '',
+    width - margin,
+    drawOffset + tradeHeight / 2 + 1,
+    timeWidth
+  )
+}
+
+function drawHistogram(trade: TradeRendering, tradeHeight: number) {
+  if (!ctx) return
+
+  ctx.fillStyle = 'rgba(255,255,255,0.05)'
+  ctx.fillRect(
+    0,
+    0,
+    Math.min(1, trade.count / 100) * width,
+    drawOffset + tradeHeight
+  )
+}
+
+function drawPair(trade: TradeRendering, tradeHeight: number) {
+  if (!ctx) return
+
+  ctx.textAlign = 'left'
+  ctx.fillText(
+    trade.pair,
+    pairOffset,
+    drawOffset + tradeHeight / 2 + 1,
+    maxWidth
+  )
+}
+
+function drawPrice(trade: TradeRendering, marketKey: string, tradeHeight: number) {
+  if (!ctx) return
+
+  ctx.textAlign = 'left'
+  ctx.fillText(
+    formatMarketPrice(trade.price, marketKey),
+    priceOffset,
+    drawOffset + tradeHeight / 2 + 1,
+    maxWidth
+  )
+}
+
+function drawAmount(trade: TradeRendering, tradeHeight: number, liquidation: boolean) {
+  if (!ctx) return
+
+  ctx.textAlign = 'right'
+  const backupFont = ctx.font
+  ctx.font = ctx.font.replace(
+    new RegExp(`^(${fontSize}px)`),
+    'bold $1'
+  )
+  const amount = baseSizingCurrency
+    ? Math.round(trade.amount * 1e6) / 1e6
+    : formatAmount(trade.amount)
+
+  ctx.fillText(
+    amount + (liquidation ? (trade.side === 'buy' ? '🐻' : '🐂') : ''),
+    amountOffset,
+    drawOffset + tradeHeight / 2 + 1,
+    maxWidth
+  )
+
+  ctx.font = backupFont
+}
+
+function renderHistory() {
+  clear()
+
+  if (!renderTrades) {
+    return
+  }
+
+  if (DEBUG) {
+    renderDebug()
+  }
+
+  const offsetRounded = Math.round(offset)
+  const limitRounded = Math.round(limit)
+
+  if (limitRounded - offsetRounded <= 0) {
+    if (ctx) {
+      ctx.fillText('waiting for trades', 8, 8)
+    }
+    return
+  }
+
+  for (let i = limitRounded - 1; i >= offsetRounded; i--) {
+    if (!tradesHistory[i]) {
+      continue
+    }
+
+    renderTrade(tradesHistory[i])
+  }
+}
+
+function renderVolumeBySide() {
+  if (!showHistograms || !ctx) {
+    return
+  }
+
+  const insignificantVolume =
+    insignificantVolumeBySide.buy + insignificantVolumeBySide.sell
+  const volume = volumeBySide.buy + volumeBySide.sell
+  const total = insignificantVolume + volume
+  const buyWidth = width * (volumeBySide.buy / total)
+  const buyWidthFast =
+    width * (insignificantVolumeBySide.buy / total)
+  const sellWidthFast =
+    width * (insignificantVolumeBySide.sell / total)
+  const sellWidth = width * (volumeBySide.sell / total)
+
+  const barHeight = renderTrades ? lineHeight : height
+
+  ctx.fillStyle = buyColorBase
+  ctx.fillRect(0, 0, buyWidth, barHeight)
+  ctx.fillStyle = buyColor100
+  ctx.fillRect(buyWidth, 0, buyWidthFast, barHeight)
+  ctx.fillStyle = sellColor100
+  ctx.fillRect(buyWidth + buyWidthFast, 0, sellWidthFast, barHeight)
+  ctx.fillStyle = sellColorBase
+  ctx.fillRect(width - sellWidth, 0, sellWidth, barHeight)
+}
+
+function renderDebug() {
+  if (!ctx) return
+
+  const quarterWidth = width / 4
+  ctx.fillStyle = buyColorBase
+  ctx.fillRect(0, 0, quarterWidth, lineHeight)
+  ctx.fillStyle = buyColor100
+  ctx.fillRect(quarterWidth, 0, quarterWidth, lineHeight)
+  ctx.fillStyle = sellColor100
+  ctx.fillRect(quarterWidth * 2, 0, quarterWidth, lineHeight)
+  ctx.fillStyle = sellColorBase
+  ctx.fillRect(quarterWidth * 3, 0, quarterWidth, lineHeight)
+
+  for (const type in filters) {
+    if (filters[+type]) {
+      for (const range of colors[type].ranges) {
+        for (let i = 0; i < range.buy.length; i++) {
+          ctx.translate(0, lineHeight)
+          const buy = range.buy[i]
+          ctx.fillStyle = buy.background
+          ctx.fillRect(0, 0, width / 2, lineHeight)
+          ctx.fillStyle = buy.color
+          ctx.textAlign = 'left'
+          ctx.fillText('B:' + buy.color, 0, lineHeight / 2)
+
+          const sell = range.sell[i]
+          ctx.fillStyle = sell.background
+          ctx.fillRect(
+            width / 2,
+            0,
+            width / 2,
+            lineHeight
+          )
+          ctx.fillStyle = sell.color
+          ctx.textAlign = 'left'
+          ctx.fillText(
+            'S: ' + sell.color,
+            width / 2,
+            lineHeight / 2
+          )
+        }
+      }
+    }
+  }
+
+  ctx.resetTransform()
+}
+
+function onBlur() {
+  const rootEl = instance?.proxy?.$el as HTMLElement
+  if (!rootEl) return
+
+  if (blurHandler) {
+    rootEl.removeEventListener('mouseleave', blurHandler)
+  }
+  if (scrollHandler) {
+    rootEl.removeEventListener('wheel', scrollHandler)
+  }
+  scrollHandler = null
+  blurHandler = null
+  paused.value = 0
+  offset = 0
+  limit = maxLines
+  renderHistory()
+  renderTradesBatch()
+}
+
+function onScroll(event: WheelEvent) {
+  event.preventDefault()
+
+  const direction = Math.sign(event.deltaY) * (event.shiftKey ? 2 : 1)
+
+  const newOffset = Math.max(
+    0,
+    Math.min(tradesHistory.length, offset + direction)
+  )
+  const newLimit = Math.min(
+    tradesHistory.length,
+    Math.max(newOffset + maxLines, limit + direction)
+  )
+
+  const redraw = Math.round(newOffset) !== Math.round(offset)
+
+  paused.value = newOffset
+  offset = newOffset
+  limit = newLimit
+
+  if (redraw) {
+    renderHistory()
+  }
+}
+
+function bindScroll() {
+  if (scrollHandler) {
+    onBlur()
+    return
+  }
+
+  paused.value = 1
+
+  const rootEl = instance?.proxy?.$el as HTMLElement
+  if (!rootEl) return
+
+  blurHandler = onBlur
+  scrollHandler = onScroll
+  rootEl.addEventListener('wheel', scrollHandler)
+  rootEl.addEventListener('mouseleave', blurHandler)
+}
+
+function drawLogo(exchange: string, x: number, y: number) {
+  if (!ctx) return
+
+  if (!LOGOS[exchange]) {
+    const logoCanvas = document.createElement('canvas')
+    logoCanvas.width = logoWidth
+    logoCanvas.height = logoWidth
+
+    const image = new Image()
+    image.onload = () => {
+      const logoCtx = logoCanvas.getContext('2d')
+      if (logoCtx) {
+        logoCtx.drawImage(image, 0, 0, logoWidth, logoWidth)
+      }
+    }
+    image.src = logos[exchange]
+
+    LOGOS[exchange] = logoCanvas
+  } else {
+    ctx.drawImage(LOGOS[exchange], x, y, logoWidth, logoWidth)
+  }
+}
+
+async function prepareEverything() {
+  reset()
+
+  prepareTypeFilter()
+  prepareMarkets()
+  prepareColors()
+  await prepareAudio()
+
+  renderHistory()
+}
+
+// Setup store mutation subscription
+_onStoreMutation = store.subscribe((mutation) => {
+  switch (mutation.type) {
+    case 'panes/SET_PANE_MARKETS':
+      if (mutation.payload.id === props.paneId) {
+        clear()
+        prepareMarkets()
+        renderHistory()
+      }
+      break
+    case 'app/EXCHANGE_UPDATED':
+    case props.paneId + '/SET_MAX_ROWS':
+    case props.paneId + '/TOGGLE_PREFERENCE':
+      prepareTypeFilter(true)
+      prepareDisplaySettings()
+      refreshColumnsWidth()
+      renderHistory()
+      break
+    case props.paneId + '/SET_THRESHOLD_AUDIO':
+    case props.paneId + '/SET_AUDIO_VOLUME':
+    case props.paneId + '/SET_AUDIO_PITCH':
+    case props.paneId + '/TOGGLE_MUTED':
+    case 'settings/SET_AUDIO_VOLUME':
+    case 'settings/TOGGLE_AUDIO':
+      prepareAudio()
+      break
+    case props.paneId + '/SET_AUDIO_THRESHOLD':
+      prepareAudio(false)
+      break
+    case 'settings/SET_BACKGROUND_COLOR':
+    case props.paneId + '/SET_THRESHOLD_COLOR':
+    case props.paneId + '/SET_THRESHOLD_AMOUNT':
+    case props.paneId + '/SET_THRESHOLDS_MULTIPLER':
+    case props.paneId + '/TOGGLE_THRESHOLD_MAX':
+    case props.paneId + '/DELETE_THRESHOLD':
+    case props.paneId + '/ADD_THRESHOLD':
+      prepareColors()
+      renderHistory()
+
+      if (
+        mutation.type === props.paneId + '/DELETE_THRESHOLD' ||
+        mutation.type === props.paneId + '/SET_THRESHOLDS_MULTIPLER' ||
+        mutation.type === props.paneId + '/ADD_THRESHOLD'
+      ) {
+        prepareAudio()
+      }
+      break
+  }
+})
+
+onMounted(() => {
+  if (canvas.value) {
+    ctx = canvas.value.getContext('2d', { alpha: false })
+  }
+
+  nextTick(prepareEverything)
+
+  aggregatorService.on('trades', onTrades)
+})
+
+onBeforeUnmount(() => {
+  aggregatorService.off('trades', onTrades)
+
+  if (_onStoreMutation) {
+    _onStoreMutation()
+  }
+
+  if (blurHandler) {
+    onBlur()
+  }
+})
+
+defineExpose({
+  onResize
+})
 </script>
+
 <style lang="scss" scoped>
 canvas {
   width: 100%;

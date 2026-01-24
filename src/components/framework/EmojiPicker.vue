@@ -29,8 +29,9 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+
 const emojisRanges = [
   [128513, 128591],
   [128640, 128704],
@@ -38,55 +39,49 @@ const emojisRanges = [
   [128000, 128359]
 ]
 
-@Component({
-  name: 'EmojiPicker'
+const emit = defineEmits<{
+  emoji: [value: string]
+}>()
+
+const index = ref(0)
+
+const canPrev = computed(() => index.value > 0)
+const canNext = computed(() => index.value < emojisRanges.length - 1)
+
+const emojis = computed(() => {
+  const list: string[] = []
+
+  for (
+    let i = emojisRanges[index.value][0];
+    i < emojisRanges[index.value][1];
+    i++
+  ) {
+    list.push(`&#${i};`)
+  }
+
+  return list
 })
-export default class EmojiPicker extends Vue {
-  index = 0
 
-  get canPrev() {
-    return this.index > 0
+function onClick(event: MouseEvent) {
+  if ((event.target as HTMLElement).tagName === 'LI') {
+    emit('emoji', (event.target as HTMLElement).innerText)
+  }
+}
+
+function prev() {
+  if (index.value === 0) {
+    return
   }
 
-  get canNext() {
-    return this.index < emojisRanges.length - 1
+  index.value--
+}
+
+function next() {
+  if (index.value === emojisRanges.length - 1) {
+    return
   }
 
-  get emojis() {
-    const list = []
-
-    for (
-      let i = emojisRanges[this.index][0];
-      i < emojisRanges[this.index][1];
-      i++
-    ) {
-      list.push(`&#${i};`)
-    }
-
-    return list
-  }
-
-  onClick(event) {
-    if (event.target.tagName === 'LI') {
-      this.$emit('emoji', event.target.innerText)
-    }
-  }
-
-  prev() {
-    if (this.index === 0) {
-      return
-    }
-
-    this.index--
-  }
-
-  next() {
-    if (this.index === emojisRanges.length - 1) {
-      return
-    }
-
-    this.index++
-  }
+  index.value++
 }
 </script>
 

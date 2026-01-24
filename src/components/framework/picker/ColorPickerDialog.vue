@@ -142,7 +142,6 @@ import {
 
 import Dialog from '@/components/framework/Dialog.vue'
 import Slider from '@/components/framework/picker/Slider.vue'
-import dialogMixin from '../../../mixins/dialogMixin'
 import workspacesService from '@/services/workspacesService'
 import {
   clamp,
@@ -156,7 +155,6 @@ import {
 
 export default {
   name: 'ColorPickerDialog',
-  mixins: [dialogMixin],
   components: {
     Dialog,
     Slider
@@ -180,6 +178,7 @@ export default {
     }
   },
   data: () => ({
+    output: null,
     colors: {
       hex: '#ffffffff',
       hsl: { h: 0, s: 0, l: 1, a: 1 },
@@ -241,6 +240,22 @@ export default {
     document.removeEventListener('touchend', this.stopMovingThumb)
   },
   methods: {
+    close(data) {
+      if (typeof data !== 'undefined' && data !== null) {
+        this.output = data
+      }
+
+      const el = this.$el
+      if (el?.parentNode) {
+        try {
+          el.parentNode.removeChild(el)
+        } catch (error) {
+          // ignore
+        }
+      }
+
+      return Promise.resolve()
+    },
     /**
      * @param {string | ColorHsl | ColorHsv | ColorHwb | ColorRgb} propsColor
      * @param {boolean} silent

@@ -2,211 +2,217 @@
   <div class="editor" @contextmenu="onContextMenu"></div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator'
-import { rgbToHex, splitColorCode } from '@/utils/colors'
+<script setup lang="ts">
+import { ref, reactive, watch, onMounted, onBeforeUnmount, nextTick, getCurrentInstance } from 'vue'
 import monaco from './editor'
 import { createComponent, getEventCords, mountComponent } from '@/utils/helpers'
 import {
   IndicatorEditorOptions,
   IndicatorEditorWordWrapOption
 } from '@/store/panesSettings/chart'
-@Component({
-  name: 'Editor',
-  props: {
-    value: {
-      type: String,
-      default: ''
-    },
-    editorOptions: {
-      type: Object,
-      default: {}
-    }
+
+const props = withDefaults(defineProps<{
+  modelValue?: string
+  editorOptions?: IndicatorEditorOptions
+}>(), {
+  modelValue: '',
+  editorOptions: () => ({})
+})
+
+const emit = defineEmits<{
+  blur: [value: string]
+  options: [options: { fontSize: number; wordWrap: IndicatorEditorWordWrapOption }]
+}>()
+
+const instance = getCurrentInstance()
+
+let preventOverride = false
+let editorInstance: ReturnType<typeof monaco.create> | null = null
+let _blurTimeout: number | undefined
+let _beforeUnloadHandler: ((event: Event) => void) | null = null
+let contextMenuComponent: any = null
+
+const currentEditorOptions = reactive({
+  fontSize: window.devicePixelRatio > 1 ? 12 : 14,
+  wordWrap: 'off' as IndicatorEditorWordWrapOption
+})
+
+watch(() => props.editorOptions, (options) => {
+  if (editorInstance && options) {
+    editorInstance.updateOptions(options)
+  }
+}, { deep: true })
+
+watch(() => props.modelValue, (value) => {
+  if (!preventOverride && editorInstance) {
+    editorInstance.setValue(value)
   }
 })
-export default class Editor extends Vue {
-  private value: string
-  private editorOptions: IndicatorEditorOptions
-  private preventOverride: boolean
-  private editorInstance: any
 
-  private _blurTimeout: number
-  private _beforeUnloadHandler: (event: Event) => void
-  private contextMenuComponent: any
-
-  currentEditorOptions = {
-    fontSize: window.devicePixelRatio > 1 ? 12 : 14,
-    wordWrap: 'off' as IndicatorEditorWordWrapOption
-  }
-
-  @Watch('editorOptions', {
-    deep: true
-  })
-  onEditorOptionsChange(options) {
-    this.editorInstance.updateOptions(options)
-  }
-
-  @Watch('value')
-  onValueChange(value) {
-    if (!this.preventOverride) {
-      this.editorInstance.setValue(value)
+onMounted(async () => {
+  for (const key in props.editorOptions) {
+    if (props.editorOptions[key as keyof IndicatorEditorOptions]) {
+      (currentEditorOptions as any)[key] = props.editorOptions[key as keyof IndicatorEditorOptions]
     }
   }
 
-  async mounted() {
-    for (const key in this.editorOptions) {
-      if (this.editorOptions[key]) {
-        this.currentEditorOptions[key] = this.editorOptions[key]
-      }
-    }
+  createEditor()
+})
 
-    this.createEditor()
+onBeforeUnmount(() => {
+  if (_blurTimeout) {
+    onBlur(true)
   }
 
-  beforeDestroy() {
-    if (this._blurTimeout) {
-      this.onBlur(true)
-    }
+  editorInstance?.dispose()
+})
 
-    this.editorInstance.dispose()
+async function resize() {
+  editorInstance?.layout({ width: 0, height: 0 })
+
+  await nextTick()
+  editorInstance?.layout()
+}
+
+async function onBlur(silent = false) {
+  if (_beforeUnloadHandler) {
+    window.removeEventListener('beforeunload', _beforeUnloadHandler)
+    _beforeUnloadHandler = null
   }
 
-  async resize() {
-    this.editorInstance.layout({ width: 0, height: 0 })
+  if (!silent) {
+    preventOverride = true
+    emit('blur', editorInstance?.getValue() || '')
 
-    await this.$nextTick()
-    this.editorInstance.layout()
-  }
+    await nextTick()
 
-  async onBlur(silent = false) {
-    if (this._beforeUnloadHandler) {
-      window.removeEventListener('beforeunload', this._beforeUnloadHandler)
-      this._beforeUnloadHandler = null
-    }
-
-    if (!silent) {
-      this.preventOverride = true
-      this.$emit('blur', this.editorInstance.getValue())
-
-      await this.$nextTick()
-
-      this.preventOverride = false
-    }
-  }
-
-  onFocus() {
-    if (this._beforeUnloadHandler) {
-      return
-    }
-
-    this._beforeUnloadHandler = (event: any) => {
-      event.preventDefault()
-      event.returnValue = ''
-      return false
-    }
-    window.addEventListener('beforeunload', this._beforeUnloadHandler)
-  }
-
-  async createEditor() {
-    this.editorInstance = monaco.create(this.$el as HTMLElement, {
-      value: this.value,
-      language: 'javascript',
-      tabSize: 2,
-      insertSpaces: true,
-      fontSize: this.currentEditorOptions.fontSize,
-      wordWrap: this.currentEditorOptions.wordWrap,
-      scrollbar: {
-        vertical: 'hidden'
-      },
-      overviewRulerLanes: 0,
-      overviewRulerBorder: false,
-      contextmenu: false,
-      theme: 'aggr'
-    })
-
-    this.editorInstance.getDomNode().addEventListener('mousedown', () => {
-      if (this.contextMenuComponent && this.contextMenuComponent.value) {
-        this.contextMenuComponent.value = null
-      }
-    })
-
-    this.editorInstance.onDidBlurEditorText(() => {
-      if (this._blurTimeout) {
-        clearTimeout(this._blurTimeout)
-      }
-
-      this._blurTimeout = setTimeout(() => {
-        this.onBlur()
-        this._blurTimeout = null
-      }, 100) as unknown as number
-    })
-    this.editorInstance.onDidFocusEditorText(() => {
-      if (this._blurTimeout) {
-        clearTimeout(this._blurTimeout)
-        this._blurTimeout = null
-      }
-
-      this.onFocus()
-    })
-  }
-
-  async onContextMenu(event) {
-    if (window.innerWidth < 375) {
-      return
-    }
-
-    event.preventDefault()
-    const { x, y } = getEventCords(event, true)
-
-    const propsData = {
-      value: {
-        top: y,
-        left: x,
-        width: 2,
-        height: 2
-      },
-      editorOptions: this.currentEditorOptions
-    }
-
-    if (this.contextMenuComponent) {
-      this.contextMenuComponent.$off('cmd')
-      for (const key in propsData) {
-        this.contextMenuComponent[key] = propsData[key]
-      }
-    } else {
-      document.body.style.cursor = 'progress'
-      const module = await import(
-        `@/components/framework/editor/EditorContextMenu.vue`
-      )
-      document.body.style.cursor = ''
-
-      this.contextMenuComponent = createComponent(module.default, propsData)
-      mountComponent(this.contextMenuComponent)
-    }
-
-    this.contextMenuComponent.$on('cmd', args => {
-      if (this[args[0]] instanceof Function) {
-        this[args[0]](...args.slice(1))
-      } else {
-        throw new Error(`[editor] ContextMenu-->${args[0]} is not a function`)
-      }
-    })
-  }
-
-  zoom(value, override?: boolean) {
-    if (override) {
-      this.currentEditorOptions.fontSize = value
-    } else {
-      this.currentEditorOptions.fontSize += value
-    }
-    this.$emit('options', this.currentEditorOptions)
-  }
-
-  toggleWordWrap(value) {
-    this.currentEditorOptions.wordWrap = !value ? 'on' : 'off'
-    this.$emit('options', this.currentEditorOptions)
+    preventOverride = false
   }
 }
+
+function onFocus() {
+  if (_beforeUnloadHandler) {
+    return
+  }
+
+  _beforeUnloadHandler = (event: BeforeUnloadEvent) => {
+    event.preventDefault()
+    event.returnValue = ''
+    return false
+  }
+  window.addEventListener('beforeunload', _beforeUnloadHandler)
+}
+
+async function createEditor() {
+  const el = instance?.proxy?.$el as HTMLElement
+  if (!el) return
+
+  editorInstance = monaco.create(el, {
+    value: props.modelValue,
+    language: 'javascript',
+    tabSize: 2,
+    insertSpaces: true,
+    fontSize: currentEditorOptions.fontSize,
+    wordWrap: currentEditorOptions.wordWrap,
+    scrollbar: {
+      vertical: 'hidden'
+    },
+    overviewRulerLanes: 0,
+    overviewRulerBorder: false,
+    contextmenu: false,
+    theme: 'aggr'
+  })
+
+  editorInstance.getDomNode()?.addEventListener('mousedown', () => {
+    if (contextMenuComponent && contextMenuComponent.value) {
+      contextMenuComponent.value = null
+    }
+  })
+
+  editorInstance.onDidBlurEditorText(() => {
+    if (_blurTimeout) {
+      clearTimeout(_blurTimeout)
+    }
+
+    _blurTimeout = setTimeout(() => {
+      onBlur()
+      _blurTimeout = undefined
+    }, 100) as unknown as number
+  })
+
+  editorInstance.onDidFocusEditorText(() => {
+    if (_blurTimeout) {
+      clearTimeout(_blurTimeout)
+      _blurTimeout = undefined
+    }
+
+    onFocus()
+  })
+}
+
+async function onContextMenu(event: MouseEvent) {
+  if (window.innerWidth < 375) {
+    return
+  }
+
+  event.preventDefault()
+  const { x, y } = getEventCords(event, true)
+
+  const propsData = {
+    value: {
+      top: y,
+      left: x,
+      width: 2,
+      height: 2
+    },
+    editorOptions: currentEditorOptions
+  }
+
+  if (contextMenuComponent) {
+    contextMenuComponent.$off('cmd')
+    for (const key in propsData) {
+      contextMenuComponent[key] = (propsData as any)[key]
+    }
+  } else {
+    document.body.style.cursor = 'progress'
+    const module = await import(
+      `@/components/framework/editor/EditorContextMenu.vue`
+    )
+    document.body.style.cursor = ''
+
+    contextMenuComponent = createComponent(module.default, propsData)
+    mountComponent(contextMenuComponent)
+  }
+
+  contextMenuComponent.$on('cmd', (args: string[]) => {
+    const methodName = args[0]
+    if (methodName === 'zoom') {
+      zoom(args[1] as unknown as number, args[2] as unknown as boolean)
+    } else if (methodName === 'toggleWordWrap') {
+      toggleWordWrap(args[1] as unknown as boolean)
+    }
+  })
+}
+
+function zoom(value: number, override?: boolean) {
+  if (override) {
+    currentEditorOptions.fontSize = value
+  } else {
+    currentEditorOptions.fontSize += value
+  }
+  emit('options', { ...currentEditorOptions })
+}
+
+function toggleWordWrap(value: boolean) {
+  currentEditorOptions.wordWrap = !value ? 'on' : 'off'
+  emit('options', { ...currentEditorOptions })
+}
+
+defineExpose({
+  resize,
+  zoom,
+  toggleWordWrap
+})
 </script>
 
 <style lang="scss">

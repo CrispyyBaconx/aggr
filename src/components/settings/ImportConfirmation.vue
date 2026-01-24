@@ -5,7 +5,7 @@
     </template>
     <div class="form-group mb16">
       <label>Name</label>
-      <input type="text" class="form-control w-100" v-model="workspace.name" />
+      <input type="text" class="form-control w-100" v-model="workspaceName" />
     </div>
     <div class="d-flex flex-middle">
       <i class="icon-info mr16"></i>
@@ -48,60 +48,67 @@
       <a href="javascript:void(0);" class="btn -text mr8" @click="close(false)"
         >Cancel</a
       >
-      <button class="btn -large -green" @click="close(workspace)">
+      <button class="btn -large -green" @click="submitWorkspace">
         IMPORT
       </button>
     </footer>
   </Dialog>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, computed } from 'vue'
 import Dialog from '@/components/framework/Dialog.vue'
-import DialogMixin from '@/mixins/dialogMixin'
+import { useDialog } from '@/composables/useDialog'
 import { Workspace } from '@/types/types'
 import { ago } from '@/utils/helpers'
 
-export default {
-  props: {
-    workspace: {
-      required: true,
-      type: Object as () => Workspace
-    }
-  },
-  mixins: [DialogMixin],
-  computed: {
-    createdAt() {
-      return ago(this.workspace.createdAt)
-    },
-    updatedAt() {
-      return ago(this.workspace.updatedAt)
-    },
-    panes() {
-      if (this.workspace.states.panes && this.workspace.states.panes.panes) {
-        return Object.keys(this.workspace.states.panes.panes).map(id => ({
-          id,
-          name: this.workspace.states.panes.panes[id].name,
-          type: this.workspace.states.panes.panes[id].type,
-          markets: this.workspace.states.panes.panes[id].markets
-        }))
-      }
+const props = defineProps<{
+  workspace: Workspace
+}>()
 
-      return []
-    },
-    markets() {
-      return this.panes.reduce((markets, pane) => {
-        for (const market of pane.markets) {
-          if (markets.indexOf(market) === -1) {
-            markets.push(market)
-          }
-        }
+const { close } = useDialog()
 
-        return markets
-      }, [])
-    }
-  },
-  components: {
-    Dialog
+const workspaceName = ref(props.workspace.name)
+
+const createdAt = computed(() => {
+  return ago(props.workspace.createdAt)
+})
+
+const updatedAt = computed(() => {
+  return ago(props.workspace.updatedAt)
+})
+
+const panes = computed(() => {
+  if (props.workspace.states.panes && props.workspace.states.panes.panes) {
+    return Object.keys(props.workspace.states.panes.panes).map(id => ({
+      id,
+      name: props.workspace.states.panes.panes[id].name,
+      type: props.workspace.states.panes.panes[id].type,
+      markets: props.workspace.states.panes.panes[id].markets
+    }))
   }
+
+  return []
+})
+
+const markets = computed(() => {
+  return panes.value.reduce((marketsList: string[], pane) => {
+    for (const market of pane.markets) {
+      if (marketsList.indexOf(market) === -1) {
+        marketsList.push(market)
+      }
+    }
+
+    return marketsList
+  }, [])
+})
+
+function submitWorkspace() {
+  close({
+    ...props.workspace,
+    name: workspaceName.value
+  })
 }
+
+defineExpose({ close })
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <Dialog ref="dialog" @clickOutside="close" size="small" :resizable="false">
+  <Dialog ref="dialogRef" @clickOutside="close" size="small" :resizable="false">
     <template v-slot:header>
       <div class="dialog__title">{{ title }}</div>
     </template>
@@ -21,7 +21,7 @@
         class="mr8"
         :class="cancelClass"
         @click="close(false)"
-        @mousedown.native.prevent
+        @mousedown.prevent
         v-if="cancel"
       >
         <i v-if="cancelIcon" class="mr4" :class="cancelIcon"></i> {{ cancel }}
@@ -35,7 +35,7 @@
         :class="okClass"
         v-autofocus
         @click="close(true)"
-        @mousedown.native.prevent
+        @mousedown.prevent
       >
         <i v-if="okIcon" class="mr4" :class="okIcon"></i> {{ ok }}
       </Btn>
@@ -43,133 +43,109 @@
   </Dialog>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import Btn from '@/components/framework/Btn.vue'
-import DialogMixin from '@/mixins/dialogMixin'
+import Dialog from '@/components/framework/Dialog.vue'
+import { useDialog } from '@/composables/useDialog'
 
-export default {
-  components: {
-    Btn
-  },
-  props: {
-    title: {
-      type: String,
-      default: 'Confirmation'
-    },
-    message: {
-      type: String,
-      required: true
-    },
-    ok: {
-      type: String,
-      default: 'OK'
-    },
-    okIcon: {
-      type: String,
-      default: 'icon-check'
-    },
-    okClass: {
-      type: String,
-      default: '-green'
-    },
-    cancel: {
-      type: String,
-      default: 'Cancel'
-    },
-    cancelIcon: {
-      type: String,
-      default: null
-    },
-    cancelClass: {
-      type: String,
-      default: '-text'
-    },
-    html: {
-      type: Boolean,
-      default: false
-    },
-    actions: {
-      type: Array,
-      default: () => []
-    },
-    requireScroll: {
-      type: Boolean,
-      default: false
-    }
-  },
-  data() {
-    return {
-      isSubmitEnabled: !this.requireScroll
-    }
-  },
-  computed: {
-    showFooter() {
-      return this.ok || this.cancel || this.actions.length
-    }
-  },
-  mixins: [DialogMixin],
-  mounted() {
-    document.querySelector('.app__wrapper').classList.add('-blur')
+const props = withDefaults(defineProps<{
+  title?: string
+  message: string
+  ok?: string
+  okIcon?: string
+  okClass?: string
+  cancel?: string
+  cancelIcon?: string | null
+  cancelClass?: string
+  html?: boolean
+  actions?: Array<{ label: string; callback?: (event: Event) => unknown }>
+  requireScroll?: boolean
+}>(), {
+  title: 'Confirmation',
+  ok: 'OK',
+  okIcon: 'icon-check',
+  okClass: '-green',
+  cancel: 'Cancel',
+  cancelIcon: null,
+  cancelClass: '-text',
+  html: false,
+  actions: () => [],
+  requireScroll: false
+})
 
-    if (this.requireScroll) {
-      this.bindScroll()
-    }
-  },
-  beforeDestroy() {
-    document.querySelector('.app__wrapper').classList.remove('-blur')
+const { output, close } = useDialog()
 
-    this.unbindScroll()
-  },
-  methods: {
-    async bindScroll() {
-      await this.$nextTick()
-      const bodyElement = this.$refs.dialog.$refs.body
+const dialogRef = ref<InstanceType<typeof Dialog> | null>(null)
+const isSubmitEnabled = ref(!props.requireScroll)
+let scrollHandler: (() => void) | null = null
 
-      if (bodyElement.clientHeight === bodyElement.scrollHeight) {
-        this.isSubmitEnabled = true
-        return
-      }
+const showFooter = computed(() => {
+  return props.ok || props.cancel || props.actions.length
+})
 
-      if (bodyElement) {
-        this.scrollHandler = this.handleScroll.bind(this)
+onMounted(() => {
+  document.querySelector('.app__wrapper')?.classList.add('-blur')
 
-        bodyElement.addEventListener('scroll', this.handleScroll)
-      }
-    },
-    handleScroll() {
-      const bodyElement = this.$refs.dialog.$refs.body
-      this.isSubmitEnabled =
-        bodyElement.scrollTop + bodyElement.clientHeight >=
-        bodyElement.scrollHeight - 1
+  if (props.requireScroll) {
+    bindScroll()
+  }
+})
 
-      if (this.isSubmitEnabled) {
-        this.unbindScroll()
-      }
-    },
-    unbindScroll() {
-      if (!this.scrollHandler) {
-        return
-      }
+onBeforeUnmount(() => {
+  document.querySelector('.app__wrapper')?.classList.remove('-blur')
+  unbindScroll()
+})
 
-      const bodyElement = this.$refs.dialog.$refs.body
+async function bindScroll() {
+  await nextTick()
+  const bodyElement = dialogRef.value?.$refs?.body as HTMLElement | undefined
 
-      if (bodyElement) {
-        bodyElement.removeEventListener('scroll', this.handleScroll)
-        this.handleScroll = null
-      } else {
-        this.scrollHandler = null
-      }
-    },
-    onClickAction(event, action) {
-      if (action.callback) {
-        const output = action.callback(event)
-        if (typeof output !== 'undefined') {
-          this.close(output)
-        }
-      }
+  if (!bodyElement) return
+
+  if (bodyElement.clientHeight === bodyElement.scrollHeight) {
+    isSubmitEnabled.value = true
+    return
+  }
+
+  scrollHandler = handleScroll
+  bodyElement.addEventListener('scroll', handleScroll)
+}
+
+function handleScroll() {
+  const bodyElement = dialogRef.value?.$refs?.body as HTMLElement | undefined
+  if (!bodyElement) return
+
+  isSubmitEnabled.value =
+    bodyElement.scrollTop + bodyElement.clientHeight >=
+    bodyElement.scrollHeight - 1
+
+  if (isSubmitEnabled.value) {
+    unbindScroll()
+  }
+}
+
+function unbindScroll() {
+  if (!scrollHandler) return
+
+  const bodyElement = dialogRef.value?.$refs?.body as HTMLElement | undefined
+
+  if (bodyElement) {
+    bodyElement.removeEventListener('scroll', handleScroll)
+  }
+  scrollHandler = null
+}
+
+function onClickAction(event: Event, action: { label: string; callback?: (event: Event) => unknown }) {
+  if (action.callback) {
+    const result = action.callback(event)
+    if (typeof result !== 'undefined') {
+      close(result)
     }
   }
 }
+
+defineExpose({ output, close })
 </script>
 <style lang="scss">
 .app__wrapper.-blur {

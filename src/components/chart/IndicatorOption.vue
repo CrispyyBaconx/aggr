@@ -20,198 +20,179 @@
     </component>
   </div>
 </template>
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator'
+
+<script setup lang="ts">
+import { ref, computed, watch, defineAsyncComponent } from 'vue'
+import { useStore } from 'vuex'
 import {
   getIndicatorOptionType,
   getDefaultIndicatorOptionValue
 } from './options'
 import { ALLOWED_OPTION_TYPES } from './buildUtils'
 
-@Component({
-  name: 'IndicatorOptions',
-  components: {
-    IndicatorOptionNumber: () =>
-      import('@/components/chart/options/IndicatorOptionNumber.vue'),
-    IndicatorOptionText: () =>
-      import('@/components/chart/options/IndicatorOptionText.vue'),
-    IndicatorOptionList: () =>
-      import('@/components/chart/options/IndicatorOptionList.vue'),
-    IndicatorOptionLineStyle: () =>
-      import('@/components/chart/options/IndicatorOptionLineStyle.vue'),
-    IndicatorOptionLineType: () =>
-      import('@/components/chart/options/IndicatorOptionLineType.vue'),
-    IndicatorOptionExchange: () =>
-      import('@/components/chart/options/IndicatorOptionExchange.vue'),
-    IndicatorOptionRange: () =>
-      import('@/components/chart/options/IndicatorOptionRange.vue'),
-    IndicatorOptionCheckbox: () =>
-      import('@/components/chart/options/IndicatorOptionCheckbox.vue'),
-    IndicatorOptionColor: () =>
-      import('@/components/chart/options/IndicatorOptionColor.vue')
-  },
-  props: {
-    indicatorId: {
-      type: String,
-      required: true
-    },
-    paneId: {
-      type: String,
-      required: true
-    },
-    plotTypes: {
-      required: true
-    },
-    name: {
-      type: String,
-      required: true
-    },
-    ensure: {
-      type: Boolean,
-      default: false
-    }
+const IndicatorOptionNumber = defineAsyncComponent(() =>
+  import('@/components/chart/options/IndicatorOptionNumber.vue')
+)
+const IndicatorOptionText = defineAsyncComponent(() =>
+  import('@/components/chart/options/IndicatorOptionText.vue')
+)
+const IndicatorOptionList = defineAsyncComponent(() =>
+  import('@/components/chart/options/IndicatorOptionList.vue')
+)
+const IndicatorOptionLineStyle = defineAsyncComponent(() =>
+  import('@/components/chart/options/IndicatorOptionLineStyle.vue')
+)
+const IndicatorOptionLineType = defineAsyncComponent(() =>
+  import('@/components/chart/options/IndicatorOptionLineType.vue')
+)
+const IndicatorOptionExchange = defineAsyncComponent(() =>
+  import('@/components/chart/options/IndicatorOptionExchange.vue')
+)
+const IndicatorOptionRange = defineAsyncComponent(() =>
+  import('@/components/chart/options/IndicatorOptionRange.vue')
+)
+const IndicatorOptionCheckbox = defineAsyncComponent(() =>
+  import('@/components/chart/options/IndicatorOptionCheckbox.vue')
+)
+const IndicatorOptionColor = defineAsyncComponent(() =>
+  import('@/components/chart/options/IndicatorOptionColor.vue')
+)
+
+const props = defineProps<{
+  indicatorId: string
+  paneId: string
+  plotTypes: string[]
+  name: string
+  ensure?: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'change', payload: { key: string; value: unknown }): void
+}>()
+
+const store = useStore()
+
+const type = ref<string | null>(null)
+const value = ref<unknown>(null)
+
+const currentIndicatorValue = computed(() =>
+  store.state[props.paneId].indicators[props.indicatorId].options[props.name]
+)
+
+const definition = computed(() =>
+  store.state[props.paneId].indicators[props.indicatorId].optionsDefinitions[props.name] || {}
+)
+
+const label = computed(() => definition.value.label || props.name)
+
+const componentName = computed(() => {
+  if (!type.value) {
+    return 'IndicatorOptionText'
+  }
+
+  if (props.name === 'lineType') {
+    return 'IndicatorOptionLineType'
+  }
+
+  if (props.name === 'lineStyle') {
+    return 'IndicatorOptionLineStyle'
+  }
+
+  return `IndicatorOption${type.value[0].toUpperCase()}${type.value.toLowerCase().slice(1)}`
+})
+
+watch(() => definition.value, () => {
+  type.value = getType()
+})
+
+watch(() => currentIndicatorValue.value, () => {
+  const newValue = getValue()
+
+  if (
+    +value.value !== +newValue ||
+    (isNaN(+(value.value as number)) && newValue !== value.value)
+  ) {
+    value.value = newValue
   }
 })
-export default class IndicatorOption extends Vue {
-  private indicatorId: string
-  private paneId: string
-  private plotTypes: string[]
-  private name: string
-  private ensure: boolean
 
-  type: string = null
-  value = null
+// created equivalent
+value.value = getValue()
+type.value = getType()
 
-  get currentIndicatorValue() {
-    return this.$store.state[this.paneId].indicators[this.indicatorId].options[
-      this.name
-    ]
-  }
+if (
+  props.ensure &&
+  typeof currentIndicatorValue.value === 'undefined' &&
+  value.value !== 'null'
+) {
+  setValue(value.value)
+}
 
-  get definition() {
-    return (
-      this.$store.state[this.paneId].indicators[this.indicatorId]
-        .optionsDefinitions[this.name] || {}
-    )
-  }
-
-  get label() {
-    return this.definition.label || this.name
-  }
-
-  get componentName() {
-    if (!this.type) {
-      return 'IndicatorOptionText'
-    }
-
-    if (this.name === 'lineType') {
-      return 'IndicatorOptionLineType'
-    }
-
-    if (this.name === 'lineStyle') {
-      return 'IndicatorOptionLineStyle'
-    }
-
-    return `IndicatorOption${this.type[0].toUpperCase()}${this.type
-      .toLowerCase()
-      .slice(1)}`
-  }
-
-  @Watch('definition')
-  onDefinitionChange() {
-    this.type = this.getType()
-  }
-
-  @Watch('currentIndicatorValue')
-  onIndicatorValueChange() {
-    const value = this.getValue()
-
-    if (
-      +this.value !== +value ||
-      (isNaN(+this.value) && value !== this.value)
-    ) {
-      this.value = value
-    }
-  }
-
-  created() {
-    this.value = this.getValue()
-    this.type = this.getType()
-
-    if (
-      this.ensure &&
-      typeof this.currentIndicatorValue === 'undefined' &&
-      this.value !== 'null'
-    ) {
-      this.setValue(this.value)
-    }
-  }
-
-  getType() {
-    const type =
-      this.definition.type ||
-      getIndicatorOptionType(
-        this.name,
-        this.plotTypes,
-        true,
-        this.currentIndicatorValue
-      )
-
-    if (!Object.values(ALLOWED_OPTION_TYPES).includes(type)) {
-      return 'number'
-    }
-
-    return type
-  }
-
-  getValue() {
-    let preferedValue
-
-    if (typeof this.currentIndicatorValue !== 'undefined') {
-      preferedValue = this.currentIndicatorValue
-    }
-
-    if (
-      typeof preferedValue === 'undefined' &&
-      typeof this.definition.default !== 'undefined'
-    ) {
-      return this.definition.default
-    }
-
-    const defaultValue = getDefaultIndicatorOptionValue(
-      this.name,
-      this.plotTypes
+function getType() {
+  const optionType =
+    definition.value.type ||
+    getIndicatorOptionType(
+      props.name,
+      props.plotTypes,
+      true,
+      currentIndicatorValue.value
     )
 
-    if (typeof preferedValue !== 'undefined') {
-      if (
-        preferedValue &&
-        typeof preferedValue === 'object' &&
-        defaultValue &&
-        typeof defaultValue === 'object'
-      ) {
-        return Object.assign({}, defaultValue, preferedValue)
-      } else {
-        return preferedValue
-      }
-    } else if (typeof defaultValue !== 'undefined') {
-      return defaultValue
+  if (!Object.values(ALLOWED_OPTION_TYPES).includes(optionType)) {
+    return 'number'
+  }
+
+  return optionType
+}
+
+function getValue() {
+  let preferedValue: unknown
+
+  if (typeof currentIndicatorValue.value !== 'undefined') {
+    preferedValue = currentIndicatorValue.value
+  }
+
+  if (
+    typeof preferedValue === 'undefined' &&
+    typeof definition.value.default !== 'undefined'
+  ) {
+    return definition.value.default
+  }
+
+  const defaultValue = getDefaultIndicatorOptionValue(
+    props.name,
+    props.plotTypes
+  )
+
+  if (typeof preferedValue !== 'undefined') {
+    if (
+      preferedValue &&
+      typeof preferedValue === 'object' &&
+      defaultValue &&
+      typeof defaultValue === 'object'
+    ) {
+      return Object.assign({}, defaultValue, preferedValue)
+    } else {
+      return preferedValue
     }
-
-    return null
+  } else if (typeof defaultValue !== 'undefined') {
+    return defaultValue
   }
 
-  setValue(value) {
-    this.$emit('change', {
-      key: this.name,
-      value
-    })
+  return null
+}
 
-    this.value = value
-    this.type = this.getType()
-  }
+function setValue(newValue: unknown) {
+  emit('change', {
+    key: props.name,
+    value: newValue
+  })
+
+  value.value = newValue
+  type.value = getType()
 }
 </script>
+
 <style lang="scss">
 .indicator-option {
   width: 100%;

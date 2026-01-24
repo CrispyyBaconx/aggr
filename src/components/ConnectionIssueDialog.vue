@@ -115,7 +115,7 @@
             <p class="mt0 text-center">
               <code>{{ testUrl }}</code>
             </p>
-            <loader ref="loader" />
+            <loader ref="loaderRef" />
             <p class="mb0 text-center text-muted">Please wait</p>
           </div>
         </transition-height>
@@ -145,235 +145,228 @@
   </transition>
 </template>
 
-<script>
-import DialogMixin from '@/mixins/dialogMixin'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useStore } from 'vuex'
+import Dialog from '@/components/framework/Dialog.vue'
 import TransitionHeight from '@/components/framework/TransitionHeight.vue'
 import Loader from '@/components/framework/Loader.vue'
+import { useDialog } from '@/composables/useDialog'
 import aggregatorService from '@/services/aggregatorService'
 import notificationService from '@/services/notificationService'
 
-export default {
-  name: 'ConnectionIssueDialog',
-  components: {
-    TransitionHeight,
-    Loader
-  },
-  props: {
-    exchangeId: {
-      type: String
-    },
-    restrictedUrl: {
-      type: String
-    }
-  },
-  mixins: [DialogMixin],
-  data() {
-    return {
-      data: null,
-      proxyUrl: '',
-      isTesting: false,
-      selectedAction: null,
-      isBack: false,
-      stepIndex: 0,
-      dialogOpened: false,
-      sections: []
-    }
-  },
-  computed: {
-    currentWsProxyUrl() {
-      return this.$store.state.settings.wsProxyUrl
-    },
-    valid() {
-      return /wss?:\/\/.{3,}/.test(this.proxyUrl)
-    },
-    computedUrl() {
-      const [base, params] = this.proxyUrl.split('?')
+const props = defineProps<{
+  exchangeId?: string
+  restrictedUrl?: string
+}>()
 
-      const url = base.replace(/([^/])$/, '$1/')
-      if (params && params.length) {
-        return url + '?' + params + '&url='
-      }
+const store = useStore()
+const { output, close } = useDialog()
 
-      return url + '?url='
-    },
-    testUrl() {
-      return this.computedUrl + this.restrictedUrl
-    },
-    contextId() {
-      return this.exchangeId + this.restrictedUrl
-    }
-  },
-  watch: {
-    stepIndex(currentStep, previousStep) {
-      this.isBack = currentStep < previousStep
-      if (currentStep === 2) {
-        this.test()
-      }
-    }
-  },
-  created() {
-    if (this.currentWsProxyUrl) {
-      this.proxyUrl = this.currentWsProxyUrl.replace(/(&|\?)url=/g, '')
-    }
-    aggregatorService.on('connection', this.onSubscribed)
-  },
-  beforeDestroy() {
-    aggregatorService.off('connection', this.onSubscribed)
-  },
-  mounted() {
-    if (!this.data) {
-      this.show()
-    }
-  },
-  methods: {
-    onSubscribed(event) {
-      if (event.url === this.restrictedUrl || event.url === this.testUrl) {
-        this.hide()
-      }
-    },
-    show() {
-      this.dialogOpened = true
-    },
-    hide(data = null) {
-      if (this.isTesting) {
-        return
-      }
+const loaderRef = ref<InstanceType<typeof Loader> | null>(null)
+const data = ref<string | null>(null)
+const proxyUrl = ref('')
+const isTesting = ref(false)
+const selectedAction = ref<string | null>(null)
+const isBack = ref(false)
+const stepIndex = ref(0)
+const dialogOpened = ref(false)
 
-      this.data = data
-      this.dialogOpened = false
-    },
-    onShow() {
-      //
-    },
-    onHide() {
-      this.close(this.data)
-    },
-    submit() {
-      if (!this.valid) {
-        return
-      }
+const currentWsProxyUrl = computed(() => {
+  return store.state.settings.wsProxyUrl
+})
 
-      this.hide()
-    },
-    dismiss() {
-      this.hide()
-      notificationService.dismiss(this.contextId, 86400000)
-    },
-    next() {
-      if (this.stepIndex === 1 && !this.valid) {
-        this.$refs.input.focus()
-        return
-      }
+const valid = computed(() => {
+  return /wss?:\/\/.{3,}/.test(proxyUrl.value)
+})
 
-      this.stepIndex = Math.min(2, this.stepIndex + 1)
-    },
-    prev() {
-      this.stepIndex = Math.max(0, this.stepIndex - 1)
-    },
-    async disableExchange() {
-      this.selectedAction = 'disable'
-      try {
-        await this.$store.dispatch('exchanges/toggleExchange', this.exchangeId)
-        this.hide()
-      } catch (error) {
-        this.$store.dispatch('app/showNotice', {
-          title: error.message
-        })
-      } finally {
-        this.selectedAction = null
-      }
-    },
-    async refreshExchange() {
-      this.selectedAction = 'disable'
-      try {
-        await this.$store.dispatch('exchanges/disconnect', this.exchangeId)
-        await this.$store.dispatch('exchanges/connect', this.exchangeId)
-        this.hide()
-      } catch (error) {
-        this.$store.dispatch('app/showNotice', {
-          title: error.message
-        })
-      } finally {
-        this.selectedAction = null
-      }
-    },
-    validate() {
-      if (!this.valid) {
-        return false
-      }
+const computedUrl = computed(() => {
+  const [base, params] = proxyUrl.value.split('?')
 
-      return true
-    },
-    test() {
-      if (!this.proxyUrl) {
-        return false
-      }
+  const url = base.replace(/([^/])$/, '$1/')
+  if (params && params.length) {
+    return url + '?' + params + '&url='
+  }
 
-      this.isTesting = true
+  return url + '?url='
+})
 
-      const url = this.testUrl
+const testUrl = computed(() => {
+  return computedUrl.value + props.restrictedUrl
+})
 
-      return new Promise(resolve => {
-        const ws = new WebSocket(url)
-        let openTimeout
-        // eslint-disable-next-line prefer-const
-        let openHandler
-        // eslint-disable-next-line prefer-const
-        let errorHandler
+const contextId = computed(() => {
+  return props.exchangeId + props.restrictedUrl
+})
 
-        const postHandler = () => {
-          ws.removeEventListener('open', openHandler)
-          ws.removeEventListener('error', errorHandler)
-          ws.removeEventListener('close', errorHandler)
+watch(stepIndex, (currentStep, previousStep) => {
+  isBack.value = currentStep < previousStep
+  if (currentStep === 2) {
+    test()
+  }
+})
 
-          if (ws.readyState < 2) {
-            ws.close()
-          }
-        }
-
-        openHandler = () => {
-          openTimeout = setTimeout(() => {
-            openTimeout = null
-            resolve(true)
-            postHandler()
-          }, 3000)
-        }
-
-        errorHandler = () => {
-          if (openTimeout) {
-            clearTimeout(openTimeout)
-          }
-
-          setTimeout(() => {
-            resolve(false)
-            postHandler()
-          }, 1000)
-        }
-
-        ws.addEventListener('open', openHandler)
-        ws.addEventListener('error', errorHandler)
-        ws.addEventListener('close', errorHandler)
-      }).then(value => {
-        this.isTesting = false
-
-        if (value) {
-          this.hide(this.computedUrl)
-        } else {
-          this.$store.dispatch('app/showNotice', {
-            title: `Failed to open ws connection with ${url}`,
-            type: 'error'
-          })
-          this.prev()
-        }
-
-        return value
-      })
-    },
-    deleteWsProxyUrl() {
-      this.hide('')
-    }
+function onSubscribed(event: { url: string }) {
+  if (event.url === props.restrictedUrl || event.url === testUrl.value) {
+    hide()
   }
 }
+
+onMounted(() => {
+  if (currentWsProxyUrl.value) {
+    proxyUrl.value = currentWsProxyUrl.value.replace(/(&|\?)url=/g, '')
+  }
+  aggregatorService.on('connection', onSubscribed)
+
+  if (!data.value) {
+    show()
+  }
+})
+
+onBeforeUnmount(() => {
+  aggregatorService.off('connection', onSubscribed)
+})
+
+function show() {
+  dialogOpened.value = true
+}
+
+function hide(newData: string | null = null) {
+  if (isTesting.value) {
+    return
+  }
+
+  data.value = newData
+  dialogOpened.value = false
+}
+
+function onShow() {
+  //
+}
+
+function onHide() {
+  close(data.value)
+}
+
+function submit() {
+  if (!valid.value) {
+    return
+  }
+
+  hide()
+}
+
+function dismiss() {
+  hide()
+  notificationService.dismiss(contextId.value, 86400000)
+}
+
+function next() {
+  stepIndex.value = Math.min(2, stepIndex.value + 1)
+}
+
+function prev() {
+  stepIndex.value = Math.max(0, stepIndex.value - 1)
+}
+
+async function disableExchange() {
+  selectedAction.value = 'disable'
+  try {
+    await store.dispatch('exchanges/toggleExchange', props.exchangeId)
+    hide()
+  } catch (error: any) {
+    store.dispatch('app/showNotice', {
+      title: error.message
+    })
+  } finally {
+    selectedAction.value = null
+  }
+}
+
+async function refreshExchange() {
+  selectedAction.value = 'disable'
+  try {
+    await store.dispatch('exchanges/disconnect', props.exchangeId)
+    await store.dispatch('exchanges/connect', props.exchangeId)
+    hide()
+  } catch (error: any) {
+    store.dispatch('app/showNotice', {
+      title: error.message
+    })
+  } finally {
+    selectedAction.value = null
+  }
+}
+
+function test() {
+  if (!proxyUrl.value) {
+    return false
+  }
+
+  isTesting.value = true
+
+  const url = testUrl.value
+
+  return new Promise<boolean>(resolve => {
+    const ws = new WebSocket(url)
+    let openTimeout: ReturnType<typeof setTimeout> | null = null
+    let openHandler: () => void
+    let errorHandler: () => void
+
+    const postHandler = () => {
+      ws.removeEventListener('open', openHandler)
+      ws.removeEventListener('error', errorHandler)
+      ws.removeEventListener('close', errorHandler)
+
+      if (ws.readyState < 2) {
+        ws.close()
+      }
+    }
+
+    openHandler = () => {
+      openTimeout = setTimeout(() => {
+        openTimeout = null
+        resolve(true)
+        postHandler()
+      }, 3000)
+    }
+
+    errorHandler = () => {
+      if (openTimeout) {
+        clearTimeout(openTimeout)
+      }
+
+      setTimeout(() => {
+        resolve(false)
+        postHandler()
+      }, 1000)
+    }
+
+    ws.addEventListener('open', openHandler)
+    ws.addEventListener('error', errorHandler)
+    ws.addEventListener('close', errorHandler)
+  }).then(value => {
+    isTesting.value = false
+
+    if (value) {
+      hide(computedUrl.value)
+    } else {
+      store.dispatch('app/showNotice', {
+        title: `Failed to open ws connection with ${url}`,
+        type: 'error'
+      })
+      prev()
+    }
+
+    return value
+  })
+}
+
+function deleteWsProxyUrl() {
+  hide('')
+}
+
+defineExpose({ output, close })
 </script>
 <style lang="scss">
 .connection-issue-dialog {

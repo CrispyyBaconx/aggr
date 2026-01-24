@@ -37,7 +37,7 @@
             </p>
           </div>
           <div
-            v-else-if="output"
+            v-else-if="outputUrl"
             key="completed"
             class="publish-resource__confirm"
           >
@@ -45,12 +45,12 @@
             <p class="mb0">
               You can follow the review process on the
               <i class="icon-github mr8"></i
-              ><a :href="output" target="_blank"
+              ><a :href="outputUrl" target="_blank"
                 >Github&nbsp;pull&nbsp;request</a
               >
             </p>
             <Btn
-              :href="output"
+              :href="outputUrl"
               target="_blank"
               class="mt16 -theme -large mlauto mtauto"
             >
@@ -87,86 +87,84 @@
   </form>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import TransitionHeight from '@/components/framework/TransitionHeight.vue'
 import Btn from '@/components/framework/Btn.vue'
 import Loader from '@/components/framework/Loader.vue'
-import DialogMixin from '@/mixins/dialogMixin'
+import Dialog from '@/components/framework/Dialog.vue'
+import { useDialog } from '@/composables/useDialog'
 import { uploadResource } from './helpers'
 
-export default {
-  name: 'PublishResourceDialog',
-  components: {
-    TransitionHeight,
-    Loader,
-    Btn
-  },
-  props: {
-    item: {
-      type: Object,
-      required: true
-    }
-  },
-  mixins: [DialogMixin],
-  data() {
-    return {
-      dialogOpened: false,
-      isLoading: false,
-      errorMessage: null,
-      output: null,
-      repoUrl: import.meta.env.VITE_APP_LIB_REPO_URL
-    }
-  },
-  computed: {
-    prId() {
-      if (!this.output) {
-        return ''
-      }
+const props = defineProps<{
+  item: {
+    name: string
+    author?: string
+    [key: string]: unknown
+  }
+}>()
 
-      return this.output.split('/').pop()
-    }
-  },
-  mounted() {
-    this.show()
-  },
-  methods: {
-    show() {
-      this.dialogOpened = true
-    },
-    hide() {
-      if (this.isLoading) {
-        return
-      }
+const { output, close } = useDialog()
 
-      this.dialogOpened = false
-    },
-    onHide() {
-      this.close()
-    },
-    async submit() {
-      if (this.isLoading) {
-        return
-      }
-      this.errorMessage = null
-      this.isLoading = true
-      try {
-        const url = await uploadResource(this.item)
+const dialogOpened = ref(false)
+const isLoading = ref(false)
+const errorMessage = ref<string | null>(null)
+const outputUrl = ref<string | null>(null)
+const repoUrl = import.meta.env.VITE_APP_LIB_REPO_URL
 
-        this.output = url
-      } catch (error) {
-        this.errorMessage = error.message
-      } finally {
-        this.isLoading = false
-      }
-    }
+const prId = computed(() => {
+  if (!outputUrl.value) {
+    return ''
+  }
+
+  return outputUrl.value.split('/').pop()
+})
+
+onMounted(() => {
+  show()
+})
+
+function show() {
+  dialogOpened.value = true
+}
+
+function hide() {
+  if (isLoading.value) {
+    return
+  }
+
+  dialogOpened.value = false
+}
+
+function onHide() {
+  close()
+}
+
+async function submit() {
+  if (isLoading.value) {
+    return
+  }
+  errorMessage.value = null
+  isLoading.value = true
+  try {
+    const url = await uploadResource(props.item)
+
+    outputUrl.value = url
+    output.value = url
+  } catch (error: any) {
+    errorMessage.value = error.message
+  } finally {
+    isLoading.value = false
   }
 }
+
+defineExpose({ output, close })
 </script>
 <style lang="scss" scoped>
 .publish-resource {
   $self: &;
 
-  ::v-deep {
+  :deep() {
     .dialog__content {
       width: 380px;
     }

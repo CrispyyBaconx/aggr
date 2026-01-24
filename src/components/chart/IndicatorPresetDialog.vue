@@ -3,7 +3,7 @@
     <template v-slot:header>
       <div class="dialog__title">Configure preset</div>
     </template>
-    <form ref="form" @submit.prevent="submit">
+    <form ref="formRef" @submit.prevent="submit">
       <p class="mt0 mb0">Choose what to include</p>
       <div class="d-flex">
         <div>
@@ -13,7 +13,7 @@
                 type="checkbox"
                 class="form-control"
                 v-model="form.colors"
-                @input="toggleType(true, $event.target.checked)"
+                @input="toggleType(true, ($event.target as HTMLInputElement).checked)"
               />
               <div></div>
               <span>Colors</span>
@@ -30,7 +30,7 @@
                 type="checkbox"
                 class="form-control"
                 v-model="form.values"
-                @input="toggleType(false, $event.target.checked)"
+                @input="toggleType(false, ($event.target as HTMLInputElement).checked)"
               />
               <div></div>
               <span>Options</span>
@@ -101,104 +101,104 @@
   </Dialog>
 </template>
 
-<script>
-import DialogMixin from '@/mixins/dialogMixin'
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+import Dialog from '@/components/framework/Dialog.vue'
+import { useDialog } from '@/composables/useDialog'
 import { getIndicatorOptionType } from './options'
 
-export default {
-  mixins: [DialogMixin],
-  props: {
-    plotTypes: {
-      type: Array,
-      required: true
-    },
-    keys: {
-      type: Array,
-      required: true
-    },
-    originalKeys: {
-      type: Array,
-      default: null
-    }
-  },
-  data() {
-    return {
-      selection: this.keys.reduce((acc, key) => {
-        acc[key] =
-          this.originalKeys && this.originalKeys.indexOf(key) !== -1
-            ? true
-            : false
-        return acc
-      }, {}),
-      form: {
-        colors: false,
-        values: true,
-        script: false
-      }
-    }
-  },
-  computed: {
-    count() {
-      return Object.values(this.selection).reduce(
-        (acc, value) => {
-          if (value) {
-            acc++
-          }
+const props = withDefaults(defineProps<{
+  plotTypes: string[]
+  keys: string[]
+  originalKeys?: string[] | null
+}>(), {
+  originalKeys: null
+})
 
-          return acc
-        },
-        this.form.script ? 1 : 0
-      )
-    },
-    submitLabel() {
-      if (!this.count) {
-        return 'No selection'
+const { close } = useDialog()
+
+const formRef = ref<HTMLFormElement | null>(null)
+
+const selection = reactive<Record<string, boolean>>(
+  props.keys.reduce((acc, key) => {
+    acc[key] =
+      props.originalKeys && props.originalKeys.indexOf(key) !== -1
+        ? true
+        : false
+    return acc
+  }, {} as Record<string, boolean>)
+)
+
+const form = reactive({
+  colors: false,
+  values: true,
+  script: false
+})
+
+const count = computed(() => {
+  return Object.values(selection).reduce(
+    (acc, value) => {
+      if (value) {
+        acc++
       }
 
-      const scriptCount = this.form.script ? 1 : 0
-      const optionsCount = this.count - scriptCount
-
-      const included = []
-
-      if (optionsCount) {
-        included.push(`${optionsCount} option${optionsCount > 1 ? 's' : ''}`)
-      }
-
-      if (scriptCount) {
-        included.push(`the code`)
-      }
-      return included.join(' + ')
-    }
-  },
-  mounted() {
-    if (!this.originalKeys) {
-      this.form.colors = true
-      this.toggleType(true, true)
-    }
-  },
-  methods: {
-    submit() {
-      this.close({
-        selection: this.selection,
-        script: this.form.script
-      })
+      return acc
     },
-    toggleType(color, value) {
-      for (const key of this.keys) {
-        const type = getIndicatorOptionType(key, this.plotTypes)
+    form.script ? 1 : 0
+  )
+})
 
-        if ((color && type !== 'color') || (!color && type === 'color')) {
-          continue
-        }
+const submitLabel = computed(() => {
+  if (!count.value) {
+    return 'No selection'
+  }
 
-        this.selection[key] = value
-      }
-    },
-    toggleOption(key) {
-      this.selection[key] = !this.selection[key]
+  const scriptCount = form.script ? 1 : 0
+  const optionsCount = count.value - scriptCount
+
+  const included: string[] = []
+
+  if (optionsCount) {
+    included.push(`${optionsCount} option${optionsCount > 1 ? 's' : ''}`)
+  }
+
+  if (scriptCount) {
+    included.push(`the code`)
+  }
+  return included.join(' + ')
+})
+
+onMounted(() => {
+  if (!props.originalKeys) {
+    form.colors = true
+    toggleType(true, true)
+  }
+})
+
+function submit() {
+  close({
+    selection: { ...selection },
+    script: form.script
+  })
+}
+
+function toggleType(color: boolean, value: boolean) {
+  for (const key of props.keys) {
+    const type = getIndicatorOptionType(key, props.plotTypes)
+
+    if ((color && type !== 'color') || (!color && type === 'color')) {
+      continue
     }
+
+    selection[key] = value
   }
 }
+
+function toggleOption(key: string) {
+  selection[key] = !selection[key]
+}
+
+defineExpose({ close })
 </script>
 
 <style lang="scss" scoped>

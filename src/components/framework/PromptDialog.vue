@@ -10,7 +10,7 @@
     </template>
     <p class="mt0 mb8 -nl" v-if="question">{{ question }}</p>
     <form
-      ref="form"
+      ref="formRef"
       class="flex-grow-1 d-flex -column"
       @submit.prevent="submit"
     >
@@ -26,7 +26,7 @@
         <MarkdownEditor
           v-if="markdown"
           class="w-100 flex-grow-1"
-          ref="editor"
+          ref="editorRef"
           v-model="value"
           :show-preview="showPreview"
           minimal
@@ -55,66 +55,55 @@
   </Dialog>
 </template>
 
-<script>
-import DialogMixin from '@/mixins/dialogMixin'
+<script setup lang="ts">
+import { ref, onMounted, defineAsyncComponent } from 'vue'
+import Dialog from '@/components/framework/Dialog.vue'
+import { useDialog } from '@/composables/useDialog'
 
-export default {
-  components: {
-    MarkdownEditor: () =>
-      import('@/components/framework/editor/MarkdownEditor.vue')
-  },
-  props: {
-    markdown: {
-      type: Boolean,
-      default: false
-    },
-    textarea: {
-      type: Boolean,
-      default: false
-    },
-    question: {
-      type: String
-    },
-    action: {
-      type: String,
-      required: true
-    },
-    input: {
-      type: String,
-      default: ''
-    },
-    submitLabel: {
-      type: String,
-      default: 'Submit'
-    },
-    placeholder: {
-      type: String,
-      default: null
-    },
-    label: {
-      type: String,
-      default: null
-    }
-  },
-  mixins: [DialogMixin],
-  data: () => ({
-    value: '',
-    showPreview: false
-  }),
-  mounted() {
-    if (this.input && this.input.length) {
-      this.value = this.input
-    }
-  },
-  methods: {
-    submit() {
-      this.close(this.value)
-    },
-    resizeEditor() {
-      if (this.$refs.editor && this.$refs.editor.resize) {
-        this.$refs.editor.resize()
-      }
-    }
+const MarkdownEditor = defineAsyncComponent(() =>
+  import('@/components/framework/editor/MarkdownEditor.vue')
+)
+
+const props = withDefaults(defineProps<{
+  markdown?: boolean
+  textarea?: boolean
+  question?: string
+  action: string
+  input?: string
+  submitLabel?: string
+  placeholder?: string | null
+  label?: string | null
+}>(), {
+  markdown: false,
+  textarea: false,
+  input: '',
+  submitLabel: 'Submit',
+  placeholder: null,
+  label: null
+})
+
+const { output, close } = useDialog()
+
+const formRef = ref<HTMLFormElement | null>(null)
+const editorRef = ref<any>(null)
+const value = ref('')
+const showPreview = ref(false)
+
+onMounted(() => {
+  if (props.input && props.input.length) {
+    value.value = props.input
+  }
+})
+
+function submit() {
+  close(value.value)
+}
+
+function resizeEditor() {
+  if (editorRef.value && editorRef.value.resize) {
+    editorRef.value.resize()
   }
 }
+
+defineExpose({ output, close })
 </script>

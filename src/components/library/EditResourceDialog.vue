@@ -62,7 +62,7 @@
           </label>
           <MarkdownEditor
             class="w-100 flex-grow-1"
-            ref="editor"
+            ref="editorRef"
             style="height: auto"
             v-model="description"
             minimal
@@ -103,160 +103,175 @@
   </form>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import Btn from '@/components/framework/Btn.vue'
-import DialogMixin from '@/mixins/dialogMixin'
+import Dialog from '@/components/framework/Dialog.vue'
+import { useDialog } from '@/composables/useDialog'
 import { slugify, uniqueName } from '@/utils/helpers'
 
-export default {
-  name: 'EditResourceDialog',
-  components: {
-    Btn,
-    MarkdownEditor: () =>
-      import('@/components/framework/editor/MarkdownEditor.vue')
-  },
-  props: {
-    item: {
-      type: Object,
-      required: true
-    },
-    ids: {
-      type: Array,
-      required: true
-    }
-  },
-  mixins: [DialogMixin],
-  data() {
-    return {
-      dialogOpened: false,
-      name: this.item.name || '',
-      description: this.item.description || '',
-      updateId: false,
-      imageObjectUrl: null,
-      newImagePreview: null,
-      hasDeletedPreview: false
-    }
-  },
-  computed: {
-    displayId() {
-      const id = this.item.id
+const MarkdownEditor = defineAsyncComponent(() =>
+  import('@/components/framework/editor/MarkdownEditor.vue')
+)
 
-      if (!id) {
-        return 'no id'
-      }
+interface ResourceItem {
+  id: string
+  name: string
+  description?: string
+  preview?: File | Blob | null
+  [key: string]: unknown
+}
 
-      if (id.length <= 16) {
-        return id
-      } else {
-        return id.slice(0, 6) + '..' + id.substr(-6)
-      }
-    },
-    newId() {
-      return uniqueName(slugify(this.name), this.idsExceptCurrent)
-    },
-    idsExceptCurrent() {
-      return this.ids.filter(id => id !== this.item.id)
-    },
-    hasCustomPreview() {
-      if (this.hasDeletedPreview) {
-        return false
-      }
+const props = defineProps<{
+  item: ResourceItem
+  ids: string[]
+}>()
 
-      if (this.newImagePreview || this.item.preview instanceof File) {
-        return true
-      }
+const { output, close } = useDialog()
 
-      return false
-    },
-    previewName() {
-      if (this.hasCustomPreview) {
-        return this.item.id + '.png'
-      }
+const editorRef = ref<any>(null)
+const dialogOpened = ref(false)
+const name = ref(props.item.name || '')
+const description = ref(props.item.description || '')
+const updateId = ref(false)
+const imageObjectUrl = ref<string | null>(null)
+const newImagePreview = ref<File | null>(null)
+const hasDeletedPreview = ref(false)
 
-      return 'Browse'
-    }
-  },
-  mounted() {
-    this.loadPreview()
-    this.show()
-  },
-  beforeDestroy() {
-    this.clearPreview()
-  },
-  methods: {
-    show() {
-      this.dialogOpened = true
-    },
-    hide() {
-      this.dialogOpened = false
-    },
-    onHide() {
-      this.close()
-    },
-    submit() {
-      this.output = {
-        ...this.item,
-        name: this.name,
-        displayName: this.name,
-        description: this.description
-      }
+const displayId = computed(() => {
+  const id = props.item.id
 
-      if (this.newImagePreview) {
-        this.output.preview = this.newImagePreview
-      } else if (this.hasDeletedPreview) {
-        this.output.preview = null
-      }
+  if (!id) {
+    return 'no id'
+  }
 
-      if (this.updateId) {
-        this.output.id = this.newId
-      }
+  if (id.length <= 16) {
+    return id
+  } else {
+    return id.slice(0, 6) + '..' + id.substr(-6)
+  }
+})
 
-      this.hide()
-    },
-    loadPreview() {
-      this.clearPreview()
+const idsExceptCurrent = computed(() => {
+  return props.ids.filter(id => id !== props.item.id)
+})
 
-      const preview = this.newImagePreview || this.item.preview
-      if (preview instanceof File || preview instanceof Blob) {
-        this.imageObjectUrl = URL.createObjectURL(preview)
-      }
-    },
-    clearPreview() {
-      if (this.imageObjectUrl) {
-        URL.revokeObjectURL(this.imageObjectUrl)
-        this.imageObjectUrl = null
-      }
-    },
-    handlePreviewFile() {
-      const file = event.target.files[0]
+const newId = computed(() => {
+  return uniqueName(slugify(name.value), idsExceptCurrent.value)
+})
 
-      if (!file) {
-        return
-      }
+const hasCustomPreview = computed(() => {
+  if (hasDeletedPreview.value) {
+    return false
+  }
 
-      this.newImagePreview = file
-      this.hasDeletedPreview = false
-      this.loadPreview()
-    },
-    removePreview() {
-      if (this.newImagePreview) {
-        this.newImagePreview = null
-      }
+  if (newImagePreview.value || props.item.preview instanceof File) {
+    return true
+  }
 
-      this.clearPreview()
-      this.hasDeletedPreview = true
-    },
-    resizeEditor() {
-      if (this.$refs.editor) {
-        this.$refs.editor.resize()
-      }
-    }
+  return false
+})
+
+const previewName = computed(() => {
+  if (hasCustomPreview.value) {
+    return props.item.id + '.png'
+  }
+
+  return 'Browse'
+})
+
+onMounted(() => {
+  loadPreview()
+  show()
+})
+
+onBeforeUnmount(() => {
+  clearPreview()
+})
+
+function show() {
+  dialogOpened.value = true
+}
+
+function hide() {
+  dialogOpened.value = false
+}
+
+function onHide() {
+  close()
+}
+
+function submit() {
+  const result: ResourceItem = {
+    ...props.item,
+    name: name.value,
+    displayName: name.value,
+    description: description.value
+  }
+
+  if (newImagePreview.value) {
+    result.preview = newImagePreview.value
+  } else if (hasDeletedPreview.value) {
+    result.preview = null
+  }
+
+  if (updateId.value) {
+    result.id = newId.value
+  }
+
+  output.value = result
+  hide()
+}
+
+function loadPreview() {
+  clearPreview()
+
+  const preview = newImagePreview.value || props.item.preview
+  if (preview instanceof File || preview instanceof Blob) {
+    imageObjectUrl.value = URL.createObjectURL(preview)
   }
 }
+
+function clearPreview() {
+  if (imageObjectUrl.value) {
+    URL.revokeObjectURL(imageObjectUrl.value)
+    imageObjectUrl.value = null
+  }
+}
+
+function handlePreviewFile(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  newImagePreview.value = file
+  hasDeletedPreview.value = false
+  loadPreview()
+}
+
+function removePreview() {
+  if (newImagePreview.value) {
+    newImagePreview.value = null
+  }
+
+  clearPreview()
+  hasDeletedPreview.value = true
+}
+
+function resizeEditor() {
+  if (editorRef.value) {
+    editorRef.value.resize()
+  }
+}
+
+defineExpose({ output, close })
 </script>
 <style lang="scss" scoped>
 .edit-resource-dialog {
-  ::v-deep .dialog__content {
+  :deep(.dialog__content) {
     width: 420px;
   }
   &__preview {

@@ -1,6 +1,6 @@
-import Vue from 'vue'
+import { createApp } from 'vue'
 import App from './App.vue'
-import VueTippy, { TippyComponent } from 'vue-tippy'
+import VueTippy from 'vue-tippy'
 import './assets/sass/app.scss'
 import store from './store'
 
@@ -10,25 +10,28 @@ import Presets from '@/components/framework/Presets.vue'
 import autofocus from '@/directives/autofocusDirective'
 import draggableMarket from '@/directives/draggableMarketDirective'
 
-Vue.use(VueTippy, {
-  maxWidth: '200px',
-  duration: 0,
-  arrow: true,
-  animation: 'none',
-  delay: [200, 0],
-  animateFill: false,
-  theme: 'dark',
-  boundary: 'window',
-  distance: 24
+const app = createApp(App)
+
+app.use(store)
+
+app.use(VueTippy, {
+  defaultProps: {
+    maxWidth: '200px',
+    duration: 0,
+    arrow: true,
+    animation: 'none',
+    delay: [200, 0],
+    theme: 'dark',
+    distance: 24
+  }
 })
 
 /* eslint-disable vue/multi-word-component-names */
-Vue.component('tippy', TippyComponent)
-Vue.component('dropdown', DropdownComponent)
-Vue.component('editable', Editable)
-Vue.component('presets', Presets)
-Vue.directive('autofocus', autofocus)
-Vue.directive('draggable-market', draggableMarket)
+app.component('dropdown', DropdownComponent)
+app.component('editable', Editable)
+app.component('presets', Presets)
+app.directive('autofocus', autofocus)
+app.directive('draggable-market', draggableMarket)
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -37,8 +40,4 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-new Vue({
-  el: '#app',
-  store,
-  render: h => h(App)
-})
+app.mount('#app')

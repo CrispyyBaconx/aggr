@@ -165,7 +165,6 @@
 </template>
 
 <script lang="ts">
-import DialogMixin from '@/mixins/dialogMixin'
 import {
   findClosingBracketMatchIndex,
   parseFunctionArguments
@@ -195,8 +194,8 @@ export default {
       type: String
     }
   },
-  mixins: [DialogMixin],
   data: () => ({
+    output: null,
     buyAudio: '',
     sellAudio: '',
     buyError: null,
@@ -239,7 +238,7 @@ export default {
     this.buyAudio = this.threshold.buyAudio || ''
     this.sellAudio = this.threshold.sellAudio || ''
   },
-  beforeDestroy() {
+  beforeUnmount() {
     if (this._loopingTimeout) {
       clearTimeout(this._loopingTimeout)
       this._loopingTimeout = false
@@ -255,6 +254,10 @@ export default {
     }
   },
   methods: {
+    close(data) {
+      this.output = data
+      this.$emit('close')
+    },
     setInput(input, side) {
       this[side + 'Audio'] = input
       this.liveAnnotation = null

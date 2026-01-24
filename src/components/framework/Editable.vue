@@ -11,225 +11,217 @@
   ></component>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, watch, onMounted, getCurrentInstance } from 'vue'
 import { countDecimals } from '@/services/productsService'
 import { toPlainString } from '@/utils/helpers'
 
-@Component({
-  name: 'Editable',
-  props: ['value', 'step', 'min', 'max', 'editable', 'disabled', 'tag']
+const props = defineProps<{
+  modelValue?: string | number
+  step?: number
+  min?: number
+  max?: number
+  editable?: boolean
+  disabled?: boolean
+  tag?: string
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+  submit: [value: string | number | undefined]
+}>()
+
+const instance = getCurrentInstance()
+const changed = ref(false)
+const position = ref<number | undefined>(undefined)
+
+let _incrementSelectionTimeout: number | undefined
+let _emitTimeout: number | undefined
+
+onMounted(() => {
+  setValue(props.modelValue)
 })
-export default class Editable extends Vue {
-  editable: boolean
-  private value: string
-  private min: number
-  private max: number
-  private disabled: boolean
-  private changed = false
-  private position: number
 
-  private _incrementSelectionTimeout: number
-  private _emitTimeout: number
+watch(() => props.modelValue, () => {
+  const input = instance?.proxy?.$el as HTMLElement
+  const value = input?.innerText
 
-  mounted() {
-    this.setValue(this.value)
-  }
-
-  @Watch('value')
-  onValueChange() {
-    const input = this.$el as HTMLElement
-    const value = input.innerText
-
-    if (
-      +this.value !== +value ||
-      (isNaN(+this.value) && value !== this.value)
-    ) {
-      input.innerText = this.value
+  if (
+    +props.modelValue! !== +value ||
+    (isNaN(+props.modelValue!) && value !== props.modelValue)
+  ) {
+    if (input) {
+      input.innerText = String(props.modelValue ?? '')
     }
   }
+})
 
-  setValue(value) {
-    if (typeof value === 'number' && (value < 1e-6 || value > 1e6)) {
-      value = toPlainString(value)
-    }
-    const el = this.$el as HTMLElement
-    el.innerText = value
+function setValue(value: string | number | undefined) {
+  if (typeof value === 'number' && (value < 1e-6 || value > 1e6)) {
+    value = toPlainString(value)
+  }
+  const el = instance?.proxy?.$el as HTMLElement
+  if (el) {
+    el.innerText = String(value ?? '')
+  }
+}
+
+function getCursorPosition(): number {
+  if (typeof position.value !== 'undefined') {
+    return position.value
   }
 
-  getCursorPosition() {
-    if (typeof this.position !== 'undefined') {
-      return this.position // return saved position
-    }
+  let caretPos = 0
 
-    let caretPos = 0
-    let sel
-    let range
-
-    if (window.getSelection) {
-      sel = window.getSelection()
-      if (sel.rangeCount) {
-        range = sel.getRangeAt(0)
-        if (range.commonAncestorContainer.parentNode == this.$el) {
-          caretPos = range.endOffset
-        }
+  if (window.getSelection) {
+    const sel = window.getSelection()
+    if (sel?.rangeCount) {
+      const range = sel.getRangeAt(0)
+      if (range.commonAncestorContainer.parentNode === instance?.proxy?.$el) {
+        caretPos = range.endOffset
       }
     }
-
-    return caretPos
   }
 
-  setCursorPosition(position) {
-    this.position = position
+  return caretPos
+}
 
-    if (this._incrementSelectionTimeout) {
-      clearTimeout(this._incrementSelectionTimeout)
-    }
+function setCursorPosition(pos: number) {
+  position.value = pos
 
-    this._incrementSelectionTimeout = setTimeout(() => {
-      this._incrementSelectionTimeout = null
-
-      let sel
-
-      if ((document as any).selection) {
-        sel = (document as any).selection.createRange()
-        sel.moveStart('character', position)
-        sel.select()
-      } else {
-        sel = window.getSelection()
-        sel.collapse(this.$el.lastChild, position)
-      }
-
-      this.position = undefined
-    }, 50) as unknown as number
+  if (_incrementSelectionTimeout) {
+    clearTimeout(_incrementSelectionTimeout)
   }
 
-  onBlur(event) {
-    if (event.which === 13 && !isNaN(event.target.innerText)) {
-      event.preventDefault()
-      return
+  _incrementSelectionTimeout = setTimeout(() => {
+    _incrementSelectionTimeout = undefined
+
+    const sel = window.getSelection()
+    const el = instance?.proxy?.$el as HTMLElement
+    if (sel && el?.lastChild) {
+      sel.collapse(el.lastChild, pos)
     }
 
-    if (this.changed) {
-      event.target.innerHTML = event.target.innerText
-      this.$emit('input', event.target.innerText)
-    }
+    position.value = undefined
+  }, 50) as unknown as number
+}
 
-    if (window.getSelection) {
-      window.getSelection().removeAllRanges()
-    } else if ((document as any).selection) {
-      // eslint-disable-next-line @typescript-eslint/no-extra-semi
-      ;(document as any).selection.empty()
-    }
-  }
-
-  emitInput(value) {
-    if (this._emitTimeout) {
-      clearTimeout(this._emitTimeout)
-    }
-    this._emitTimeout = setTimeout(() => {
-      this._emitTimeout = null
-      this.$emit('input', value)
-    }, 50) as unknown as number
-  }
-
-  onInput() {
-    this.changed = true
-  }
-
-  onKeyDown(event) {
-    if (this.disabled || event.which === 13) {
-      event.preventDefault()
-      ;(this.$el as HTMLInputElement).blur()
-
-      event.target.innerText =
-        this.value || (this.$el as HTMLInputElement).innerText
-
-      this.$emit('submit', this.value)
-
-      return
-    }
-
-    if (event.which === 38 || event.which === 40) {
-      this.increment((event.which === 40 ? 1 : -1) * (event.shiftKey ? 10 : 1))
-    }
-  }
-
-  onFocus() {
-    this.changed = false
-  }
-
-  increment(direction: number) {
-    const el = this.$el as HTMLElement // Assuming this is your input element
-    let position = this.getCursorPosition() // Use saved or current position
-    let text = el.innerText.trim()
-
-    // Identify the boundaries of the number to change
-    let boundaries = this.findNumberBoundaries(text, position)
-    if (!boundaries && text.match(/\d/)) {
-      // If no boundaries found but text contains a number
-      const singleNumberMatch = text.match(/[\d.-]+/) // Adjust regex as needed
-      if (singleNumberMatch && singleNumberMatch.index !== undefined) {
-        boundaries = {
-          start: singleNumberMatch.index,
-          end: singleNumberMatch.index + singleNumberMatch[0].length
-        }
-        position = boundaries.start // Adjust position to the start of the found number
-      }
-    }
-    if (!boundaries) return // Early return if no number found at position
-
-    const numberStr = text.substring(boundaries.start, boundaries.end)
-    const number = parseFloat(numberStr)
-
-    // Calculate the new number with precision handling
-    const max = typeof this.max !== 'number' ? Infinity : this.max
-    const min = typeof this.min !== 'number' ? -Infinity : this.min
-    const precision = countDecimals(numberStr)
-    const step = 1 / Math.pow(10, precision)
-    const change = step * (direction * -1)
-    const newNumber = Math.max(min, Math.min(max, number + change)).toFixed(
-      precision
-    )
-
-    // Replace the number in the original string
-    text =
-      text.slice(0, boundaries.start) + newNumber + text.slice(boundaries.end)
-
-    // Set the updated text
-    el.innerText = text
-    this.emitInput(text)
-    this.setCursorPosition(position)
-  }
-
-  findNumberBoundaries(text, position) {
-    let start = position
-    let end = position
-
-    // Move backwards to find the start of the number
-    while (start > 0 && /[\d.-]/.test(text[start - 1])) {
-      start--
-    }
-
-    // Move forwards to find the end of the number
-    while (end < text.length && /[\d.-]/.test(text[end])) {
-      end++
-    }
-
-    if (start === end) return null // No number found
-    return { start, end }
-  }
-
-  onWheel(event: WheelEvent) {
-    const focusedElement = document.activeElement as HTMLElement
-
-    if (focusedElement !== event.target || !focusedElement.isContentEditable) {
-      return
-    }
-
+function onBlur(event: FocusEvent & { which?: number; target: HTMLElement }) {
+  if (event.which === 13 && !isNaN(+event.target.innerText)) {
     event.preventDefault()
-
-    this.increment(Math.sign(event.deltaY) * (event.shiftKey ? 10 : 1))
+    return
   }
+
+  if (changed.value) {
+    event.target.innerHTML = event.target.innerText
+    emit('update:modelValue', event.target.innerText)
+  }
+
+  if (window.getSelection) {
+    window.getSelection()?.removeAllRanges()
+  }
+}
+
+function emitInput(value: string) {
+  if (_emitTimeout) {
+    clearTimeout(_emitTimeout)
+  }
+  _emitTimeout = setTimeout(() => {
+    _emitTimeout = undefined
+    emit('update:modelValue', value)
+  }, 50) as unknown as number
+}
+
+function onInput() {
+  changed.value = true
+}
+
+function onKeyDown(event: KeyboardEvent) {
+  const el = instance?.proxy?.$el as HTMLInputElement
+  
+  if (props.disabled || event.which === 13) {
+    event.preventDefault()
+    el?.blur()
+
+    ;(event.target as HTMLElement).innerText =
+      String(props.modelValue ?? '') || el?.innerText || ''
+
+    emit('submit', props.modelValue)
+
+    return
+  }
+
+  if (event.which === 38 || event.which === 40) {
+    increment((event.which === 40 ? 1 : -1) * (event.shiftKey ? 10 : 1))
+  }
+}
+
+function onFocus() {
+  changed.value = false
+}
+
+function increment(direction: number) {
+  const el = instance?.proxy?.$el as HTMLElement
+  let pos = getCursorPosition()
+  let text = el?.innerText.trim() || ''
+
+  let boundaries = findNumberBoundaries(text, pos)
+  if (!boundaries && text.match(/\d/)) {
+    const singleNumberMatch = text.match(/[\d.-]+/)
+    if (singleNumberMatch && singleNumberMatch.index !== undefined) {
+      boundaries = {
+        start: singleNumberMatch.index,
+        end: singleNumberMatch.index + singleNumberMatch[0].length
+      }
+      pos = boundaries.start
+    }
+  }
+  if (!boundaries) return
+
+  const numberStr = text.substring(boundaries.start, boundaries.end)
+  const number = parseFloat(numberStr)
+
+  const max = typeof props.max !== 'number' ? Infinity : props.max
+  const min = typeof props.min !== 'number' ? -Infinity : props.min
+  const precision = countDecimals(numberStr)
+  const step = 1 / Math.pow(10, precision)
+  const change = step * (direction * -1)
+  const newNumber = Math.max(min, Math.min(max, number + change)).toFixed(precision)
+
+  text = text.slice(0, boundaries.start) + newNumber + text.slice(boundaries.end)
+
+  if (el) {
+    el.innerText = text
+  }
+  emitInput(text)
+  setCursorPosition(pos)
+}
+
+function findNumberBoundaries(text: string, pos: number): { start: number; end: number } | null {
+  let start = pos
+  let end = pos
+
+  while (start > 0 && /[\d.-]/.test(text[start - 1])) {
+    start--
+  }
+
+  while (end < text.length && /[\d.-]/.test(text[end])) {
+    end++
+  }
+
+  if (start === end) return null
+  return { start, end }
+}
+
+function onWheel(event: WheelEvent) {
+  const focusedElement = document.activeElement as HTMLElement
+
+  if (focusedElement !== event.target || !focusedElement.isContentEditable) {
+    return
+  }
+
+  event.preventDefault()
+
+  increment(Math.sign(event.deltaY) * (event.shiftKey ? 10 : 1))
 }
 </script>

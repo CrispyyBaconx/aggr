@@ -16,7 +16,7 @@
       <button
         class="btn"
         @click="
-          $emit('action', { indicatorId, actionName: 'remove', event: $event })
+          emit('action', { indicatorId, actionName: 'remove', event: $event })
         "
         title="Menu"
       >
@@ -26,7 +26,7 @@
       <button
         class="btn"
         @click="
-          $emit('action', { indicatorId, actionName: 'menu', event: $event })
+          emit('action', { indicatorId, actionName: 'menu', event: $event })
         "
         title="Menu"
       >
@@ -44,74 +44,70 @@
   </div>
 </template>
 
-<script lang="ts">
-import Vue from 'vue'
-import Component from 'vue-class-component'
+<script setup lang="ts">
+import { computed, nextTick } from 'vue'
+import { useStore } from 'vuex'
 
-@Component({
-  name: 'IndicatorControl',
-  props: {
-    paneId: {
-      required: true
-    },
-    indicatorId: {
-      required: true
-    }
+const props = defineProps<{
+  paneId: string
+  indicatorId: string
+}>()
+
+const emit = defineEmits<{
+  action: [payload: { indicatorId: string; actionName?: string; event?: Event }]
+}>()
+
+const store = useStore()
+
+const indicator = computed(() => {
+  return store.state[props.paneId].indicators[props.indicatorId]
+})
+
+const showLegend = computed(() => {
+  return store.state[props.paneId].showLegend
+})
+
+const name = computed(() => {
+  if (indicator.value.displayName) {
+    return indicator.value.displayName
+  } else if (indicator.value.name) {
+    return indicator.value.name
+  } else {
+    return props.indicatorId
   }
 })
-export default class IndicatorControl extends Vue {
-  private paneId: string
-  private indicatorId: string
 
-  get indicator() {
-    return this.$store.state[this.paneId].indicators[this.indicatorId]
-  }
-  get showLegend() {
-    return this.$store.state[this.paneId].showLegend
-  }
+const visible = computed(() => {
+  return !indicator.value.options ||
+    typeof indicator.value.options.visible === 'undefined'
+    ? true
+    : indicator.value.options.visible
+})
 
-  get name() {
-    if (this.indicator.displayName) {
-      return this.indicator.displayName
-    } else if (this.indicator.name) {
-      return this.indicator.name
-    } else {
-      return this.indicatorId
-    }
-  }
+const error = computed(() => {
+  return store.state[props.paneId].indicatorsErrors[props.indicatorId]
+})
 
-  get visible() {
-    return !this.indicator.options ||
-      typeof this.indicator.options.visible === 'undefined'
-      ? true
-      : this.indicator.options.visible
-  }
-
-  get error() {
-    return this.$store.state[this.paneId].indicatorsErrors[this.indicatorId]
-  }
-
-  onClick(event) {
-    if (event.shiftKey) {
-      this.$emit('action', {
-        actionName: 'resize',
-        indicatorId: this.indicatorId
-      })
-
-      return
-    }
-
-    this.$emit('action', { indicatorId: this.indicatorId })
-  }
-
-  toggleVisibility() {
-    this.$nextTick(() => {
-      this.$store.dispatch(
-        this.paneId + '/toggleSerieVisibility',
-        this.indicatorId
-      )
+function onClick(event: MouseEvent) {
+  if (event.shiftKey) {
+    emit('action', {
+      actionName: 'resize',
+      indicatorId: props.indicatorId
     })
+
+    return
   }
+
+  emit('action', { indicatorId: props.indicatorId })
+}
+
+function toggleVisibility() {
+  nextTick(() => {
+    store.dispatch(
+      props.paneId + '/toggleSerieVisibility',
+      props.indicatorId
+    )
+  })
 }
 </script>
 

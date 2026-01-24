@@ -73,10 +73,12 @@
   </form>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import TransitionHeight from '@/components/framework/TransitionHeight.vue'
 import Btn from '@/components/framework/Btn.vue'
-import DialogMixin from '@/mixins/dialogMixin'
+import Dialog from '@/components/framework/Dialog.vue'
+import { useDialog } from '@/composables/useDialog'
 import Picto1 from './publish-1.png'
 import Picto2 from './publish-2.png'
 import Picto3 from './publish-3.png'
@@ -87,90 +89,91 @@ const STEPS = [
     picto: Picto1,
     title: `Share script`,
     content: `Kickstart your journey by sharing your unique indicators with
-                the community. It's as simple as clicking the
-                <code class="-filled">Publish</code> button below.`
+              the community. It's as simple as clicking the
+              <code class="-filled">Publish</code> button below.`
   },
   {
     picto: Picto2,
     title: `Wait for review`,
     content: `Your indicator enters a swift and secure
-                validation phase. Each GitHub pull request is reviewed to ensure <code class="-filled">quality</code> and
-                <code class="-filled">security</code> standards are met.
-                This step is crucial for maintaining the integrity of our
-                platform.`
+              validation phase. Each GitHub pull request is reviewed to ensure <code class="-filled">quality</code> and
+              <code class="-filled">security</code> standards are met.
+              This step is crucial for maintaining the integrity of our
+              platform.`
   },
   {
     picto: Picto3,
     title: `It's live !`,
     content: `After a successful review, your indicator is now live and
-                accessible to all within the
-                <code class="-filled">Community&nbsp;scripts</code> library.`
+              accessible to all within the
+              <code class="-filled">Community&nbsp;scripts</code> library.`
   }
 ]
 
-export default {
-  name: 'PublishOnboarding',
-  components: {
-    TransitionHeight,
-    Btn
-  },
-  mixins: [DialogMixin],
-  watch: {
-    stepIndex(currentStep, previousStep) {
-      this.isBack = currentStep < previousStep
-    }
-  },
-  data() {
-    return {
-      dialogOpened: false,
-      stepIndex: 0,
-      isBack: false,
-      dismissOnSubmit: false,
-      STEPS
-    }
-  },
-  mounted() {
-    this.show()
-    this.startTimer()
-  },
-  methods: {
-    show() {
-      this.dialogOpened = true
-    },
-    hide() {
-      this.dialogOpened = false
-    },
-    onHide() {
-      this.close()
-    },
-    submit() {
-      if (this.dismissOnSubmit) {
-        notificationService.dismiss('publish-onboarding')
-      }
+const { output, close } = useDialog()
 
-      this.output = true
-      this.hide()
-    },
-    startTimer() {
-      if (this.timerTimeout) {
-        return
-      }
+const dialogOpened = ref(false)
+const stepIndex = ref(0)
+const isBack = ref(false)
+const dismissOnSubmit = ref(false)
+let timerTimeout: ReturnType<typeof setTimeout> | null = null
 
-      this.timerTimeout = setTimeout(() => {
-        this.timerTimeout = null
-        this.stepIndex = (this.stepIndex + 1) % STEPS.length
-        this.startTimer()
-      }, 5000)
-    },
-    stopTimer() {
-      if (!this.timerTimeout) {
-        return
-      }
+watch(stepIndex, (currentStep, previousStep) => {
+  isBack.value = currentStep < previousStep
+})
 
-      clearTimeout(this.timerTimeout)
-    }
-  }
+onMounted(() => {
+  show()
+  startTimer()
+})
+
+onBeforeUnmount(() => {
+  stopTimer()
+})
+
+function show() {
+  dialogOpened.value = true
 }
+
+function hide() {
+  dialogOpened.value = false
+}
+
+function onHide() {
+  close()
+}
+
+function submit() {
+  if (dismissOnSubmit.value) {
+    notificationService.dismiss('publish-onboarding')
+  }
+
+  output.value = true
+  hide()
+}
+
+function startTimer() {
+  if (timerTimeout) {
+    return
+  }
+
+  timerTimeout = setTimeout(() => {
+    timerTimeout = null
+    stepIndex.value = (stepIndex.value + 1) % STEPS.length
+    startTimer()
+  }, 5000)
+}
+
+function stopTimer() {
+  if (!timerTimeout) {
+    return
+  }
+
+  clearTimeout(timerTimeout)
+  timerTimeout = null
+}
+
+defineExpose({ output, close })
 </script>
 <style lang="scss" scoped>
 .publish-onboarding {

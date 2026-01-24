@@ -10,12 +10,12 @@
         ></i>
       </label>
       <input
-        ref="input"
+        ref="inputRef"
         type="text"
         class="form-control w-100"
         placeholder="ex: https://cryptopanic.com/widgets/news/?bg_color=FFFFFF&amp;font_family=sans&amp;header_bg_color=30343B&amp;header_text_color=FFFFFF&amp;link_color=0091C2&amp;news_feed=trending&amp;text_color=333333&amp;title=Latest%20News"
         :value="url"
-        @change="$store.dispatch(paneId + '/setUrl', $event.target.value)"
+        @change="$store.dispatch(paneId + '/setUrl', ($event.target as HTMLInputElement).value)"
       />
       <p class="text-muted mt4" v-if="originalUrl">
         Currently set to
@@ -89,64 +89,44 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
-import Slider from '../framework/picker/Slider.vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { useStore } from 'vuex'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
 
-@Component({
-  components: { Slider, DropdownButton },
-  name: 'WebsiteSettings',
-  props: {
-    paneId: {
-      type: String,
-      required: true
-    }
+const props = defineProps<{
+  paneId: string
+}>()
+
+const store = useStore()
+const inputRef = ref<HTMLInputElement | null>(null)
+const originalUrl = ref('')
+
+const originalUrlTrimmed = computed(() => {
+  const url = originalUrl.value.replace(/https?:\/\/(www\.)?/, '')
+
+  if (url.length <= 16) {
+    return url
+  } else {
+    return url.slice(0, 8) + '[...]' + url.substr(-8)
   }
 })
-export default class WebsiteSettings extends Vue {
-  paneId: string
-  originalUrl: string
 
-  $refs!: {
-    input: HTMLInputElement
+const url = computed(() => store.state[props.paneId].url)
+
+const interactive = computed(() => store.state[props.paneId].interactive)
+
+const invert = computed(() => store.state[props.paneId].invert)
+
+const reloadTimer = computed(() => store.state[props.paneId].reloadTimer)
+
+// created equivalent
+originalUrl.value = store.state[props.paneId].url
+
+onMounted(async () => {
+  if (!originalUrl.value) {
+    await nextTick()
+    inputRef.value?.focus()
   }
-
-  get originalUrlTrimmed() {
-    const url = this.originalUrl.replace(/https?:\/\/(www\.)?/, '')
-
-    if (url.length <= 16) {
-      return url
-    } else {
-      return url.slice(0, 8) + '[...]' + url.substr(-8)
-    }
-  }
-
-  get url() {
-    return this.$store.state[this.paneId].url
-  }
-
-  get interactive() {
-    return this.$store.state[this.paneId].interactive
-  }
-
-  get invert() {
-    return this.$store.state[this.paneId].invert
-  }
-
-  get reloadTimer() {
-    return this.$store.state[this.paneId].reloadTimer
-  }
-
-  created() {
-    this.originalUrl = this.$store.state[this.paneId].url
-  }
-
-  async mounted() {
-    if (!this.originalUrl) {
-      await this.$nextTick()
-      this.$refs.input.focus()
-    }
-  }
-}
+})
 </script>

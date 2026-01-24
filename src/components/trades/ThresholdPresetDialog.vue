@@ -44,24 +44,24 @@
   </Dialog>
 </template>
 
-<script>
-import DialogMixin from '@/mixins/dialogMixin'
+<script setup lang="ts">
+import { ref } from 'vue'
+import Dialog from '@/components/framework/Dialog.vue'
+import { useDialog } from '@/composables/useDialog'
 
-export default {
-  mixins: [DialogMixin],
-  data: () => ({
-    includeAmounts: false,
-    includeColors: true,
-    includeAudio: true
-  }),
-  methods: {
-    submit() {
-      this.close({
-        amounts: this.includeAmounts,
-        colors: this.includeColors,
-        audios: this.includeAudio
-      })
-    }
-  }
+const { close } = useDialog()
+
+const includeAmounts = ref(false)
+const includeColors = ref(true)
+const includeAudio = ref(true)
+
+function submit() {
+  close({
+    amounts: includeAmounts.value,
+    colors: includeColors.value,
+    audios: includeAudio.value
+  })
 }
+
+defineExpose({ close })
 </script>

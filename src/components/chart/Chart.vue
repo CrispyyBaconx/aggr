@@ -1,7 +1,7 @@
 <template>
   <div class="pane-chart">
     <pane-header
-      ref="paneHeader"
+      ref="paneHeaderRef"
       :paneId="paneId"
       :settings="() => import('@/components/chart/ChartDialog.vue')"
     >
@@ -32,8 +32,8 @@
         <span>{{ timeframeLabel }}</span>
       </button>
       <Btn
-        ref="timeframeButton"
-        @click="toggleTimeframeDropdown($event, $refs.timeframeButton)"
+        ref="timeframeButtonRef"
+        @click="toggleTimeframeDropdown($event)"
         class="-arrow -cases pane-header__highlight pane-chart__timeframe-selector"
       >
         <span>{{ !isKnownTimeframe ? timeframeForHuman : '' }}</span>
@@ -44,7 +44,7 @@
       class="chart-overlay hide-scrollbar"
       :style="{ left: overlayLeft + 'px' }"
     >
-      <indicators-overlay v-model="showIndicators" :pane-id="paneId" />
+      <indicators-overlay v-model="showIndicatorsValue" :pane-id="paneId" />
       <markets-overlay :pane-id="paneId" />
     </div>
 
@@ -55,14 +55,16 @@
       :axis="axis"
     ></chart-layout>
 
-    <div class="chart__container" ref="chartContainer"></div>
+    <div class="chart__container" ref="chartContainerRef"></div>
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Mixins } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { useStore } from 'vuex'
+import { usePane } from '@/composables/usePane'
 
-import Chart from './chart'
+import ChartClass from './chart'
 
 import { getTimeframeForHuman, sleep } from '@/utils/helpers'
 import { ChartPaneState } from '@/store/panesSettings/chart'
@@ -70,7 +72,6 @@ import { ChartPaneState } from '@/store/panesSettings/chart'
 import aggregatorService from '@/services/aggregatorService'
 import { AlertEvent } from '@/services/alertService'
 
-import PaneMixin from '@/mixins/paneMixin'
 import PaneHeader from '@/components/panes/PaneHeader.vue'
 import ChartLayout from '@/components/chart/Layout.vue'
 import IndicatorsOverlay from '@/components/chart/IndicatorsOverlay.vue'
@@ -80,162 +81,159 @@ import Btn from '@/components/framework/Btn.vue'
 
 import { Trade } from '@/types/types'
 
-@Component({
-  name: 'Chart',
-  components: {
-    ChartLayout,
-    PaneHeader,
-    IndicatorsOverlay,
-    MarketsOverlay,
-    AlertsList,
-    Btn
+const props = defineProps<{
+  paneId: string
+}>()
+
+const store = useStore()
+const instance = getCurrentInstance()
+
+const chartContainerRef = ref<HTMLElement | null>(null)
+const paneHeaderRef = ref<InstanceType<typeof PaneHeader> | null>(null)
+const timeframeButtonRef = ref<{ isLoading: boolean } | null>(null)
+
+const axis = reactive({
+  top: 0,
+  left: 0,
+  right: 0,
+  time: 0
+})
+
+let chart: ChartClass | null = null
+
+const { pane } = usePane({
+  paneId: props.paneId,
+  onResize: () => {
+    if (!chart) return
+    chart.refreshChartDimensions()
+    chart.updateFontSize()
+    refreshAxisSize()
   }
 })
-export default class ChartComponent extends Mixins(PaneMixin) {
-  axis = {
-    top: 0,
-    left: 0,
-    right: 0,
-    time: 0
+
+const layouting = computed(() => {
+  refreshAxisSize()
+  return (store.state[props.paneId] as ChartPaneState).layouting
+})
+
+const overlayLeft = computed(() => axis.left)
+const overlayTop = computed(() => axis.top)
+
+const favoriteTimeframes = computed(() => store.state.settings.favoriteTimeframes)
+const timeframe = computed(() => store.state[props.paneId].timeframe)
+
+const isKnownTimeframe = computed(() => {
+  return Object.keys(favoriteTimeframes.value).indexOf(timeframe.value) !== -1
+})
+
+const showIndicators = computed(() => store.state[props.paneId].showIndicators)
+
+const showIndicatorsValue = computed({
+  get: () => store.state[props.paneId].showIndicators,
+  set: (value) => store.commit(`${props.paneId}/TOGGLE_INDICATORS`, value)
+})
+
+const timeframeForHuman = computed(() => {
+  if (!timeframe.value) {
+    return 'ERR'
+  }
+  return getTimeframeForHuman(timeframe.value)
+})
+
+onMounted(() => {
+  chart = new ChartClass(props.paneId, chartContainerRef.value!)
+
+  bindAggregator()
+
+  const parentEl = instance?.proxy?.$el?.parentElement
+  if (showIndicators.value && parentEl && parentEl.clientHeight > 420) {
+    showIndicatorsValue.value = true
+  }
+})
+
+onBeforeUnmount(() => {
+  destroyChart()
+})
+
+function destroyChart() {
+  unbindAggregator()
+  chart?.destroy()
+}
+
+function onTrades(trades: Trade[]) {
+  chart?.queueTrades(trades)
+}
+
+function onAlert(alertEvent: AlertEvent) {
+  chart?.onAlert(alertEvent)
+}
+
+function bindAggregator() {
+  aggregatorService.on('trades', onTrades)
+  aggregatorService.on('alert', onAlert)
+}
+
+function unbindAggregator() {
+  aggregatorService.off('trades', onTrades)
+  aggregatorService.off('alert', onAlert)
+}
+
+function renderChart() {
+  chart?.renderAll()
+}
+
+async function refreshAxisSize() {
+  if (!chartContainerRef.value || !chart) {
+    return
   }
 
-  private chart: Chart
+  await sleep(100)
 
-  get layouting() {
-    this.refreshAxisSize()
-    return (this.$store.state[this.paneId] as ChartPaneState).layouting
+  const newAxis = chart.getAxisSize()
+  axis.top = newAxis.top
+  axis.left = newAxis.left
+  axis.right = newAxis.right
+  axis.time = newAxis.time
+}
+
+function toggleLayout() {
+  store.commit(props.paneId + '/TOGGLE_LAYOUTING')
+}
+
+async function toggleTimeframeDropdown(event: MouseEvent) {
+  if (timeframeButtonRef.value) {
+    timeframeButtonRef.value.isLoading = true
   }
-
-  get overlayLeft() {
-    return this.axis.left
-  }
-
-  get overlayTop() {
-    return this.axis.top
-  }
-
-  get favoriteTimeframes() {
-    return this.$store.state.settings.favoriteTimeframes
-  }
-
-  get timeframe() {
-    return this.$store.state[this.paneId].timeframe
-  }
-
-  get isKnownTimeframe() {
-    return Object.keys(this.favoriteTimeframes).indexOf(this.timeframe) !== -1
-  }
-
-  get showIndicators() {
-    return this.$store.state[this.paneId].showIndicators
-  }
-
-  set showIndicators(value) {
-    this.$store.commit(`${this.paneId}/TOGGLE_INDICATORS`, value)
-  }
-
-  get timeframeForHuman() {
-    if (!this.timeframe) {
-      return 'ERR'
-    }
-
-    return getTimeframeForHuman(this.timeframe)
-  }
-
-  $refs!: {
-    chartContainer: HTMLElement
-    paneHeader: PaneHeader
-    timeframeButton: HTMLElement
-  }
-
-  mounted() {
-    this.chart = new Chart(this.paneId, this.$refs.chartContainer)
-
-    this.bindAggregator()
-
-    if (this.showIndicators && this.$parent.$el.clientHeight > 420) {
-      this.showIndicators = true
-    }
-  }
-
-  destroyChart() {
-    this.unbindAggregator()
-
-    this.chart.destroy()
-  }
-
-  beforeDestroy() {
-    this.destroyChart()
-  }
-
-  onTrades(trades: Trade[]) {
-    this.chart.queueTrades(trades)
-  }
-
-  onAlert(alertEvent: AlertEvent) {
-    this.chart.onAlert(alertEvent)
-  }
-
-  bindAggregator() {
-    aggregatorService.on('trades', this.onTrades)
-    aggregatorService.on('alert', this.onAlert)
-  }
-
-  unbindAggregator() {
-    aggregatorService.off('trades', this.onTrades)
-    aggregatorService.off('alert', this.onAlert)
-  }
-
-  renderChart() {
-    this.chart.renderAll()
-  }
-
-  onResize() {
-    if (!this.chart) {
-      return
-    }
-
-    this.chart.refreshChartDimensions()
-    this.chart.updateFontSize()
-    this.refreshAxisSize()
-  }
-
-  async refreshAxisSize() {
-    if (!this.$refs.chartContainer) {
-      return
-    }
-
-    await sleep(100)
-
-    this.axis = this.chart.getAxisSize()
-  }
-
-  toggleLayout() {
-    this.$store.commit(this.paneId + '/TOGGLE_LAYOUTING')
-  }
-
-  async toggleTimeframeDropdown(event, button) {
-    button.isLoading = true
-    await this.chart.toggleTimeframeDropdown(event)
-    button.isLoading = false
-  }
-
-  restart() {
-    this.chart.restart()
-  }
-
-  takeScreenshot(event) {
-    this.chart.takeScreenshot(event)
-  }
-
-  selectTimeframe(event, timeframe) {
-    if (timeframe === this.timeframe) {
-      this.toggleTimeframeDropdown(event, this.$refs.timeframeButton)
-      return
-    }
-    this.$store.dispatch(`${this.paneId}/setTimeframe`, timeframe)
+  await chart?.toggleTimeframeDropdown(event)
+  if (timeframeButtonRef.value) {
+    timeframeButtonRef.value.isLoading = false
   }
 }
+
+function restart() {
+  chart?.restart()
+}
+
+function takeScreenshot(event: MouseEvent) {
+  chart?.takeScreenshot(event)
+}
+
+function selectTimeframe(event: MouseEvent, tf: string) {
+  if (tf === timeframe.value) {
+    toggleTimeframeDropdown(event)
+    return
+  }
+  store.dispatch(`${props.paneId}/setTimeframe`, tf)
+}
+
+defineExpose({
+  onResize: () => {
+    if (!chart) return
+    chart.refreshChartDimensions()
+    chart.updateFontSize()
+    refreshAxisSize()
+  }
+})
 </script>
 
 <style lang="scss" scoped>

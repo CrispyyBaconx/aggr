@@ -4,22 +4,27 @@
       type="checkbox"
       class="form-control"
       :checked="value"
-      @change="$emit('input', $event.target.checked)"
+      @change="$emit('input', ($event.target as HTMLInputElement).checked)"
     />
     <span>{{ label }}<slot name="description" /></span>
     <div></div>
   </label>
 </template>
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
-import IndicatorOptionMixin from '@/mixins/indicatorOptionMixin'
 
-@Component({
-  name: 'IndicatorOptionCheckbox',
-  mixins: [IndicatorOptionMixin]
-})
-export default class IndicatorOptionCheckbox extends Vue {}
+<script setup lang="ts">
+defineProps<{
+  paneId: string
+  indicatorId: string
+  label: string
+  value: boolean
+  definition?: Record<string, unknown>
+}>()
+
+defineEmits<{
+  (e: 'input', value: boolean): void
+}>()
 </script>
+
 <style lang="scss" scoped>
 .indicator-option-checkbox {
   > span {

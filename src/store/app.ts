@@ -1,6 +1,6 @@
 import dialogService from '@/services/dialogService'
 import { randomString } from '@/utils/helpers'
-import Vue from 'vue'
+import { nextTick } from 'vue'
 import { ActionTree, GetterTree, Module, MutationTree } from 'vuex'
 import { ModulesState } from '.'
 import TimeframeDialog from '../components/TimeframeDialog.vue'
@@ -208,11 +208,7 @@ const mutations = {
     state.isExchangesReady = true
   },
   EXCHANGE_UPDATED(state, exchangeId: string) {
-    Vue.set(
-      state.activeExchanges,
-      exchangeId,
-      !this.state.exchanges[exchangeId].disabled
-    )
+    state.activeExchanges[exchangeId] = !this.state.exchanges[exchangeId].disabled
   },
   TOGGLE_LOADING(state, value) {
     state.isLoading = value ? true : false
@@ -221,7 +217,7 @@ const mutations = {
     state.notices.push(notice)
   },
   UPDATE_NOTICE(state, { index, notice }) {
-    Vue.set(state.notices, index, notice)
+    state.notices[index] = notice
   },
   REMOVE_NOTICE(state, notice) {
     const index = state.notices.indexOf(notice)

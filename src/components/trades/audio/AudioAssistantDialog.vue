@@ -274,7 +274,6 @@
 </template>
 
 <script>
-import DialogMixin from '@/mixins/dialogMixin'
 import Slider from '@/components/framework/picker/Slider.vue'
 import importService from '@/services/importService'
 import workspacesService from '@/services/workspacesService'
@@ -303,8 +302,8 @@ export default {
       type: String
     }
   },
-  mixins: [DialogMixin],
   data: () => ({
+    output: null,
     url: null,
     frequencyHz: null,
     gain: null,
@@ -374,7 +373,7 @@ export default {
   created() {
     this.setDefaultAudioAttributes()
   },
-  beforeDestroy() {
+  beforeUnmount() {
     if (this.uploadedSound) {
       workspacesService.removeSound(this.uploadedSound).then(() => {
         this.$store.dispatch('app/showNotice', {
@@ -385,6 +384,10 @@ export default {
     }
   },
   methods: {
+    close(data) {
+      this.output = data
+      this.$emit('close')
+    },
     setDefaultAudioAttributes() {
       const defaultAudioAttributes = audioDefaultParameters[this.type]
 

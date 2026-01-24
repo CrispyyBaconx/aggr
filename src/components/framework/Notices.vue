@@ -24,42 +24,39 @@
   </transition-height>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import { Notice } from '@/store/app'
-import { Component, Vue } from 'vue-property-decorator'
 import TransitionHeight from './TransitionHeight.vue'
 
-@Component({
-  components: { TransitionHeight },
-  name: 'Notices'
+const store = useStore()
+
+const notices = computed<Notice[]>(() => {
+  return store.state.app.notices
 })
-export default class Notices extends Vue {
-  get notices(): Notice[] {
-    return this.$store.state.app.notices
-  }
 
-  get disableAnimations() {
-    return this.$store.state.settings.disableAnimations
-  }
+const disableAnimations = computed(() => {
+  return store.state.settings.disableAnimations
+})
 
-  get transitionGroupName() {
-    if (!this.disableAnimations) {
-      return 'slide-notice'
-    } else {
-      return null
+const transitionGroupName = computed(() => {
+  if (!disableAnimations.value) {
+    return 'slide-notice'
+  } else {
+    return null
+  }
+})
+
+function onClick(notice: Notice) {
+  if (typeof notice.action === 'function') {
+    const result = notice.action()
+
+    if (result === false) {
+      return
     }
   }
 
-  onClick(notice) {
-    if (typeof notice.action === 'function') {
-      const result = notice.action()
-
-      if (result === false) {
-        return
-      }
-    }
-
-    this.$store.dispatch('app/hideNotice', notice.id)
-  }
+  store.dispatch('app/hideNotice', notice.id)
 }
 </script>

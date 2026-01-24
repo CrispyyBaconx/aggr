@@ -4,62 +4,60 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, useSlots, onMounted, onBeforeUnmount, watch } from 'vue'
 
-@Component({
-  name: 'Tabs',
-  props: {
-    value: {
-      default: null
+interface TabInstance {
+  name: string
+  select: () => void
+  deselect: () => void
+}
+
+const props = defineProps<{
+  modelValue?: string | number | null
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+}>()
+
+const slots = useSlots()
+const selectedTab = ref<TabInstance | null>(null)
+const tabRefs = ref<TabInstance[]>([])
+
+function selectTab(tab: TabInstance) {
+  const name = tab.name
+
+  if (!selectedTab.value || props.modelValue !== name) {
+    if (selectedTab.value) {
+      selectedTab.value.deselect()
+    }
+
+    selectedTab.value = tab
+    selectedTab.value.select()
+  }
+
+  emit('update:modelValue', tab.name)
+}
+
+// Expose selectTab for external use
+defineExpose({
+  selectTab,
+  registerTab(tab: TabInstance) {
+    tabRefs.value.push(tab)
+    if (props.modelValue === tab.name) {
+      selectTab(tab)
+    }
+  },
+  unregisterTab(tab: TabInstance) {
+    const index = tabRefs.value.indexOf(tab)
+    if (index > -1) {
+      tabRefs.value.splice(index, 1)
     }
   }
 })
-export default class Tabs extends Vue {
-  tabs: any[]
-  private value: string | number
-  private selectedTab: any
-
-  mounted() {
-    this.bindTabs()
-  }
-
-  beforeDestroy() {
-    this.unbindTabs()
-  }
-
-  bindTabs() {
-    for (const tab of this.$slots.default) {
-      tab.componentInstance.$on('select', this.selectTab)
-
-      if (this.value === (tab.componentInstance as any).name) {
-        this.selectTab(tab.componentInstance)
-      }
-    }
-  }
-
-  unbindTabs() {
-    for (const tab of this.$slots.default) {
-      tab.componentInstance.$off('select', this.selectTab)
-    }
-  }
-
-  selectTab(tab) {
-    const name = tab.name
-
-    if (!this.selectedTab || this.value !== name) {
-      if (this.selectedTab) {
-        this.selectedTab.deselect()
-      }
-
-      this.selectedTab = tab
-      this.selectedTab.select()
-    }
-
-    this.$emit('input', tab.name)
-  }
-}
 </script>
+
 <style lang="scss" scoped>
 .tabs {
   padding: 0 1rem;

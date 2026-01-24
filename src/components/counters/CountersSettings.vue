@@ -12,7 +12,7 @@
             class="form-control"
             :checked="countersCount"
             @change="
-              $store.commit(paneId + '/TOGGLE_COUNT', $event.target.checked)
+              $store.commit(paneId + '/TOGGLE_COUNT', ($event.target as HTMLInputElement).checked)
             "
           />
           <div on="count" off="volume"></div>
@@ -26,7 +26,7 @@
           placeholder="Enter a set of timeframes (ie 1m, 15m)"
           class="form-control"
           :value="countersStepsStringified"
-          @change="replaceCounters($event.target.value)"
+          @change="replaceCounters(($event.target as HTMLInputElement).value)"
         />
       </div>
     </div>
@@ -37,7 +37,7 @@
         @change="
           $store.commit(
             paneId + '/TOGGLE_LIQUIDATIONS_ONLY',
-            $event.target.checked
+            ($event.target as HTMLInputElement).checked
           )
         "
       >
@@ -53,67 +53,54 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import { ago } from '@/utils/helpers'
-import { Component, Vue } from 'vue-property-decorator'
 
-@Component({
-  name: 'CountersSettings',
-  props: {
-    paneId: {
-      type: String,
-      required: true
-    }
-  }
-})
-export default class CountersSettings extends Vue {
+const props = defineProps<{
   paneId: string
+}>()
 
-  get countersCount() {
-    return this.$store.state[this.paneId].count
+const store = useStore()
+
+const countersCount = computed(() => store.state[props.paneId].count)
+
+const countersSteps = computed(() => store.state[props.paneId].steps)
+
+const liquidationsOnly = computed(() => store.state[props.paneId].liquidationsOnly)
+
+const countersStepsStringified = computed(() => {
+  const now = Date.now()
+  return countersSteps.value.map((a: number) => ago(now - a)).join(', ')
+})
+
+function replaceCounters(value: string) {
+  const counters = value
+    .split(',')
+    .map(a => {
+      a = a.trim()
+
+      if (/[\d.]+s/.test(a)) {
+        return parseFloat(a) * 1000
+      } else if (/[\d.]+h/.test(a)) {
+        return parseFloat(a) * 1000 * 60 * 60
+      } else {
+        return parseFloat(a) * 1000 * 60
+      }
+    })
+    .filter(function (item, pos, self) {
+      return self.indexOf(item) == pos
+    })
+
+  if (counters.filter(a => isNaN(a)).length) {
+    store.dispatch('app/showNotice', {
+      type: 'error',
+      title: `Counters (${value}) contains invalid steps.`
+    })
+    return
   }
 
-  get countersSteps() {
-    return this.$store.state[this.paneId].steps
-  }
-
-  get liquidationsOnly() {
-    return this.$store.state[this.paneId].liquidationsOnly
-  }
-
-  get countersStepsStringified() {
-    const now = Date.now()
-
-    return this.countersSteps.map(a => ago(now - a)).join(', ')
-  }
-
-  replaceCounters(value) {
-    const counters = value
-      .split(',')
-      .map(a => {
-        a = a.trim()
-
-        if (/[\d.]+s/.test(a)) {
-          return parseFloat(a) * 1000
-        } else if (/[\d.]+h/.test(a)) {
-          return parseFloat(a) * 1000 * 60 * 60
-        } else {
-          return parseFloat(a) * 1000 * 60
-        }
-      })
-      .filter(function (item, pos, self) {
-        return self.indexOf(item) == pos
-      })
-
-    if (counters.filter(a => isNaN(a)).length) {
-      this.$store.dispatch('app/showNotice', {
-        type: 'error',
-        title: `Counters (${value}) contains invalid steps.`
-      })
-      return
-    }
-
-    this.$store.commit(this.paneId + '/REPLACE_COUNTERS', counters)
-  }
+  store.commit(props.paneId + '/REPLACE_COUNTERS', counters)
 }
 </script>

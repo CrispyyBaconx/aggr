@@ -1,11 +1,11 @@
 <template>
   <Btn :loading="loading" :class="buttonClass" @click="toggleDropdown">
-    <slot name="selection" :item="value" :placeholder="placeholder">
+    <slot name="selection" :item="modelValue" :placeholder="placeholder">
       <span>{{ label }}</span>
     </slot>
     <dropdown
       v-model="dropdownTrigger"
-      @mousedown.native="selectFromElementRecursive($event)"
+      @mousedown="selectFromElementRecursive($event)"
     >
       <button
         type="button"
@@ -21,101 +21,85 @@
   </Btn>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import Btn from '@/components/framework/Btn.vue'
 
-@Component({
-  name: 'DropdownButton',
-  components: {
-    Btn
-  },
-  props: {
-    value: {
-      required: false,
-      default: null
-    },
-    loading: {
-      type: Boolean,
-      default: false
-    },
-    buttonClass: {
-      required: false,
-      default: '-arrow'
-    },
-    placeholder: {
-      required: false,
-      default: null
-    },
-    options: {
-      type: [Array, Object],
-      required: false,
-      default: () => []
-    }
-  }
+const props = withDefaults(defineProps<{
+  modelValue?: unknown
+  loading?: boolean
+  buttonClass?: string
+  placeholder?: string | null
+  options?: unknown[] | Record<string, unknown>
+}>(), {
+  modelValue: null,
+  loading: false,
+  buttonClass: '-arrow',
+  placeholder: null,
+  options: () => []
 })
-export default class DropdownButton extends Vue {
-  private value: any
-  private placeholder: string
-  private options: any[] | { [key: string]: any }
-  private isArray: boolean
-  dropdownTrigger = null
 
-  created() {
-    this.isArray = Array.isArray(this.options as any[])
+const emit = defineEmits<{
+  'update:modelValue': [value: unknown]
+}>()
+
+const dropdownTrigger = ref<HTMLElement | null>(null)
+const isArray = ref(false)
+
+onMounted(() => {
+  isArray.value = Array.isArray(props.options)
+})
+
+const label = computed(() => {
+  if (props.modelValue) {
+    return (props.options as Record<string, unknown>)[props.modelValue as string] || props.modelValue
   }
 
-  get label() {
-    if (this.value) {
-      return this.options[this.value] || this.value
-    }
-
-    if (this.placeholder) {
-      return this.placeholder
-    }
-
-    return 'Choose'
+  if (props.placeholder) {
+    return props.placeholder
   }
 
-  toggleDropdown(event) {
-    if (event && !this.dropdownTrigger) {
-      this.dropdownTrigger = event.currentTarget
-    } else {
-      this.dropdownTrigger = null
-    }
+  return 'Choose'
+})
+
+function toggleDropdown(event: MouseEvent) {
+  if (event && !dropdownTrigger.value) {
+    dropdownTrigger.value = event.currentTarget as HTMLElement
+  } else {
+    dropdownTrigger.value = null
   }
+}
 
-  selectFromElementRecursive(event) {
-    let element = event.target
+function selectFromElementRecursive(event: MouseEvent) {
+  let element = event.target as HTMLElement | null
 
-    let depth = 0
-    while (element && ++depth < 3) {
-      if (element.classList && element.classList.contains('dropdown-item')) {
-        this.selectOption(element)
-        this.toggleDropdown(event)
-        event.stopPropagation()
+  let depth = 0
+  while (element && ++depth < 3) {
+    if (element.classList && element.classList.contains('dropdown-item')) {
+      selectOption(element)
+      toggleDropdown(event)
+      event.stopPropagation()
 
-        break
-      }
-
-      element = element.parentElement
-    }
-  }
-
-  selectOption(optionElement: HTMLElement) {
-    const index = Array.prototype.indexOf.call(
-      optionElement.parentElement.children,
-      optionElement
-    )
-
-    let value
-    if (this.isArray) {
-      value = this.options[index]
-    } else {
-      value = Object.keys(this.options)[index]
+      break
     }
 
-    this.$emit('input', value)
+    element = element.parentElement
   }
+}
+
+function selectOption(optionElement: HTMLElement) {
+  const index = Array.prototype.indexOf.call(
+    optionElement.parentElement?.children,
+    optionElement
+  )
+
+  let value
+  if (isArray.value) {
+    value = (props.options as unknown[])[index]
+  } else {
+    value = Object.keys(props.options as Record<string, unknown>)[index]
+  }
+
+  emit('update:modelValue', value)
 }
 </script>

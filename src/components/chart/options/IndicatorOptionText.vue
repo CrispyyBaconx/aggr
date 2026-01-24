@@ -4,18 +4,22 @@
     <editable
       class="form-control"
       :value="value"
-      :placeholder="definition.placeholder"
+      :placeholder="(definition as any)?.placeholder"
       @input="$emit('input', $event)"
     ></editable>
   </div>
 </template>
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
-import IndicatorOptionMixin from '@/mixins/indicatorOptionMixin'
 
-@Component({
-  name: 'IndicatorOptionText',
-  mixins: [IndicatorOptionMixin]
-})
-export default class IndicatorOptionText extends Vue {}
+<script setup lang="ts">
+defineProps<{
+  paneId: string
+  indicatorId: string
+  label: string
+  value: string
+  definition?: Record<string, unknown>
+}>()
+
+defineEmits<{
+  (e: 'input', value: string): void
+}>()
 </script>

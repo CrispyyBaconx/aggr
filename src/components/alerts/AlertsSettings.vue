@@ -107,8 +107,9 @@
   </toggable-group>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
 import ToggableGroup from '@/components/framework/ToggableGroup.vue'
 import ColorPickerControl from '@/components/framework/picker/ColorPickerControl.vue'
@@ -116,166 +117,140 @@ import ColorPickerControl from '@/components/framework/picker/ColorPickerControl
 import audioService from '@/services/audioService'
 import importService from '@/services/importService'
 
-let notificationsPermission
+const store = useStore()
 
-@Component({
-  components: {
-    DropdownButton,
-    ToggableGroup,
-    ColorPickerControl
-  },
-  name: 'AlertsSettings'
+let notificationsPermission: PermissionStatus | null = null
+
+const helps = {
+  'notifications-disabled': 'Push notification are disabled.',
+  'notifications-grant': 'Enable notifications for this site in your browser.'
+}
+const notificationsPermissionState = ref('granted')
+
+const alertSound = computed(() => store.state.settings.alertSound)
+const alerts = computed(() => store.state.settings.alerts)
+const alertsColor = computed(() => store.state.settings.alertsColor)
+const alertsLineStyle = computed(() => store.state.settings.alertsLineStyle)
+const alertsLineWidth = computed(() => store.state.settings.alertsLineWidth)
+const alertsClick = computed(() => store.state.settings.alertsClick)
+
+const displayAlertSound = computed(() => {
+  const id = alertSound.value
+
+  if (!id) {
+    return null
+  }
+
+  if (id.length <= 14) {
+    return id
+  } else {
+    return id.slice(0, 6) + '..' + id.substr(-6)
+  }
 })
-export default class AlertsSettings extends Vue {
-  helps = {
-    'notifications-disabled': 'Push notification are disabled.',
-    'notifications-grant': 'Enable notifications for this site in your browser.'
-  }
-  notificationsPermissionState = 'granted'
 
-  get alertSound() {
-    return this.$store.state.settings.alertSound
-  }
+// created equivalent
+checkNotificationsPermission()
 
-  get alerts() {
-    return this.$store.state.settings.alerts
-  }
-
-  get alertsColor() {
-    return this.$store.state.settings.alertsColor
-  }
-
-  get alertsLineStyle() {
-    return this.$store.state.settings.alertsLineStyle
-  }
-
-  get alertsLineWidth() {
-    return this.$store.state.settings.alertsLineWidth
-  }
-
-  get alertsClick() {
-    return this.$store.state.settings.alertsClick
-  }
-
-  get displayAlertSound() {
-    const id = this.alertSound
-
-    if (!id) {
-      return null
-    }
-
-    if (id.length <= 14) {
-      return id
-    } else {
-      return id.slice(0, 6) + '..' + id.substr(-6)
-    }
-  }
-
-  created() {
-    this.checkNotificationsPermission()
-  }
-
-  checkNotificationsPermission() {
-    navigator.permissions
-      .query({ name: 'notifications' })
-      .then(result => {
-        if (!notificationsPermission) {
-          result.onchange = (event: any) => {
-            this.setNotificationsPermission(event.target.state)
-          }
-
-          notificationsPermission = result
+function checkNotificationsPermission() {
+  navigator.permissions
+    .query({ name: 'notifications' })
+    .then(result => {
+      if (!notificationsPermission) {
+        result.onchange = (event: any) => {
+          setNotificationsPermission(event.target.state)
         }
 
-        this.setNotificationsPermission(result.state)
-      })
-      .catch(err => {
-        console.error(err.message)
-      })
+        notificationsPermission = result
+      }
+
+      setNotificationsPermission(result.state)
+    })
+    .catch(err => {
+      console.error(err.message)
+    })
+}
+
+function setNotificationsPermission(state: string) {
+  notificationsPermissionState.value = state
+
+  if (notificationsPermissionState.value !== 'granted' && alerts.value) {
+    store.commit('settings/TOGGLE_ALERTS', false)
+  }
+}
+
+async function toggleAlerts(event: Event) {
+  let checked = (event.target as HTMLInputElement).checked
+
+  if (checked) {
+    notificationsPermissionState.value = await Notification.requestPermission()
   }
 
-  setNotificationsPermission(state) {
-    this.notificationsPermissionState = state
+  if (notificationsPermissionState.value === 'denied' && checked) {
+    checked = false
 
-    if (this.notificationsPermissionState !== 'granted' && this.alerts) {
-      this.$store.commit('settings/TOGGLE_ALERTS', false)
-    }
+    store.dispatch('app/showNotice', {
+      id: 'alert-notifications',
+      type: 'error',
+      icon: 'icon-warning -large pt0',
+      timeout: 100000,
+      html: true,
+      title: `<div class="ml8"><strong>This might not work as expected.</strong><br>${helps['notifications-grant']}</div>`
+    })
+  } else {
+    store.dispatch('app/showNotice', {
+      id: 'alert-notifications',
+      type: 'info',
+      title: checked ? `Alerts are enabled` : 'Alerts are disabled'
+    })
   }
 
-  async toggleAlerts(event) {
-    let checked = event.target.checked
+  ;(event.target as HTMLInputElement).checked = checked
+  store.commit('settings/TOGGLE_ALERTS', checked)
+}
 
-    if (checked) {
-      this.notificationsPermissionState = await Notification.requestPermission()
-    }
+async function handleAlertSoundFile(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
 
-    if (this.notificationsPermissionState === 'denied' && checked) {
-      checked = false
-
-      this.$store.dispatch('app/showNotice', {
-        id: 'alert-notifications',
-        type: 'error',
-        icon: 'icon-warning -large pt0',
-        timeout: 100000,
-        html: true,
-        title: `<div class="ml8"><strong>This might not work as expected.</strong><br>${this.helps['notifications-grant']}</div>`
-      })
-    } else {
-      this.$store.dispatch('app/showNotice', {
-        id: 'alert-notifications',
-        type: 'info',
-        title: checked ? `Alerts are enabled` : 'Alerts are disabled'
-      })
-    }
-
-    event.target.checked = checked
-    this.$store.commit('settings/TOGGLE_ALERTS', checked)
+  if (!file) {
+    return
   }
 
-  async handleAlertSoundFile(event) {
-    const file = event.target.files[0]
+  try {
+    await importService.importSound(file)
 
-    if (!file) {
-      return
-    }
+    store.commit('settings/SET_ALERT_SOUND', file.name)
 
-    try {
-      await importService.importSound(file)
+    audioService.playOnce(file.name)
+  } catch (error: any) {
+    store.dispatch('app/showNotice', {
+      title: error.message,
+      type: 'error'
+    })
+    return
+  }
+}
 
-      this.$store.commit('settings/SET_ALERT_SOUND', file.name)
-
-      audioService.playOnce(file.name)
-    } catch (error) {
-      this.$store.dispatch('app/showNotice', {
-        title: error.message,
-        type: 'error'
-      })
-      return
-    }
+function removeAlertSound() {
+  if (!alertSound.value) {
+    return
   }
 
-  removeAlertSound() {
-    if (!this.alertSound) {
-      return
-    }
+  store.commit('settings/SET_ALERT_SOUND', null)
+}
 
-    this.$store.commit('settings/SET_ALERT_SOUND', null)
+async function playAlertSound() {
+  if (!alertSound.value) {
+    return
   }
 
-  async playAlertSound() {
-    if (!this.alertSound) {
-      return
-    }
-
-    try {
-      await audioService.playOnce(this.alertSound, 3000)
-    } catch (error) {
-      console.error(error)
-      this.$store.dispatch('app/showNotice', {
-        type: 'error',
-        title: `Failed to play ${this.alertSound}`
-      })
-    }
+  try {
+    await audioService.playOnce(alertSound.value, 3000)
+  } catch (error) {
+    console.error(error)
+    store.dispatch('app/showNotice', {
+      type: 'error',
+      title: `Failed to play ${alertSound.value}`
+    })
   }
 }
 </script>

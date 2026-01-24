@@ -2,7 +2,7 @@
   <div class="indicator-option-line-style form-group">
     <label>{{ label }}<slot name="description" /></label>
     <dropdown-button
-      v-model="value"
+      :modelValue="value"
       :options="{
         0: 'Solid',
         1: 'Dotted',
@@ -11,22 +11,24 @@
         4: 'SparseDotted'
       }"
       class="-outline form-control -arrow"
-      :placeholder="definition.placeholder || 'lineStyle'"
-      @input="$emit('input', $event)"
+      :placeholder="(definition as any)?.placeholder || 'lineStyle'"
+      @update:modelValue="$emit('input', $event)"
     ></dropdown-button>
   </div>
 </template>
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
-import IndicatorOptionMixin from '@/mixins/indicatorOptionMixin'
+
+<script setup lang="ts">
 import DropdownButton from '@/components/framework/DropdownButton.vue'
 
-@Component({
-  name: 'IndicatorOptionLineStyle',
-  mixins: [IndicatorOptionMixin],
-  components: {
-    DropdownButton
-  }
-})
-export default class IndicatorOptionLineStyle extends Vue {}
+defineProps<{
+  paneId: string
+  indicatorId: string
+  label: string
+  value: number
+  definition?: Record<string, unknown>
+}>()
+
+defineEmits<{
+  (e: 'input', value: number): void
+}>()
 </script>

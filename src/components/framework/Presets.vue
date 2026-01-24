@@ -4,12 +4,12 @@
     <dropdown v-model="dropdownTrigger" @opened="onOpened">
       <div class="d-flex btn-group presets-control" @click.stop>
         <input
-          ref="query"
+          ref="queryRef"
           type="text"
           placeholder="Search"
           class="form-control presets-control__query"
           v-model="query"
-          @keyup.enter="savePreset"
+          @keyup.enter="savePreset()"
         />
         <div
           class="mlauto btn -text"
@@ -45,7 +45,7 @@
         <button
           type="button"
           class="dropdown-item"
-          @click.stop="selectPreset(dropdownPreset)"
+          @click.stop="selectPreset(dropdownPreset!)"
         >
           <i class="icon-check"></i>
           <span>Apply</span>
@@ -53,7 +53,7 @@
         <button
           type="button"
           class="dropdown-item"
-          @click.stop="replacePreset(dropdownPreset)"
+          @click.stop="replacePreset(dropdownPreset!)"
         >
           <i class="icon-refresh"></i>
           <span>Update</span>
@@ -61,7 +61,7 @@
         <button
           type="button"
           class="dropdown-item"
-          @click.stop="renamePreset(dropdownPreset)"
+          @click.stop="renamePreset(dropdownPreset!)"
         >
           <i class="icon-edit"></i>
           <span>Rename</span>
@@ -69,7 +69,7 @@
         <button
           type="button"
           class="dropdown-item"
-          @click.stop="downloadPreset(dropdownPreset)"
+          @click.stop="downloadPreset(dropdownPreset!)"
         >
           <i class="icon-download"></i>
           <span>Download</span>
@@ -78,7 +78,7 @@
         <button
           type="button"
           class="dropdown-item"
-          @click="deletePreset(dropdownPreset)"
+          @click="deletePreset(dropdownPreset!)"
         >
           <i class="icon-trash"></i>
           <span>Remove</span>
@@ -125,13 +125,14 @@
   </btn>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, computed, nextTick } from 'vue'
+import { useStore } from 'vuex'
 import Btn from '@/components/framework/Btn.vue'
 import dialogService from '@/services/dialogService'
 import workspacesService from '@/services/workspacesService'
 import importService from '@/services/importService'
 import { Preset } from '@/types/types'
-import { Component, Vue } from 'vue-property-decorator'
 import { downloadAnything, slugify } from '@/utils/helpers'
 
 interface PresetSummary {
@@ -139,298 +140,276 @@ interface PresetSummary {
   label: string
 }
 
-@Component({
-  props: {
-    type: {
-      required: true
-    },
-    adapter: {
-      required: true
-    },
-    label: {
-      default: 'Presets'
-    },
-    showReset: {
-      type: Boolean,
-      default: true
-    },
-    placeholder: {
-      type: String,
-      default: null
-    },
-    classes: {
-      type: String,
-      default: '-green'
-    }
-  },
-  components: {
-    Btn
-  }
-})
-export default class Presets extends Vue {
+const props = withDefaults(defineProps<{
   type: string
-  adapter: (originalPreset: Preset) => Preset
-  placeholder: string
-  presets: PresetSummary[] = []
+  adapter: (originalPreset?: Preset) => Promise<Preset | undefined>
+  label?: string
+  showReset?: boolean
+  placeholder?: string | null
+  classes?: string
+}>(), {
+  label: 'Presets',
+  showReset: true,
+  placeholder: null,
+  classes: '-green'
+})
 
-  // container dropdown
-  dropdownTrigger: HTMLElement = null
+const emit = defineEmits<{
+  apply: [preset?: Preset & { name?: string }]
+}>()
 
-  // selected preset dropdown
-  presetDropdownTrigger: HTMLElement = null
+const store = useStore()
 
-  // utility dropdown
-  utilityDropdownTrigger: HTMLElement = null
+const queryRef = ref<HTMLInputElement | null>(null)
+const presets = ref<PresetSummary[]>([])
+const dropdownTrigger = ref<HTMLElement | null>(null)
+const presetDropdownTrigger = ref<HTMLElement | null>(null)
+const utilityDropdownTrigger = ref<HTMLElement | null>(null)
+const dropdownPreset = ref<PresetSummary | null>(null)
+const query = ref('')
 
-  dropdownPreset: PresetSummary = null
-  query = ''
-
-  $refs!: {
-    query: HTMLInputElement
+const filteredPresets = computed(() => {
+  if (!query.value.length) {
+    return presets.value
   }
 
-  get filteredPresets() {
-    if (!this.query.length) {
-      return this.presets
+  return presets.value.filter(
+    preset => preset.label.indexOf(query.value) !== -1
+  )
+})
+
+async function toggleDropdown(event: MouseEvent) {
+  if (!dropdownTrigger.value) {
+    await getPresets()
+
+    dropdownTrigger.value = event.target as HTMLElement
+  } else {
+    dropdownTrigger.value = null
+  }
+}
+
+function togglePresetDropdown(event: MouseEvent, preset: PresetSummary) {
+  if (presetDropdownTrigger.value) {
+    presetDropdownTrigger.value = null
+  } else {
+    presetDropdownTrigger.value = event.currentTarget as HTMLElement
+    dropdownPreset.value = preset
+  }
+}
+
+function toggleUtilityDropdown(event: MouseEvent) {
+  if (utilityDropdownTrigger.value) {
+    utilityDropdownTrigger.value = null
+  } else {
+    utilityDropdownTrigger.value = event.currentTarget as HTMLElement
+  }
+}
+
+async function getPresets() {
+  presets.value.splice(1, presets.value.length)
+  const keys = (await workspacesService.getPresetsKeysByType(
+    props.type
+  )) as string[]
+
+  presets.value = keys.map(key => ({
+    id: key,
+    label: key.split(':').pop() || ''
+  }))
+}
+
+async function selectPreset(presetSummary: PresetSummary) {
+  const preset = await workspacesService.getPreset(presetSummary.id)
+  emit('apply', {
+    ...preset,
+    name: presetSummary.label
+  })
+}
+
+async function replacePreset(presetSummary: PresetSummary) {
+  const preset = await workspacesService.getPreset(presetSummary.id)
+  savePreset(presetSummary.label, preset)
+}
+
+async function savePreset(name?: string, originalPreset?: Preset) {
+  const push = !name
+
+  if (!originalPreset) {
+    if (!name || typeof name !== 'string') {
+      name = await dialogService.prompt({
+        action: 'Save as',
+        question: 'Save current settings',
+        submitLabel: 'Save',
+        input: query.value || props.placeholder || ''
+      })
+
+      if (typeof name !== 'string') {
+        return
+      }
+    } else if (
+      !(await dialogService.confirm(
+        `Override preset ${name} with current settings ?`
+      ))
+    ) {
+      return
     }
-
-    return this.presets.filter(
-      preset => preset.label.indexOf(this.query) !== -1
-    )
   }
 
-  async toggleDropdown(event) {
-    if (!this.dropdownTrigger) {
-      await this.getPresets()
+  const data = await getData(originalPreset)
 
-      this.dropdownTrigger = event.target
-    } else {
-      this.dropdownTrigger = null
+  if (!data) {
+    return
+  }
+
+  if (!name) {
+    return
+  }
+
+  name = props.type + ':' + name
+  const now = Date.now()
+  const original = await workspacesService.getPreset(name)
+
+  await workspacesService.savePreset(
+    {
+      name,
+      data,
+      createdAt: original ? original.createdAt : now,
+      updatedAt: original ? now : null
+    },
+    props.type
+  )
+
+  if (push) {
+    const index = presets.value.findIndex(preset => preset.id === name)
+    if (index !== -1) {
+      presets.value.splice(index, 1)
     }
-  }
-
-  togglePresetDropdown(event, preset) {
-    if (this.presetDropdownTrigger) {
-      this.presetDropdownTrigger = null
-    } else {
-      this.presetDropdownTrigger = event.currentTarget
-      this.dropdownPreset = preset
-    }
-  }
-
-  toggleUtilityDropdown(event) {
-    if (this.utilityDropdownTrigger) {
-      this.utilityDropdownTrigger = null
-    } else {
-      this.utilityDropdownTrigger = event.currentTarget
-    }
-  }
-
-  async getPresets() {
-    this.presets.splice(1, this.presets.length)
-    const keys = (await workspacesService.getPresetsKeysByType(
-      this.type
-    )) as string[]
-
-    this.presets = keys.map(key => ({
-      id: key,
-      label: key.split(':').pop()
-    }))
-  }
-
-  async selectPreset(presetSummary: PresetSummary) {
-    const preset = await workspacesService.getPreset(presetSummary.id)
-    this.$emit('apply', {
-      ...preset,
-      name: presetSummary.label
+    presets.value.push({
+      id: name,
+      label: name.split(':').pop() || ''
     })
   }
 
-  async replacePreset(presetSummary: PresetSummary) {
-    const preset = await workspacesService.getPreset(presetSummary.id)
-    this.savePreset(presetSummary.label, preset)
-  }
+  query.value = ''
+}
 
-  async savePreset(name?: string, originalPreset?: Preset) {
-    const push = !name
-
-    if (!originalPreset) {
-      if (!name || typeof name !== 'string') {
-        name = await dialogService.prompt({
-          action: 'Save as',
-          question: 'Save current settings',
-          submitLabel: 'Save',
-          input: this.query || this.placeholder
-        })
-
-        if (typeof name !== 'string') {
-          return
-        }
-      } else if (
-        !(await dialogService.confirm(
-          `Override preset ${name} with current settings ?`
-        ))
-      ) {
-        return
-      }
-    }
-
-    const data = await this.getData(originalPreset)
-
-    if (!data) {
-      return
-    }
-
-    if (!name) {
-      return
-    }
-
-    name = this.type + ':' + name
-    const now = Date.now()
-    const original = await workspacesService.getPreset(name)
-
-    await workspacesService.savePreset(
-      {
-        name,
-        data,
-        createdAt: original ? original.createdAt : now,
-        updatedAt: original ? now : null
-      },
-      this.type
+async function applyDefault() {
+  if (
+    await dialogService.confirm(
+      'Reset ' + props.type + ' to default settings ?'
     )
-
-    if (push) {
-      const index = this.presets.findIndex(preset => preset.id === name)
-      if (index !== -1) {
-        this.presets.splice(index, 1)
-      }
-      this.presets.push({
-        id: name,
-        label: name.split(':').pop()
-      })
-    }
-
-    this.query = ''
-  }
-
-  async applyDefault() {
-    if (
-      await dialogService.confirm(
-        'Reset ' + this.type + ' to default settings ?'
-      )
-    ) {
-      this.$emit('apply')
-    }
-  }
-
-  async handleFile(event: Event) {
-    const file = (event.target as HTMLInputElement).files[0]
-
-    if (!file) {
-      return
-    }
-
-    try {
-      const preset = await importService.importPreset(file, this.type)
-      if (preset) {
-        this.presets.push({
-          id: preset.name,
-          label: preset.name.split(':').pop()
-        })
-      }
-    } catch (error) {
-      this.$store.dispatch('app/showNotice', {
-        title: error.message,
-        type: 'error'
-      })
-    }
-  }
-
-  async renamePreset(presetSummary: PresetSummary) {
-    const name = (
-      (await dialogService.prompt({
-        action: 'Rename',
-        input: presetSummary.label
-      })) || ''
-    ).trim()
-
-    if (name && name !== presetSummary.label) {
-      const preset = await workspacesService.getPreset(presetSummary.id)
-      await workspacesService.removePreset(presetSummary.id)
-
-      const meta = presetSummary.id.split(':')
-      meta[meta.length - 1] = name
-      preset.name = meta.join(':')
-
-      await workspacesService.savePreset(preset)
-      this.presets.splice(this.presets.indexOf(presetSummary), 1, {
-        id: preset.name,
-        label: name
-      })
-    }
-  }
-
-  async deletePreset(presetSummary: PresetSummary) {
-    if (
-      await dialogService.confirm(
-        'Remove preset "' + presetSummary.label + '" ?'
-      )
-    ) {
-      await workspacesService.removePreset(presetSummary.id)
-      this.presets.splice(this.presets.indexOf(presetSummary), 1)
-    }
-  }
-
-  async getData(originalPreset?: Preset) {
-    const data = await this.adapter(originalPreset)
-
-    if (!data) {
-      return
-    }
-
-    if ((data as any)._id) {
-      delete (data as any)._id
-    }
-
-    return data
-  }
-
-  async downloadPreset(presetSummary: PresetSummary) {
-    const preset = await workspacesService.getPreset(presetSummary.id)
-    downloadAnything(
-      {
-        ...preset,
-        type: 'preset'
-      },
-      slugify(presetSummary.label)
-    )
-  }
-
-  async downloadSettings() {
-    const name = this.placeholder || this.type.split(':').pop()
-    const data = await this.getData()
-
-    if (!data) {
-      return
-    }
-
-    downloadAnything(
-      {
-        name: this.type + ':' + name,
-        type: 'preset',
-        data
-      },
-      slugify(name)
-    )
-  }
-
-  async onOpened() {
-    await this.$nextTick()
-
-    this.$refs.query.focus()
+  ) {
+    emit('apply')
   }
 }
+
+async function handleFile(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  try {
+    const preset = await importService.importPreset(file, props.type)
+    if (preset) {
+      presets.value.push({
+        id: preset.name,
+        label: preset.name.split(':').pop() || ''
+      })
+    }
+  } catch (error) {
+    store.dispatch('app/showNotice', {
+      title: (error as Error).message,
+      type: 'error'
+    })
+  }
+}
+
+async function renamePreset(presetSummary: PresetSummary) {
+  const name = (
+    (await dialogService.prompt({
+      action: 'Rename',
+      input: presetSummary.label
+    })) || ''
+  ).trim()
+
+  if (name && name !== presetSummary.label) {
+    const preset = await workspacesService.getPreset(presetSummary.id)
+    await workspacesService.removePreset(presetSummary.id)
+
+    const meta = presetSummary.id.split(':')
+    meta[meta.length - 1] = name
+    preset.name = meta.join(':')
+
+    await workspacesService.savePreset(preset)
+    presets.value.splice(presets.value.indexOf(presetSummary), 1, {
+      id: preset.name,
+      label: name
+    })
+  }
+}
+
+async function deletePreset(presetSummary: PresetSummary) {
+  if (
+    await dialogService.confirm(
+      'Remove preset "' + presetSummary.label + '" ?'
+    )
+  ) {
+    await workspacesService.removePreset(presetSummary.id)
+    presets.value.splice(presets.value.indexOf(presetSummary), 1)
+  }
+}
+
+async function getData(originalPreset?: Preset) {
+  const data = await props.adapter(originalPreset)
+
+  if (!data) {
+    return
+  }
+
+  if ((data as { _id?: string })._id) {
+    delete (data as { _id?: string })._id
+  }
+
+  return data
+}
+
+async function downloadPreset(presetSummary: PresetSummary) {
+  const preset = await workspacesService.getPreset(presetSummary.id)
+  downloadAnything(
+    {
+      ...preset,
+      type: 'preset'
+    },
+    slugify(presetSummary.label)
+  )
+}
+
+async function downloadSettings() {
+  const name = props.placeholder || props.type.split(':').pop()
+  const data = await getData()
+
+  if (!data) {
+    return
+  }
+
+  downloadAnything(
+    {
+      name: props.type + ':' + name,
+      type: 'preset',
+      data
+    },
+    slugify(name || '')
+  )
+}
+
+async function onOpened() {
+  await nextTick()
+
+  queryRef.value?.focus()
+}
 </script>
+
 <style lang="scss">
 .presets-control {
   background-color: var(--theme-background-150);

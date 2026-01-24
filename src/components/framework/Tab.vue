@@ -9,33 +9,35 @@
   </button>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, defineExpose } from 'vue'
 
-@Component({
-  name: 'Tab',
-  props: {
-    name: {
-      type: String,
-      required: true
-    }
-  }
-})
-export default class Tab extends Vue {
-  selected = false
+defineProps<{
+  name: string
+}>()
 
-  select() {
-    this.selected = true
-  }
+const emit = defineEmits<{
+  select: [instance: { name: string; select: () => void; deselect: () => void }]
+}>()
 
-  deselect() {
-    this.selected = false
-  }
+const selected = ref(false)
 
-  onClick() {
-    this.$emit('select', this)
-  }
+function select() {
+  selected.value = true
 }
+
+function deselect() {
+  selected.value = false
+}
+
+function onClick() {
+  emit('select', { name: '', select, deselect })
+}
+
+defineExpose({
+  select,
+  deselect
+})
 </script>
 
 <style lang="scss" scoped>

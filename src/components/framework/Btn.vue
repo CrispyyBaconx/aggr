@@ -12,55 +12,42 @@
   </component>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue'
 import Loader from '@/components/framework/Loader.vue'
 
-@Component({
-  name: 'Btn',
-  components: {
-    Loader
-  },
-  props: {
-    loading: {
-      type: Boolean,
-      default: false
-    },
-    type: {
-      type: String,
-      default: 'button'
-    },
-    href: {
-      type: String,
-      default: null
-    },
-    target: {
-      type: String,
-      default: null
-    }
-  },
-  computed: {
-    tag() {
-      if (this.href) {
-        return 'a'
-      }
-
-      return 'button'
-    }
-  }
+const props = withDefaults(defineProps<{
+  loading?: boolean
+  type?: string
+  href?: string | null
+  target?: string | null
+}>(), {
+  loading: false,
+  type: 'button',
+  href: null,
+  target: null
 })
-export default class Btn extends Vue {
-  isLoading = false
 
-  @Watch('loading')
-  onLoadingChange(value) {
-    this.isLoading = value
+const emit = defineEmits<{
+  click: [event: MouseEvent]
+}>()
+
+const isLoading = ref(props.loading)
+
+const tag = computed(() => {
+  if (props.href) {
+    return 'a'
   }
+  return 'button'
+})
 
-  onClick(event) {
-    if (!this.isLoading) {
-      this.$emit('click', event)
-    }
+watch(() => props.loading, (value) => {
+  isLoading.value = value
+})
+
+function onClick(event: MouseEvent) {
+  if (!isLoading.value) {
+    emit('click', event)
   }
 }
 </script>

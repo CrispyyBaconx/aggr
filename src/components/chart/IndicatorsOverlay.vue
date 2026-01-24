@@ -1,6 +1,6 @@
 <template>
   <div class="chart-overlay__panel indicators-overlay">
-    <div class="chart-overlay__content" v-if="value">
+    <div class="chart-overlay__content" v-if="modelValue">
       <IndicatorDropdown
         v-model="dropdownTrigger"
         :indicator-id="indicatorId"
@@ -12,7 +12,7 @@
         :indicator-id="id"
         :pane-id="paneId"
         @action="onClickIndicator"
-        @mousedown.native="bindSort(id, $event)"
+        @mousedown="bindSort(id, $event)"
       />
     </div>
     <div class="chart-overlay__head pane-overlay" @click="toggleOverlay">
@@ -26,9 +26,9 @@
   </div>
 </template>
 
-<script lang="ts">
-import Vue from 'vue'
-import Component from 'vue-class-component'
+<script setup lang="ts">
+import { ref, computed, nextTick } from 'vue'
+import { useStore } from 'vuex'
 
 import { ChartPaneState } from '../../store/panesSettings/chart'
 
@@ -37,194 +37,179 @@ import dialogService from '../../services/dialogService'
 import IndicatorControl from '@/components/chart/IndicatorControl.vue'
 import IndicatorDropdown from '@/components/indicators/IndicatorDropdown.vue'
 
-@Component({
-  name: 'IndicatorsOverlay',
-  components: {
-    IndicatorControl,
-    IndicatorDropdown
-  },
-  props: {
-    paneId: {
-      type: String
-    },
-    value: {
-      type: Boolean,
-      required: true
-    }
-  }
+const props = defineProps<{
+  paneId: string
+  modelValue: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+}>()
+
+const store = useStore()
+
+const dropdownTrigger = ref<HTMLElement | null>(null)
+const indicatorId = ref<string | null>(null)
+const sorting = ref<{
+  id: string
+  height: number
+  startY: number
+  maxPosition: number
+  oldPosition: number
+  newPosition: number
+  moved?: boolean
+} | null>(null)
+
+const indicators = computed(() => {
+  return (store.state[props.paneId] as ChartPaneState).indicators
 })
-export default class IndicatorsOverlay extends Vue {
-  private paneId: string
-  private value: boolean
 
-  dropdownTrigger: HTMLElement = null
-  indicatorId: string = null
-  sorting: {
-    id: string
-    height: number
-    startY: number
-    maxPosition: number
-    oldPosition: number
-    newPosition: number
-    moved?: boolean
+const indicatorOrder = computed(() => {
+  return (store.state[props.paneId] as ChartPaneState).indicatorOrder
+})
+
+const label = computed(() => {
+  const count = Object.values(indicators.value).length
+  return `${count} indicator${count > 1 ? 's' : ''}`
+})
+
+function toggleOverlay() {
+  emit('update:modelValue', !props.modelValue)
+}
+
+function toggleDropdown(event?: Event, id?: string) {
+  if (
+    event &&
+    (!dropdownTrigger.value || !indicatorId.value || indicatorId.value !== id)
+  ) {
+    const triggerElement = event.currentTarget as HTMLElement
+    indicatorId.value = id || null
+    dropdownTrigger.value = triggerElement
+  } else {
+    dropdownTrigger.value = null
+    indicatorId.value = null
+  }
+}
+
+async function editIndicator(id: string) {
+  dialogService.open(
+    (await import('@/components/indicators/IndicatorDialog.vue')).default,
+    { paneId: props.paneId, indicatorId: id },
+    'indicator'
+  )
+  dropdownTrigger.value = null
+}
+
+async function addIndicator() {
+  dialogService.open(
+    (await import('@/components/indicators/IndicatorLibraryDialog.vue'))
+      .default,
+    {},
+    'indicator-library'
+  )
+}
+
+function onClickIndicator({
+  indicatorId: id,
+  actionName,
+  event
+}: {
+  indicatorId: string
+  actionName?: string
+  event?: Event
+}) {
+  if (sorting.value && sorting.value.moved) {
+    return
   }
 
-  get indicators() {
-    return (this.$store.state[this.paneId] as ChartPaneState).indicators
-  }
-
-  get indicatorOrder() {
-    return (this.$store.state[this.paneId] as ChartPaneState).indicatorOrder
-  }
-
-  get label() {
-    const count = Object.values(this.indicators).length
-
-    return `${count} indicator${count > 1 ? 's' : ''}`
-  }
-
-  $refs!: {
-    indicatorDropdown: any
-  }
-
-  toggleOverlay() {
-    this.$emit('input', !this.value)
-  }
-
-  toggleDropdown(event?: Event, id?: string) {
-    if (
-      event &&
-      (!this.dropdownTrigger || !this.indicatorId || this.indicatorId !== id)
-    ) {
-      const triggerElement = event.currentTarget as HTMLElement
-      this.indicatorId = id
-      this.dropdownTrigger = triggerElement
-    } else {
-      this.dropdownTrigger = null
-      this.indicatorId = null
-    }
-  }
-
-  async editIndicator(indicatorId: string) {
-    dialogService.open(
-      (await import('@/components/indicators/IndicatorDialog.vue')).default,
-      { paneId: this.paneId, indicatorId: indicatorId },
-      'indicator'
-    )
-    this.dropdownTrigger = null
-  }
-
-  async addIndicator() {
-    dialogService.open(
-      (await import('@/components/indicators/IndicatorLibraryDialog.vue'))
-        .default,
-      {},
-      'indicator-library'
-    )
-  }
-
-  onClickIndicator({
-    indicatorId,
-    actionName,
-    event
-  }: {
-    indicatorId: string
-    actionName?: string
-    event?: Event
-  }) {
-    if (this.sorting && this.sorting.moved) {
-      return
-    }
-
-    switch (actionName) {
-      case 'menu':
-        return this.toggleDropdown(event, indicatorId)
-      case 'remove':
-        return this.$store.dispatch(this.paneId + '/removeIndicator', {
-          id: indicatorId
-        })
-      case 'resize':
-        return this.$store.commit(
-          this.paneId + '/TOGGLE_LAYOUTING',
-          indicatorId
-        )
-    }
-
-    return this.editIndicator(indicatorId)
-  }
-
-  bindSort(indicatorId: string, event: MouseEvent) {
-    if (this.sorting) {
-      return
-    }
-
-    const keys = Object.keys(this.indicators)
-    let position = this.indicatorOrder.indexOf(indicatorId)
-    if (position === -1) {
-      position = keys.indexOf(indicatorId)
-    }
-
-    const element = event.currentTarget as HTMLElement
-    const startY = event.clientY
-
-    this.sorting = {
-      id: indicatorId,
-      height: element.clientHeight,
-      startY,
-      maxPosition: keys.length - 1,
-      oldPosition: position,
-      newPosition: position
-    }
-
-    document.addEventListener('mousemove', this.handleSort)
-    document.addEventListener('mouseup', this.unbindSort)
-  }
-
-  handleSort(event) {
-    if (!this.sorting) {
-      return
-    }
-
-    const offset = event.clientY - this.sorting.startY
-
-    if (!this.sorting.moved) {
-      this.sorting.moved = Math.abs(offset) > 3
-    }
-
-    const newPosition = Math.max(
-      0,
-      Math.min(
-        this.sorting.maxPosition,
-        this.sorting.oldPosition + Math.round(offset / this.sorting.height)
+  switch (actionName) {
+    case 'menu':
+      return toggleDropdown(event, id)
+    case 'remove':
+      return store.dispatch(props.paneId + '/removeIndicator', {
+        id
+      })
+    case 'resize':
+      return store.commit(
+        props.paneId + '/TOGGLE_LAYOUTING',
+        id
       )
+  }
+
+  return editIndicator(id)
+}
+
+function bindSort(id: string, event: MouseEvent) {
+  if (sorting.value) {
+    return
+  }
+
+  const keys = Object.keys(indicators.value)
+  let position = indicatorOrder.value.indexOf(id)
+  if (position === -1) {
+    position = keys.indexOf(id)
+  }
+
+  const element = event.currentTarget as HTMLElement
+  const startY = event.clientY
+
+  sorting.value = {
+    id,
+    height: element.clientHeight,
+    startY,
+    maxPosition: keys.length - 1,
+    oldPosition: position,
+    newPosition: position
+  }
+
+  document.addEventListener('mousemove', handleSort)
+  document.addEventListener('mouseup', unbindSort)
+}
+
+function handleSort(event: MouseEvent) {
+  if (!sorting.value) {
+    return
+  }
+
+  const offset = event.clientY - sorting.value.startY
+
+  if (!sorting.value.moved) {
+    sorting.value.moved = Math.abs(offset) > 3
+  }
+
+  const newPosition = Math.max(
+    0,
+    Math.min(
+      sorting.value.maxPosition,
+      sorting.value.oldPosition + Math.round(offset / sorting.value.height)
     )
+  )
 
-    if (newPosition !== this.sorting.newPosition) {
-      this.sorting.newPosition = newPosition
-      this.setIndicatorOrder(this.sorting.id, this.sorting.newPosition)
-    }
+  if (newPosition !== sorting.value.newPosition) {
+    sorting.value.newPosition = newPosition
+    setIndicatorOrder(sorting.value.id, sorting.value.newPosition)
+  }
+}
+
+function setIndicatorOrder(id: string, position: number) {
+  store.commit(`${props.paneId}/UPDATE_INDICATOR_ORDER`, {
+    id,
+    position
+  })
+}
+
+async function unbindSort() {
+  if (!sorting.value) {
+    return
   }
 
-  setIndicatorOrder(id, position) {
-    this.$store.commit(`${this.paneId}/UPDATE_INDICATOR_ORDER`, {
-      id,
-      position
-    })
-  }
+  document.removeEventListener('mousemove', handleSort)
+  document.removeEventListener('mouseup', unbindSort)
 
-  async unbindSort() {
-    if (!this.sorting) {
-      return
-    }
+  await nextTick()
 
-    document.removeEventListener('mousemove', this.handleSort)
-    document.removeEventListener('mouseup', this.unbindSort)
-
-    await this.$nextTick()
-
-    setTimeout(() => {
-      this.sorting = null
-    })
-  }
+  setTimeout(() => {
+    sorting.value = null
+  })
 }
 </script>

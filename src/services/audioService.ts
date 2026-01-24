@@ -1,4 +1,4 @@
-import Vue from 'vue'
+import { nextTick } from 'vue'
 import Tuna from 'tunajs'
 import store from '../store'
 import {
@@ -138,7 +138,7 @@ class AudioService {
     this.minTime = 0
     this.count = 0
 
-    Vue.nextTick(() => {
+    nextTick(() => {
       this.bindContext()
       this.bindOutput()
     })

@@ -104,98 +104,89 @@
   </table>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, computed } from 'vue'
 import { ago } from '@/utils/helpers'
-import PreviewMixin from '@/mixins/previewMixin'
+import { usePreview } from '@/composables/usePreview'
 
-export default {
-  name: 'IndicatorTable',
-  mixins: [PreviewMixin],
-  props: {
-    indicators: {
-      type: Array,
-      required: true
-    },
-    query: {
-      type: String,
-      default: ''
-    },
-    showDropdown: {
-      type: Boolean,
-      default: false
-    },
-    showAuthor: {
-      type: Boolean,
-      default: false
-    },
-    showEnabled: {
-      type: Boolean,
-      default: false
-    }
-  },
-  data() {
-    return {
-      ago,
-      sortDirection: -1,
-      sortProperty: 'updatedAt'
-    }
-  },
-  computed: {
-    queryFilter() {
-      return new RegExp(this.query.replace(/\W/, '.*'), 'i')
-    },
-    sortFunction() {
-      if (this.sortProperty === 'description') {
-        if (this.sortDirection > 0) {
-          return (a, b) =>
-            (a.description || '').localeCompare(b.description || '')
-        }
-        return (a, b) =>
-          (b.description || '').localeCompare(a.description || '')
-      } else if (this.sortProperty === 'name') {
-        if (this.sortDirection > 0) {
-          return (a, b) => (a.name || '').localeCompare(b.name || '')
-        }
-        return (a, b) => (b.name || '').localeCompare(a.name || '')
-      } else if (this.sortProperty === 'createdAt') {
-        if (this.sortDirection > 0) {
-          return (a, b) => a.createdAt - b.createdAt
-        }
-        return (a, b) => b.createdAt - a.createdAt
-      } else if (this.sortProperty === 'updatedAt') {
-        if (this.sortDirection > 0) {
-          return (a, b) => a.updatedAt - b.updatedAt
-        }
-        return (a, b) => b.updatedAt - a.updatedAt
-      } else if (this.sortProperty === 'author') {
-        if (this.sortDirection > 0) {
-          return (a, b) => a.author - b.author
-        }
-        return (a, b) => b.author - a.author
-      }
+const props = withDefaults(defineProps<{
+  indicators: any[]
+  query?: string
+  showDropdown?: boolean
+  showAuthor?: boolean
+  showEnabled?: boolean
+}>(), {
+  query: '',
+  showDropdown: false,
+  showAuthor: false,
+  showEnabled: false
+})
 
-      return (a, b) => a.id.localeCompare(b.id)
-    },
-    filteredIndicators() {
-      const sortFunction = this.sortFunction
-      return this.indicators
-        .filter(
-          a =>
-            this.queryFilter.test(a.description) ||
-            this.queryFilter.test(a.name)
-        )
-        .sort(sortFunction)
-    }
-  },
-  methods: {
-    toggleSort(name) {
-      if (name === this.sortProperty) {
-        this.sortDirection = this.sortDirection * -1
-      }
+defineEmits<{
+  selected: [indicator: any]
+  enabled: [indicator: any]
+  dropdown: [payload: [Event, any]]
+}>()
 
-      this.sortProperty = name
+const { showPreview, movePreview, clearPreview } = usePreview()
+
+const sortDirection = ref(-1)
+const sortProperty = ref('updatedAt')
+
+const queryFilter = computed(() => {
+  return new RegExp(props.query.replace(/\W/, '.*'), 'i')
+})
+
+const sortFunction = computed(() => {
+  if (sortProperty.value === 'description') {
+    if (sortDirection.value > 0) {
+      return (a: any, b: any) =>
+        (a.description || '').localeCompare(b.description || '')
     }
+    return (a: any, b: any) =>
+      (b.description || '').localeCompare(a.description || '')
+  } else if (sortProperty.value === 'name') {
+    if (sortDirection.value > 0) {
+      return (a: any, b: any) => (a.name || '').localeCompare(b.name || '')
+    }
+    return (a: any, b: any) => (b.name || '').localeCompare(a.name || '')
+  } else if (sortProperty.value === 'createdAt') {
+    if (sortDirection.value > 0) {
+      return (a: any, b: any) => a.createdAt - b.createdAt
+    }
+    return (a: any, b: any) => b.createdAt - a.createdAt
+  } else if (sortProperty.value === 'updatedAt') {
+    if (sortDirection.value > 0) {
+      return (a: any, b: any) => a.updatedAt - b.updatedAt
+    }
+    return (a: any, b: any) => b.updatedAt - a.updatedAt
+  } else if (sortProperty.value === 'author') {
+    if (sortDirection.value > 0) {
+      return (a: any, b: any) => a.author - b.author
+    }
+    return (a: any, b: any) => b.author - a.author
   }
+
+  return (a: any, b: any) => a.id.localeCompare(b.id)
+})
+
+const filteredIndicators = computed(() => {
+  const sortFn = sortFunction.value
+  return props.indicators
+    .filter(
+      a =>
+        queryFilter.value.test(a.description) ||
+        queryFilter.value.test(a.name)
+    )
+    .sort(sortFn)
+})
+
+function toggleSort(name: string) {
+  if (name === sortProperty.value) {
+    sortDirection.value = sortDirection.value * -1
+  }
+
+  sortProperty.value = name
 }
 </script>
 <style lang="scss" scoped>

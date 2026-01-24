@@ -102,45 +102,18 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import TransitionHeight from '@/components/framework/TransitionHeight.vue'
 
-@Component({
-  name: 'OtherSettings',
-  components: {
-    TransitionHeight
-  }
-})
-export default class OtherSettings extends Vue {
-  responsiveEnabled: boolean = null
+const store = useStore()
 
-  get animationsEnabled() {
-    return !this.$store.state.settings.disableAnimations
-  }
-
-  get autoHideHeaders() {
-    return this.$store.state.settings.autoHideHeaders
-  }
-
-  get autoHideNames() {
-    return this.$store.state.settings.autoHideNames
-  }
-
-  get locked() {
-    return this.$store.state.panes.locked
-  }
-
-  get normalizeWatermarks() {
-    return this.$store.state.settings.normalizeWatermarks
-  }
-
-  get timezoneOffset() {
-    return this.$store.state.settings.timezoneOffset
-  }
-
-  get showThresholdsAsTable() {
-    return this.$store.state.settings.showThresholdsAsTable
-  }
-}
+const animationsEnabled = computed(() => !store.state.settings.disableAnimations)
+const autoHideHeaders = computed(() => store.state.settings.autoHideHeaders)
+const autoHideNames = computed(() => store.state.settings.autoHideNames)
+const locked = computed(() => store.state.panes.locked)
+const normalizeWatermarks = computed(() => store.state.settings.normalizeWatermarks)
+const timezoneOffset = computed(() => store.state.settings.timezoneOffset)
+const showThresholdsAsTable = computed(() => store.state.settings.showThresholdsAsTable)
 </script>

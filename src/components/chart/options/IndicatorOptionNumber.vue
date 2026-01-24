@@ -11,27 +11,23 @@
     ></editable>
   </div>
 </template>
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
-import IndicatorOptionMixin from '@/mixins/indicatorOptionMixin'
 
-@Component({
-  name: 'IndicatorOptionNumber',
-  mixins: [IndicatorOptionMixin]
-})
-export default class IndicatorOptionNumber extends Vue {
-  private definition
+<script setup lang="ts">
+import { computed } from 'vue'
 
-  get min() {
-    return this.definition.min === 'number' ? this.definition.min : null
-  }
+const props = defineProps<{
+  paneId: string
+  indicatorId: string
+  label: string
+  value: number
+  definition?: Record<string, unknown>
+}>()
 
-  get max() {
-    return this.definition.max === 'number' ? this.definition.max : null
-  }
+defineEmits<{
+  (e: 'input', value: number): void
+}>()
 
-  get step() {
-    return this.definition.step === 'number' ? this.definition.step : null
-  }
-}
+const min = computed(() => typeof props.definition?.min === 'number' ? props.definition.min : null)
+const max = computed(() => typeof props.definition?.max === 'number' ? props.definition.max : null)
+const step = computed(() => typeof props.definition?.step === 'number' ? props.definition.step : null)
 </script>

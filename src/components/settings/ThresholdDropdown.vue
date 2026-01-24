@@ -1,6 +1,6 @@
 <template>
   <div class="threshold-dropdown">
-    <h3>@ {{ formatAmount(threshold.amount) }}</h3>
+    <h3>@ {{ formatAmountHelper(threshold.amount) }}</h3>
     <div class="form-group mb8 threshold-panel__gif">
       <div class="column">
         <div class="form-group" v-if="isLegacy">
@@ -14,7 +14,7 @@
               $store.commit(paneId + '/SET_THRESHOLD_GIF', {
                 id: threshold.id,
                 side: 'buy',
-                value: $event.target.value
+                value: ($event.target as HTMLInputElement).value
               })
             "
           />
@@ -30,7 +30,7 @@
               $store.commit(paneId + '/SET_THRESHOLD_GIF', {
                 id: threshold.id,
                 side: 'sell',
-                value: $event.target.value
+                value: ($event.target as HTMLInputElement).value
               })
             "
           />
@@ -84,59 +84,47 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import dialogService from '../../services/dialogService'
 import { formatAmount } from '../../services/productsService'
 import { Threshold } from '../../store/panesSettings/trades'
 import ColorPickerControl from '../framework/picker/ColorPickerControl.vue'
 
-@Component({
-  name: 'ThresholdDropdown',
-  components: {
-    ColorPickerControl
-  },
-  props: {
-    paneId: {
-      type: String,
-      required: true
-    },
-    threshold: {
-      required: true
-    },
-    canDelete: {
-      default: false
-    }
-  }
-})
-export default class ThresholdDropdown extends Vue {
-  private paneId: string
-  private threshold: Threshold
-  private canDelete: boolean
+const props = defineProps<{
+  paneId: string
+  threshold: Threshold
+  canDelete?: boolean
+}>()
 
-  get isLegacy() {
-    return this.$store.state.panes.panes[this.paneId].type === 'trades'
-  }
+const emit = defineEmits<{
+  (e: 'input', value: null): void
+}>()
 
-  formatAmount(value) {
-    return formatAmount(value)
+const store = useStore()
+
+const isLegacy = computed(() => store.state.panes.panes[props.paneId].type === 'trades')
+
+function formatAmountHelper(value: number) {
+  return formatAmount(value)
+}
+
+function removeThreshold() {
+  if (!props.canDelete) {
+    dialogService.confirm({
+      message: `You can't delete the threshold because there is only 2 and the minimum is 2`,
+      cancel: null
+    })
+
+    return
   }
 
-  removeThreshold() {
-    if (!this.canDelete) {
-      dialogService.confirm({
-        message: `You can't delete the threshold because there is only 2 and the minimum is 2`,
-        cancel: null
-      })
-
-      return
-    }
-
-    this.$store.commit(this.paneId + '/DELETE_THRESHOLD', this.threshold.id)
-    this.$emit('input', null)
-  }
+  store.commit(props.paneId + '/DELETE_THRESHOLD', props.threshold.id)
+  emit('input', null)
 }
 </script>
+
 <style lang="scss" scoped>
 .threshold-dropdown {
   background-color: var(--theme-background-100);

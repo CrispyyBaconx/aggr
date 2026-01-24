@@ -11,30 +11,33 @@
     ></color-picker-control>
   </div>
 </template>
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
-import IndicatorOptionMixin from '@/mixins/indicatorOptionMixin'
+
+<script setup lang="ts">
+import { useStore } from 'vuex'
 import ColorPickerControl from '@/components/framework/picker/ColorPickerControl.vue'
 
-@Component({
-  name: 'IndicatorOptionColor',
-  mixins: [IndicatorOptionMixin],
-  components: {
-    ColorPickerControl
-  }
-})
-export default class IndicatorOptionColor extends Vue {
-  private paneId
-  private indicatorId
+const props = defineProps<{
+  paneId: string
+  indicatorId: string
+  label: string
+  value: string
+  definition?: Record<string, unknown>
+}>()
 
-  reloadIndicator() {
-    this.$store.commit(this.paneId + '/SET_INDICATOR_SCRIPT', {
-      id: this.indicatorId,
-      value: this.$store.state[this.paneId].indicators[this.indicatorId].script
-    })
-  }
+defineEmits<{
+  (e: 'input', value: string): void
+}>()
+
+const store = useStore()
+
+function reloadIndicator() {
+  store.commit(props.paneId + '/SET_INDICATOR_SCRIPT', {
+    id: props.indicatorId,
+    value: store.state[props.paneId].indicators[props.indicatorId].script
+  })
 }
 </script>
+
 <style lang="scss" scoped>
 .indicator-option-color {
   display: flex;

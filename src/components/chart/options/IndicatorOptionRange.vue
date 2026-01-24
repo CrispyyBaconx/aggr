@@ -23,64 +23,52 @@
       :value="value"
       :gradient="gradient"
       @input="$emit('input', $event)"
-      @reset="$emit('input', definition.default ?? definition.value)"
+      @reset="$emit('input', (definition as any)?.default ?? (definition as any)?.value)"
     />
   </div>
 </template>
-<script lang="ts">
-import { Component, Mixins } from 'vue-property-decorator'
-import IndicatorOptionMixin from '@/mixins/indicatorOptionMixin'
 
+<script setup lang="ts">
+import { computed } from 'vue'
 import Slider from '@/components/framework/picker/Slider.vue'
 import { countDecimals } from '@/services/productsService'
 
-@Component({
-  name: 'IndicatorOptionRange',
-  components: {
-    Slider
+const props = defineProps<{
+  paneId: string
+  indicatorId: string
+  label: string
+  value: number
+  definition?: Record<string, unknown>
+}>()
+
+defineEmits<{
+  (e: 'input', value: number): void
+}>()
+
+const min = computed(() => typeof (props.definition as any)?.min === 'number' ? (props.definition as any).min : 0)
+const max = computed(() => typeof (props.definition as any)?.max === 'number' ? (props.definition as any).max : 1)
+const log = computed(() => !!(props.definition as any)?.log)
+const step = computed(() => typeof (props.definition as any)?.step === 'number' ? (props.definition as any).step : 0.1)
+
+const decimals = computed(() => countDecimals(step.value))
+
+const stepRoundedValue = computed(() => {
+  if (typeof props.value !== 'number') {
+    return props.value
   }
+
+  return +props.value.toFixed(decimals.value)
 })
-export default class IndicatorOptionRange extends Mixins(IndicatorOptionMixin) {
-  private value
-  private definition
 
-  get min() {
-    return typeof this.definition.min === 'number' ? this.definition.min : 0
+const gradient = computed(() => {
+  if (!(props.definition as any)?.gradient || !Array.isArray((props.definition as any).gradient)) {
+    return null
   }
 
-  get max() {
-    return typeof this.definition.max === 'number' ? this.definition.max : 1
-  }
-
-  get log() {
-    return !!this.definition.log
-  }
-
-  get step() {
-    return typeof this.definition.step === 'number' ? this.definition.step : 0.1
-  }
-
-  get decimals() {
-    return countDecimals(this.step)
-  }
-
-  get stepRoundedValue() {
-    if (typeof this.value !== 'number') {
-      return this.value
-    }
-
-    return +this.value.toFixed(this.decimals)
-  }
-
-  get gradient() {
-    if (!this.definition.gradient || !Array.isArray(this.definition.gradient)) {
-      return null
-    }
-
-    return this.definition.gradient
-  }
-}
+  return (props.definition as any).gradient
+})
 </script>
+
 <style lang="scss" scoped>
 .indicator-option-range {
   &__value {

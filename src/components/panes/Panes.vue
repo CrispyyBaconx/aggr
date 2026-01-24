@@ -1,6 +1,6 @@
 <template>
   <grid-layout
-    ref="grid"
+    ref="gridRef"
     :layout="layout"
     :col-num="cols"
     :row-height="rowHeight"
@@ -27,169 +27,146 @@
       @resized="onItemResized"
     >
       <component
-        v-if="layoutReady"
+        v-if="layoutReady && paneComponents[gridItem.type]"
         class="pane"
-        ref="panes"
-        :is="gridItem.type"
+        ref="panesRef"
+        :is="paneComponents[gridItem.type]"
         :paneId="gridItem.i"
       ></component>
     </grid-item>
   </grid-layout>
 </template>
 
-<script lang="ts">
-import Vue from 'vue'
-import Component from 'vue-class-component'
+<script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, defineAsyncComponent, markRaw } from 'vue'
+import { useStore } from 'vuex'
 
-import VueGridLayout from 'vue-grid-layout'
-import PaneMixin from '@/mixins/paneMixin'
+import { GridLayout, GridItem } from 'vue3-grid-layout'
 
 import { GRID_COLS } from '@/utils/constants'
-import { GridItem } from '@/utils/grid'
+import { GridItem as GridItemType } from '@/utils/grid'
 
-@Component({
-  components: {
-    GridLayout: VueGridLayout.GridLayout,
-    GridItem: VueGridLayout.GridItem,
-    Chart: () => import('@/components/chart/Chart.vue'),
-    Trades: () => import('@/components/trades/Trades.vue'),
-    Stats: () => import('@/components/stats/Stats.vue'),
-    Counters: () => import('@/components/counters/Counters.vue'),
-    Prices: () => import('@/components/prices/Prices.vue'),
-    Website: () => import('@/components/website/Website.vue'),
-    TradesLite: () => import('@/components/trades/TradesLite.vue'),
-    Alerts: () => import('@/components/alerts/Alerts.vue')
-  }
+// Async component imports - need to be registered for dynamic component
+const paneComponents = {
+  chart: markRaw(defineAsyncComponent(() => import('@/components/chart/Chart.vue'))),
+  trades: markRaw(defineAsyncComponent(() => import('@/components/trades/Trades.vue'))),
+  stats: markRaw(defineAsyncComponent(() => import('@/components/stats/Stats.vue'))),
+  counters: markRaw(defineAsyncComponent(() => import('@/components/counters/Counters.vue'))),
+  prices: markRaw(defineAsyncComponent(() => import('@/components/prices/Prices.vue'))),
+  website: markRaw(defineAsyncComponent(() => import('@/components/website/Website.vue'))),
+  'trades-lite': markRaw(defineAsyncComponent(() => import('@/components/trades/TradesLite.vue'))),
+  alerts: markRaw(defineAsyncComponent(() => import('@/components/alerts/Alerts.vue')))
+}
+
+const store = useStore()
+
+const gridRef = ref<InstanceType<typeof GridLayout> | null>(null)
+const panesRef = ref<any[]>([])
+const rowHeight = ref(80)
+const cols = ref(GRID_COLS)
+const layoutReady = ref(false)
+
+let _resizeTimeout: number | undefined
+let _maximizedPaneId: string | null = null
+
+const panes = computed(() => store.state.panes.panes)
+const unlocked = computed(() => !store.state.panes.locked)
+const layout = computed(() => store.state.panes.layout)
+
+onMounted(() => {
+  updateRowHeight()
+  window.addEventListener('resize', updateRowHeight)
 })
-export default class Panes extends Vue {
-  rowHeight = 80
-  cols = null
-  breakpoint = null
-  layoutReady = false
 
-  private _resizeTimeout: number
-  private _maximizedPaneId
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateRowHeight)
+})
 
-  $refs!: {
-    panes: PaneMixin[]
-    grid: VueGridLayout.GridLayout
+function resizeMaximizedPane() {
+  let maximizedItem: HTMLElement | null = null
+
+  if (!_maximizedPaneId) {
+    maximizedItem = document.getElementsByClassName(
+      '-maximized'
+    )[0] as HTMLElement
+  } else {
+    maximizedItem = document.getElementById(_maximizedPaneId)?.parentElement || null
   }
 
-  protected get panes() {
-    return this.$store.state.panes.panes
-  }
+  nextTick(() => {
+    if (maximizedItem) {
+      const maximizedPaneId = maximizedItem.children[0]?.id
+      let width: number
+      let height: number
 
-  protected get unlocked() {
-    return !this.$store.state.panes.locked
-  }
-
-  protected get layout() {
-    return this.$store.state.panes.layout
-  }
-
-  created() {
-    this.cols = GRID_COLS
-
-    this.updateRowHeight()
-  }
-
-  mounted() {
-    window.addEventListener('resize', this.updateRowHeight)
-  }
-
-  beforeDestroy() {
-    window.addEventListener('resize', this.updateRowHeight)
-  }
-
-  resizeMaximizedPane() {
-    let maximizedItem: HTMLElement
-
-    if (!this._maximizedPaneId) {
-      maximizedItem = document.getElementsByClassName(
-        '-maximized'
-      )[0] as HTMLElement
-    } else {
-      maximizedItem = document.getElementById(
-        this._maximizedPaneId
-      ).parentElement
-    }
-
-    this.$nextTick(() => {
-      if (maximizedItem) {
-        const maximizedPaneId = maximizedItem.children[0].id
-        let width
-        let height
-
-        if (!this._maximizedPaneId) {
-          width = maximizedItem.clientWidth
-          height = maximizedItem.clientHeight
-          this._maximizedPaneId = maximizedPaneId
-        } else {
-          width = parseFloat(maximizedItem.style.width)
-          height = parseFloat(maximizedItem.style.height)
-          this._maximizedPaneId = null
-        }
-        this.resizePane(maximizedPaneId, height, width)
+      if (!_maximizedPaneId) {
+        width = maximizedItem.clientWidth
+        height = maximizedItem.clientHeight
+        _maximizedPaneId = maximizedPaneId
+      } else {
+        width = parseFloat(maximizedItem.style.width)
+        height = parseFloat(maximizedItem.style.height)
+        _maximizedPaneId = null
       }
+      resizePane(maximizedPaneId, height, width)
+    }
+  })
+}
+
+function resizePane(id: string, height: number, width: number) {
+  if (!panesRef.value) {
+    return
+  }
+
+  const pane = panesRef.value.find(p => p.paneId === id)
+
+  if (!pane) {
+    return
+  }
+
+  if (typeof pane.onResize === 'function') {
+    nextTick(() => {
+      pane.onResize(width, height)
     })
   }
+}
 
-  resizePane(id, height, width) {
-    if (!this.$refs.panes) {
-      return
-    }
+function onItemResized(id: string, h: number, w: number, hPx: number, wPx: number) {
+  resizePane(id, +hPx, +wPx)
+}
 
-    const pane: PaneMixin = this.$refs.panes.find(pane => pane.paneId === id)
+function updateItem(id: string) {
+  const item = layout.value.find((item: GridItemType) => item.i === id)
+  store.commit('panes/UPDATE_ITEM', item)
+}
 
-    if (!pane) {
-      return
-    }
+function onLayoutUpdated(gridItems: GridItemType[]) {
+  store.commit('panes/UPDATE_LAYOUT', gridItems)
+}
 
-    if (typeof pane.onResize === 'function') {
-      pane.$nextTick(() => {
-        pane.onResize(width, height)
-      })
-    }
+function onContainerResized(id: string, h: number, w: number, hPx: number, wPx: number) {
+  resizePane(id, +hPx, +wPx)
+}
+
+function updateRowHeight(event?: Event) {
+  if (event && !event.isTrusted) {
+    resizeMaximizedPane()
+    return
   }
 
-  onItemResized(id, h, w, hPx, wPx) {
-    this.resizePane(id, +hPx, +wPx)
-    // this.$store.commit('panes/UPDATE_LAYOUT', this.layout)
+  if (_resizeTimeout) {
+    clearTimeout(_resizeTimeout)
   }
 
-  updateItem(id) {
-    const item = this.layout.find(item => item.i === id)
-    this.$store.commit('panes/UPDATE_ITEM', item)
-  }
+  if (event) {
+    _resizeTimeout = window.setTimeout(
+      () => updateRowHeight(),
+      200
+    )
+  } else {
+    _resizeTimeout = undefined
 
-  onLayoutUpdated(gridItems: GridItem[]) {
-    this.$store.commit('panes/UPDATE_LAYOUT', gridItems)
-  }
-
-  onContainerResized(id, h, w, hPx, wPx) {
-    this.resizePane(id, +hPx, +wPx)
-  }
-
-  updateRowHeight(event?: Event) {
-    if (event && !event.isTrusted) {
-      this.resizeMaximizedPane()
-      return
-    }
-
-    if (this._resizeTimeout) {
-      clearTimeout(this._resizeTimeout)
-    }
-
-    if (event) {
-      this._resizeTimeout = window.setTimeout(
-        this.updateRowHeight.bind(this),
-        200
-      )
-    } else {
-      this._resizeTimeout = null
-
-      this.rowHeight = window.innerHeight / this.cols
-    }
+    rowHeight.value = window.innerHeight / cols.value
   }
 }
 </script>

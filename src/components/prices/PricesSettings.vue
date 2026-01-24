@@ -186,97 +186,51 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import PricesSortDropdown from '@/components/prices/PricesSortDropdown.vue'
 import ToggableSection from '@/components/framework/ToggableSection.vue'
 import ToggableGroup from '@/components/framework/ToggableGroup.vue'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
 import { formatAmount } from '@/services/productsService'
 
-@Component({
-  components: {
-    PricesSortDropdown,
-    DropdownButton,
-    ToggableSection,
-    ToggableGroup
-  },
-  name: 'PricesSettings',
-  props: {
-    paneId: {
-      type: String,
-      required: true
-    }
-  }
-})
-export default class PricesSettings extends Vue {
+const props = defineProps<{
   paneId: string
-  formatAmountHelper = formatAmount
-  periods = {
-    0: 'No period',
-    1: '1m',
-    5: '5m',
-    15: '15m',
-    30: '30m',
-    60: '1h',
-    240: '4h'
+}>()
+
+const store = useStore()
+const formatAmountHelper = formatAmount
+const periods: Record<number, string> = {
+  0: 'No period',
+  1: '1m',
+  5: '5m',
+  15: '15m',
+  30: '30m',
+  60: '1h',
+  240: '4h'
+}
+
+const showPairs = computed(() => store.state[props.paneId].showPairs)
+const showVolume = computed(() => store.state[props.paneId].showVolume)
+const showPrice = computed(() => store.state[props.paneId].showPrice)
+const showVolumeDelta = computed(() => store.state[props.paneId].showVolumeDelta)
+const period = computed(() => store.state[props.paneId].period)
+const showChange = computed(() => store.state[props.paneId].showChange)
+const animateSort = computed(() => store.state[props.paneId].animateSort)
+const sortType = computed(() => store.state[props.paneId].sortType)
+const sortOrder = computed(() => store.state[props.paneId].sortOrder)
+const shortSymbols = computed(() => store.state[props.paneId].shortSymbols)
+const volumeThreshold = computed(() => store.state[props.paneId].volumeThreshold)
+const avgPeriods = computed(() => store.state[props.paneId].avgPeriods)
+
+function selectSortType(option: string) {
+  if (option === sortType.value) {
+    store.commit(props.paneId + '/TOGGLE_SORT_ORDER')
   }
 
-  get showPairs() {
-    return this.$store.state[this.paneId].showPairs
-  }
-
-  get showVolume() {
-    return this.$store.state[this.paneId].showVolume
-  }
-
-  get showPrice() {
-    return this.$store.state[this.paneId].showPrice
-  }
-
-  get showVolumeDelta() {
-    return this.$store.state[this.paneId].showVolumeDelta
-  }
-
-  get period() {
-    return this.$store.state[this.paneId].period
-  }
-
-  get showChange() {
-    return this.$store.state[this.paneId].showChange
-  }
-
-  get animateSort() {
-    return this.$store.state[this.paneId].animateSort
-  }
-
-  get sortType() {
-    return this.$store.state[this.paneId].sortType
-  }
-
-  get sortOrder() {
-    return this.$store.state[this.paneId].sortOrder
-  }
-
-  get shortSymbols() {
-    return this.$store.state[this.paneId].shortSymbols
-  }
-
-  get volumeThreshold() {
-    return this.$store.state[this.paneId].volumeThreshold
-  }
-
-  get avgPeriods() {
-    return this.$store.state[this.paneId].avgPeriods
-  }
-
-  selectSortType(option) {
-    if (option === this.sortType) {
-      this.$store.commit(this.paneId + '/TOGGLE_SORT_ORDER')
-    }
-
-    this.$store.commit(this.paneId + '/SET_SORT_TYPE', option)
-  }
+  store.commit(props.paneId + '/SET_SORT_TYPE', option)
 }
 </script>
+
 <style lang="scss"></style>

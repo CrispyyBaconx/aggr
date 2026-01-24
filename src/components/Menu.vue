@@ -2,15 +2,15 @@
   <div id="menu" class="menu" :class="{ '-open': open }">
     <button
       class="menu__button btn"
-      @click="$refs.menuDropdown.toggle($event.currentTarget)"
+      @click="menuDropdownRef?.toggle($event.currentTarget)"
     >
       <i class="icon-menu"></i>
     </button>
-    <dropdown ref="menuDropdown">
+    <dropdown ref="menuDropdownRef">
       <button
         type="button"
         class="dropdown-item dropdown-item--space-between"
-        @click="$store.dispatch('app/showSearch')"
+        @click="store.dispatch('app/showSearch')"
       >
         <span class="mr4">Search</span>
         <i class="icon-search"></i>
@@ -18,16 +18,16 @@
       <button
         type="button"
         class="dropdown-item"
-        @click.stop="$refs.panesDropdown.toggle($event.currentTarget)"
+        @click.stop="panesDropdownRef?.toggle($event.currentTarget)"
       >
         <i class="icon-dashboard -center mr8"></i>
         <span class="mr4">Pane</span>
         <i class="icon-plus mlauto"></i>
       </button>
       <dropdown
-        ref="panesDropdown"
-        @mousedown.native.stop
-        @touchstart.native.stop
+        ref="panesDropdownRef"
+        @mousedown.stop
+        @touchstart.stop
       >
         <button
           class="dropdown-item dropdown-item--space-between"
@@ -114,10 +114,10 @@
       <dropdown
         v-model="volumeSliderOpened"
         v-on="volumeSliderEvents"
-        @mousedown.native.stop
-        @touchstart.native.stop
-        @mouseleave.native="volumeSliderTriggerEvents.mouseleave"
-        ref="volumeSlider"
+        @mousedown.stop
+        @touchstart.stop
+        @mouseleave="volumeSliderTriggerEvents.mouseleave?.($event)"
+        ref="volumeSliderRef"
         class="volume-slider"
         interactive
         no-scroll
@@ -130,9 +130,9 @@
           :max="3"
           :step="0.01"
           :label="true"
-          :value="audioVolume"
-          @input="$store.dispatch('settings/setAudioVolume', $event)"
-          @reset="$store.dispatch('settings/setAudioVolume', 1)"
+          :model-value="audioVolume"
+          @update:model-value="store.dispatch('settings/setAudioVolume', $event)"
+          @reset="store.dispatch('settings/setAudioVolume', 1)"
           log
         />
       </dropdown>
@@ -140,7 +140,7 @@
       <button
         type="button"
         class="dropdown-item dropdown-item--space-between"
-        ref="volumeSliderTrigger"
+        ref="volumeSliderTriggerRef"
         v-on="volumeSliderTriggerEvents"
         @click="toggleAudio"
       >
@@ -174,152 +174,143 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import dialogService from '@/services/dialogService'
 import { PaneType } from '@/store/panes'
-import { Component, Vue } from 'vue-property-decorator'
 import { isTouchSupported } from '../utils/touchevent'
 import Slider from './framework/picker/Slider.vue'
 import SettingsDialog from './settings/SettingsDialog.vue'
 
-@Component({
-  name: 'Menu',
-  components: {
-    Slider
+const store = useStore()
+
+const menuDropdownRef = ref<{ toggle: (el: HTMLElement) => void } | null>(null)
+const panesDropdownRef = ref<{ toggle: (el: HTMLElement) => void } | null>(null)
+const volumeSliderRef = ref<{ $el: HTMLElement } | null>(null)
+const volumeSliderTriggerRef = ref<HTMLElement | null>(null)
+
+const volumeSliderOpened = ref<HTMLElement | null>(null)
+const isFullscreen = ref(false)
+const open = ref(false)
+
+onMounted(() => {
+  document.addEventListener(
+    'webkitfullscreenchange',
+    handleFullScreenChange
+  )
+  document.addEventListener('fullscreenchange', handleFullScreenChange)
+})
+
+const useAudio = computed(() => store.state.settings.useAudio)
+const audioVolume = computed(() => store.state.settings.audioVolume)
+
+const volumeSliderEvents = computed(() => {
+  if (!volumeSliderOpened.value) {
+    return {}
+  }
+
+  return {
+    [isTouchSupported() ? 'touchstart' : 'mousedown']: (event: Event) => {
+      event.stopPropagation()
+    },
+    mouseleave: (event: MouseEvent) => {
+      if (
+        event.relatedTarget === volumeSliderTriggerRef.value ||
+        volumeSliderTriggerRef.value?.contains(event.relatedTarget as Node)
+      ) {
+        return
+      }
+
+      volumeSliderOpened.value = null
+    }
   }
 })
-export default class Menu extends Vue {
-  volumeSliderOpened = false
-  isFullscreen = false
-  open = false
 
-  $refs!: {
-    volumeSlider: any
-    volumeSliderTrigger: HTMLElement
-  }
-  mounted() {
-    document.addEventListener(
-      'webkitfullscreenchange',
-      this.handleFullScreenChange
-    )
-    document.addEventListener('fullscreenchange', this.handleFullScreenChange)
-  }
-
-  get useAudio() {
-    return this.$store.state.settings.useAudio
-  }
-
-  get audioVolume() {
-    return this.$store.state.settings.audioVolume
-  }
-
-  get volumeSliderEvents() {
-    if (!this.volumeSliderOpened) {
-      return null
-    }
-
+const volumeSliderTriggerEvents = computed(() => {
+  if (volumeSliderOpened.value) {
     return {
-      [isTouchSupported() ? 'touchstart' : 'mousedown']: event => {
-        event.stopPropagation()
-      },
-      mouseleave: event => {
+      mouseleave: (event: MouseEvent) => {
         if (
-          event.toElement === this.$refs.volumeSliderTrigger ||
-          this.$refs.volumeSliderTrigger.contains(event.toElement)
+          event.relatedTarget === volumeSliderRef.value?.$el ||
+          volumeSliderRef.value?.$el.contains(event.relatedTarget as Node)
         ) {
           return
         }
 
-        this.volumeSliderOpened = null
+        volumeSliderOpened.value = null
+      }
+    }
+  } else {
+    return {
+      mouseenter: (event: MouseEvent) => {
+        volumeSliderOpened.value = event.currentTarget as HTMLElement
       }
     }
   }
+})
 
-  get volumeSliderTriggerEvents() {
-    if (this.volumeSliderOpened) {
-      return {
-        mouseleave: event => {
-          if (
-            event.toElement === this.$refs.volumeSlider.$el ||
-            this.$refs.volumeSlider.$el.contains(event.toElement)
-          ) {
-            return
-          }
+function showSettings() {
+  dialogService.open(SettingsDialog)
+}
 
-          this.volumeSliderOpened = null
-        }
-      }
-    } else {
-      return {
-        mouseenter: event => {
-          this.volumeSliderOpened = event.currentTarget
-        }
-      }
+async function toggleFullscreen() {
+  const doc = document as any
+  const body = doc.body
+
+  body.requestFullscreen =
+    body.requestFullscreen ||
+    body.webkitRequestFullscreen ||
+    function () {
+      return false
     }
-  }
-
-  showSettings() {
-    dialogService.open(SettingsDialog)
-  }
-
-  async toggleFullscreen() {
-    const doc = document as any
-    const body = doc.body
-
-    body.requestFullscreen =
-      body.requestFullscreen ||
-      body.webkitRequestFullscreen ||
-      function () {
-        return false
-      }
-    doc.cancelFullscreen =
-      doc.exitFullscreen ||
-      doc.webkitExitFullscreen ||
-      doc.cancelFullScreen ||
-      doc.webkitCancelFullScreen ||
-      doc.mozCancelFullScreen ||
-      function () {
-        return false
-      }
-
-    if (this.isFullscreen) {
-      doc.cancelFullscreen()
-      this.isFullscreen = false
-    } else {
-      body.requestFullscreen()
-      this.isFullscreen = true
+  doc.cancelFullscreen =
+    doc.exitFullscreen ||
+    doc.webkitExitFullscreen ||
+    doc.cancelFullScreen ||
+    doc.webkitCancelFullScreen ||
+    doc.mozCancelFullScreen ||
+    function () {
+      return false
     }
-  }
 
-  handleFullScreenChange() {
-    if (
-      document.fullscreenElement ||
-      (document as any).webkitFullscreenElement
-    ) {
-      this.isFullscreen = true
-    } else {
-      this.isFullscreen = false
-    }
+  if (isFullscreen.value) {
+    doc.cancelFullscreen()
+    isFullscreen.value = false
+  } else {
+    body.requestFullscreen()
+    isFullscreen.value = true
   }
+}
 
-  toggleMenu() {
-    this.open = !this.open
-
-    if (this.open) {
-      this.isFullscreen =
-        (document as any).webkitIsFullScreen || (document as any).mozFullScreen
-          ? true
-          : false
-    }
+function handleFullScreenChange() {
+  if (
+    document.fullscreenElement ||
+    (document as any).webkitFullscreenElement
+  ) {
+    isFullscreen.value = true
+  } else {
+    isFullscreen.value = false
   }
+}
 
-  addPane(type: PaneType) {
-    this.$store.dispatch('panes/addPane', { type })
-  }
+function toggleMenu() {
+  open.value = !open.value
 
-  toggleAudio() {
-    this.$store.commit('settings/TOGGLE_AUDIO', !this.useAudio)
+  if (open.value) {
+    isFullscreen.value =
+      (document as any).webkitIsFullScreen || (document as any).mozFullScreen
+        ? true
+        : false
   }
+}
+
+function addPane(type: PaneType) {
+  store.dispatch('panes/addPane', { type })
+}
+
+function toggleAudio() {
+  store.commit('settings/TOGGLE_AUDIO', !useAudio.value)
 }
 </script>
 

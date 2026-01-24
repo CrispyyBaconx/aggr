@@ -8,44 +8,45 @@
       :show-name="false"
     >
       <hr />
-      <Btn type="button" class="-text" @click="$refs.list.getAlerts()">
+      <Btn type="button" class="-text" @click="alertsListRef?.getAlerts()">
         <i class="icon-refresh"></i>
       </Btn>
     </pane-header>
     <input
-      ref="query"
+      ref="queryRef"
       type="text"
       placeholder="Search..."
       class="form-control pane-alerts__query pane-overlay"
       v-model="query"
     />
-    <alerts-list ref="list" :query="query" persist-sections />
+    <alerts-list ref="alertsListRef" :query="query" persist-sections />
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Mixins } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref } from 'vue'
+import { usePane } from '@/composables/usePane'
 import ToggableSection from '@/components/framework/ToggableSection.vue'
-
-import PaneMixin from '@/mixins/paneMixin'
 import PaneHeader from '../panes/PaneHeader.vue'
 import Btn from '@/components/framework/Btn.vue'
 import AlertsList from '@/components/alerts/AlertsList.vue'
 
-@Component({
-  components: { PaneHeader, ToggableSection, AlertsList, Btn },
-  name: 'Alerts'
-})
-export default class Alerts extends Mixins(PaneMixin) {
-  query = ''
-}
+const props = defineProps<{
+  paneId: string
+}>()
+
+const { pane } = usePane(props.paneId)
+
+const queryRef = ref<HTMLInputElement | null>(null)
+const alertsListRef = ref<InstanceType<typeof AlertsList> | null>(null)
+const query = ref('')
 </script>
 
 <style lang="scss" scoped>
 .pane-alerts {
   $self: &;
 
-  ::v-deep .alerts-list__table {
+  :deep(.alerts-list__table) {
     width: 100%;
   }
 

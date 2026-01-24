@@ -33,8 +33,9 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useStore } from 'vuex'
 
 import aggregatorService from './services/aggregatorService'
 
@@ -55,264 +56,242 @@ import dialogService from '@/services/dialogService'
 import importService from '@/services/importService'
 import { pathToBase64 } from './utils/helpers'
 
-@Component({
-  name: 'App',
-  components: {
-    Menu,
-    Notices,
-    Panes,
-    Loader
-  },
-  watch: {
-    '$store.state.panes.marketsListeners'(newMarkets, previousMarkets) {
-      if (newMarkets !== previousMarkets) {
-        this.refreshMainMarkets(newMarkets)
-      }
-    }
+const store = useStore()
+
+const price = ref<string | null>(null)
+const showStuck = ref(false)
+
+let mainPrices: { [marketKey: string]: number } = {}
+let mainMarkets: string[] = []
+let faviconElement: HTMLLinkElement | null = null
+let stuckTimeout: number | undefined
+let mainPair: string = ''
+let favicons: { up?: string; down?: string } = {}
+
+const showSearch = computed(() => store.state.app.showSearch)
+
+const isBooted = computed(() => {
+  const booted = store.state.app && store.state.app.isBooted
+
+  clearTimeout(stuckTimeout)
+
+  if (!booted) {
+    showStuck.value = false
+    stuckTimeout = setTimeout(() => {
+      showStuck.value = true
+    }, 15000) as unknown as number
   }
+
+  return booted
 })
-export default class App extends Vue {
-  price: string = null
-  showStuck = false
 
-  private mainPrices: { [marketKey: string]: number }
-  private mainMarkets: string[]
-  private faviconElement: HTMLLinkElement
-  private stuckTimeout: number
-  private mainPair: string
-  private favicons: { up?: string; down?: string }
+const isLoading = computed(() => store.state.app.isLoading)
 
-  get showSearch() {
-    return this.$store.state.app.showSearch
+const theme = computed(() => store.state.settings.theme)
+
+const autoHideHeaders = computed(() => store.state.settings.autoHideHeaders)
+
+const autoHideNames = computed(() => store.state.settings.autoHideNames)
+
+const preferedSizingCurrency = computed(() => {
+  return store.state.settings.preferQuoteCurrencySize ? 'quote' : 'base'
+})
+
+const disableAnimations = computed(() => store.state.settings.disableAnimations)
+
+watch(
+  () => store.state.panes.marketsListeners,
+  (newMarkets, previousMarkets) => {
+    if (newMarkets !== previousMarkets) {
+      refreshMainMarkets(newMarkets)
+    }
   }
+)
 
-  get isBooted() {
-    const isBooted = this.$store.state.app && this.$store.state.app.isBooted
+onMounted(async () => {
+  aggregatorService.on('notice', (notice: Notice) => {
+    store.dispatch('app/showNotice', notice)
+  })
+  document.addEventListener('keydown', onDocumentKeyPress)
 
-    clearTimeout(this.stuckTimeout)
+  bindDropFile()
+  await startUpdatingPrice()
+})
 
-    if (!isBooted) {
-      this.showStuck = false
-      this.stuckTimeout = setTimeout(() => {
-        this.showStuck = true
-      }, 15000) as unknown as number
+onBeforeUnmount(() => {
+  unbindDropFile()
+  stopUpdatingPrice()
+})
+
+function updatePrice(tickers: { [key: string]: { price: number } }) {
+  let priceSum = 0
+  let count = 0
+
+  for (const marketKey of mainMarkets) {
+    if (tickers[marketKey]) {
+      mainPrices[marketKey] = tickers[marketKey].price
     }
 
-    return isBooted
+    if (!mainPrices[marketKey]) {
+      continue
+    }
+
+    priceSum += mainPrices[marketKey]
+    count++
   }
 
-  get isLoading() {
-    return this.$store.state.app.isLoading
+  if (count) {
+    priceSum = priceSum / count
+
+    if (price.value !== null) {
+      if (priceSum > +price.value) {
+        updateFavicon('up')
+      } else if (priceSum < +price.value) {
+        updateFavicon('down')
+      }
+    }
+
+    price.value = formatMarketPrice(priceSum, mainPair)
+
+    window.document.title = mainPair + ' ' + price.value
+  } else {
+    price.value = null
+    updateFavicon('neutral')
+
+    window.document.title = mainPair ? mainPair : 'AGGR'
+  }
+}
+
+async function startUpdatingPrice() {
+  const up = await pathToBase64(upFavicon)
+  const down = await pathToBase64(downFavicon)
+  favicons = { up, down }
+
+  aggregatorService.on('tickers', updatePrice)
+}
+
+function stopUpdatingPrice() {
+  aggregatorService.off('tickers', updatePrice)
+  price.value = null
+}
+
+function updateFavicon(direction: 'up' | 'down' | 'neutral') {
+  if (!faviconElement) {
+    faviconElement = document.createElement('link')
+    faviconElement.id = 'favicon'
+    faviconElement.rel = 'shortcut icon'
+
+    document.head.appendChild(faviconElement)
   }
 
-  get theme() {
-    return this.$store.state.settings.theme
+  if (direction === 'up') {
+    faviconElement.href = favicons.up || ''
+  } else {
+    faviconElement.href = favicons.down || ''
+  }
+}
+
+function onDocumentKeyPress(event: KeyboardEvent) {
+  if (!isBooted.value) {
+    return
   }
 
-  get autoHideHeaders() {
-    return this.$store.state.settings.autoHideHeaders
+  const activeElement = document.activeElement as HTMLElement
+
+  if (
+    store.state.app.showSearch ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.altKey ||
+    activeElement.tagName === 'INPUT' ||
+    activeElement.tagName === 'TEXTAREA' ||
+    activeElement.tagName === 'SELECT' ||
+    activeElement.isContentEditable
+  ) {
+    return
   }
 
-  get autoHideNames() {
-    return this.$store.state.settings.autoHideNames
-  }
-
-  get preferedSizingCurrency() {
-    return this.$store.state.settings.preferQuoteCurrencySize ? 'quote' : 'base'
-  }
-
-  get disableAnimations() {
-    return this.$store.state.settings.disableAnimations
-  }
-
-  async mounted() {
-    aggregatorService.on('notice', (notice: Notice) => {
-      this.$store.dispatch('app/showNotice', notice)
+  if (/^[a-z]$/i.test(event.key)) {
+    store.dispatch('app/showSearch', {
+      pristine: true,
+      input: event.key
     })
-    document.addEventListener('keydown', this.onDocumentKeyPress)
+  } else if (/^[0-9]$/i.test(event.key)) {
+    store.dispatch('app/showTimeframe')
+  }
+}
 
-    this.bindDropFile()
-    this.startUpdatingPrice()
+async function resetAndReload() {
+  const response = await dialogService.confirm({
+    title: 'Reset app',
+    message: 'Are you sure ?',
+    ok: 'Reset settings',
+    cancel: workspacesService.workspace
+      ? 'Download workspace ' + workspacesService.workspace.id
+      : 'Cancel'
+  })
+
+  if (response === true) {
+    await workspacesService.reset()
+    window.location.reload()
+  } else if (response === false && workspacesService.workspace) {
+    workspacesService.downloadWorkspace()
+  }
+}
+
+function bindDropFile() {
+  document.body.addEventListener('drop', handleDrop)
+  document.body.addEventListener('dragover', handleDrop)
+}
+
+function unbindDropFile() {
+  document.body.removeEventListener('drop', handleDrop)
+  document.body.removeEventListener('dragover', handleDrop)
+}
+
+async function handleDrop(event: DragEvent) {
+  event.preventDefault()
+
+  if (event.type !== 'drop') {
+    return false
   }
 
-  beforeDestroy() {
-    this.unbindDropFile()
-    this.stopUpdatingPrice()
+  if (!event.dataTransfer?.files || !event.dataTransfer.files.length) {
+    return
   }
 
-  updatePrice(tickers) {
-    let price = 0
-    let count = 0
-
-    for (const marketKey of this.mainMarkets) {
-      if (tickers[marketKey]) {
-        this.mainPrices[marketKey] = tickers[marketKey].price
-      }
-
-      if (!this.mainPrices[marketKey]) {
-        continue
-      }
-
-      price += this.mainPrices[marketKey]
-      count++
-    }
-
-    if (count) {
-      price = price / count
-
-      if (this.price !== null) {
-        if (price > +this.price) {
-          this.updateFavicon('up')
-        } else if (price < +this.price) {
-          this.updateFavicon('down')
-        }
-      }
-
-      this.price = formatMarketPrice(price, this.mainPair)
-
-      window.document.title = this.mainPair + ' ' + this.price
-    } else {
-      this.price = null
-      this.updateFavicon('neutral')
-
-      window.document.title = this.mainPair ? this.mainPair : 'AGGR'
-    }
-  }
-
-  async startUpdatingPrice() {
-    const up = await pathToBase64(upFavicon)
-    const down = await pathToBase64(downFavicon)
-    this.favicons = {
-      up,
-      down
-    }
-
-    aggregatorService.on('tickers', this.updatePrice)
-  }
-
-  stopUpdatingPrice() {
-    aggregatorService.off('tickers', this.updatePrice)
-    this.price = null
-  }
-
-  updateFavicon(direction: 'up' | 'down' | 'neutral') {
-    if (!this.faviconElement) {
-      this.faviconElement = document.createElement('link')
-      this.faviconElement.id = 'favicon'
-      this.faviconElement.rel = 'shortcut icon'
-
-      document.head.appendChild(this.faviconElement)
-    }
-
-    if (direction === 'up') {
-      this.faviconElement.href = this.favicons.up
-    } else {
-      this.faviconElement.href = this.favicons.down
-    }
-  }
-
-  onDocumentKeyPress(event: KeyboardEvent) {
-    if (!this.isBooted) {
-      return
-    }
-
-    const activeElement = document.activeElement as HTMLElement
-
-    if (
-      this.$store.state.app.showSearch ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.altKey ||
-      activeElement.tagName === 'INPUT' ||
-      activeElement.tagName === 'TEXTAREA' ||
-      activeElement.tagName === 'SELECT' ||
-      activeElement.isContentEditable
-    ) {
-      return
-    }
-
-    event = event || (window.event as any)
-
-    if (/^[a-z]$/i.test(event.key)) {
-      this.$store.dispatch('app/showSearch', {
-        pristine: true,
-        input: event.key
+  for (const file of event.dataTransfer.files) {
+    try {
+      await importService.importAnything(file)
+    } catch (error) {
+      store.dispatch('app/showNotice', {
+        title: (error as Error).message,
+        type: 'error',
+        timeout: 60000
       })
-    } else if (/^[0-9]$/i.test(event.key)) {
-      this.$store.dispatch('app/showTimeframe')
     }
   }
+}
 
-  async resetAndReload() {
-    const response = await dialogService.confirm({
-      title: 'Reset app',
-      message: 'Are you sure ?',
-      ok: 'Reset settings',
-      cancel: workspacesService.workspace
-        ? 'Download workspace ' + workspacesService.workspace.id
-        : 'Cancel'
-    })
-
-    if (response === true) {
-      await workspacesService.reset()
-      window.location.reload()
-    } else if (response === false && workspacesService.workspace) {
-      workspacesService.downloadWorkspace()
-    }
-  }
-
-  bindDropFile() {
-    document.body.addEventListener('drop', this.handleDrop)
-    document.body.addEventListener('dragover', this.handleDrop)
-  }
-
-  unbindDropFile() {
-    document.body.removeEventListener('drop', this.handleDrop)
-    document.body.removeEventListener('dragover', this.handleDrop)
-  }
-  async handleDrop(event) {
-    event.preventDefault()
-
-    if (event.type !== 'drop') {
-      return false
+function refreshMainMarkets(markets: Record<string, { local: string; listeners: number; exchange: string; pair: string }>) {
+  const marketsByNormalizedPair: Record<string, number> = {}
+  for (const id in markets) {
+    const pair = markets[id].local
+    if (!marketsByNormalizedPair[pair]) {
+      marketsByNormalizedPair[pair] = 0
     }
 
-    if (!event.dataTransfer.files || !event.dataTransfer.files.length) {
-      return
-    }
-
-    for (const file of event.dataTransfer.files) {
-      try {
-        await importService.importAnything(file)
-      } catch (error) {
-        this.$store.dispatch('app/showNotice', {
-          title: error.message,
-          type: 'error',
-          timeout: 60000
-        })
-      }
-    }
+    marketsByNormalizedPair[pair] += markets[id].listeners
   }
-  refreshMainMarkets(markets) {
-    const marketsByNormalizedPair = {}
-    for (const id in markets) {
-      const pair = markets[id].local
-      if (!marketsByNormalizedPair[pair]) {
-        marketsByNormalizedPair[pair] = 0
-      }
 
-      marketsByNormalizedPair[pair] += markets[id].listeners
-    }
+  mainPair = Object.keys(marketsByNormalizedPair).sort(
+    (a, b) => marketsByNormalizedPair[b] - marketsByNormalizedPair[a]
+  )[0]
 
-    this.mainPair = Object.keys(marketsByNormalizedPair).sort(
-      (a, b) => marketsByNormalizedPair[b] - marketsByNormalizedPair[a]
-    )[0]
+  mainMarkets = Object.keys(markets)
+    .filter(id => markets[id].local === mainPair)
+    .map(id => markets[id].exchange + ':' + markets[id].pair)
 
-    this.mainMarkets = Object.keys(markets)
-      .filter(id => markets[id].local === this.mainPair)
-      .map(id => markets[id].exchange + ':' + markets[id].pair)
-
-    this.mainPrices = {}
-  }
+  mainPrices = {}
 }
 </script>

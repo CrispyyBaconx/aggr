@@ -1,19 +1,22 @@
 import 'monaco-editor/esm/vs/editor/editor.all.js'
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution'
-import 'monaco-editor/esm/vs/basic-languages/monaco.contribution'
 
 import store from '@/store'
-import { editor, languages } from 'monaco-editor/esm/vs/editor/editor.api'
+import {
+  editor,
+  languages,
+  typescript
+} from 'monaco-editor/esm/vs/editor/editor.main'
 import { provideCompletionItems, provideHover } from './completion'
 import { rgbToHex, splitColorCode } from '@/utils/colors'
 
-languages.typescript.javascriptDefaults.setCompilerOptions({
+typescript.javascriptDefaults.setCompilerOptions({
   noLib: true,
   lib: [],
   allowNonTsExtensions: true
 })
 
-languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+typescript.javascriptDefaults.setDiagnosticsOptions({
   noSemanticValidation: true,
   noSyntaxValidation: true
 })

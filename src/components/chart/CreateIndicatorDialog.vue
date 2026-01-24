@@ -8,7 +8,7 @@
     <template v-slot:header>
       <div class="dialog__title">New indicator</div>
     </template>
-    <form ref="form" @submit.prevent="submit">
+    <form ref="formRef" @submit.prevent="submit">
       <div class="form-group mb16">
         <label>Create blank indicator</label>
         <input class="form-control" v-model="name" placeholder="Untitled" />
@@ -33,41 +33,38 @@
   </Dialog>
 </template>
 
-<script>
-import DialogMixin from '@/mixins/dialogMixin'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import Dialog from '@/components/framework/Dialog.vue'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
+import { useDialog } from '@/composables/useDialog'
 import { getChartScales } from './options'
 
-export default {
-  mixins: [DialogMixin],
-  components: {
-    DropdownButton
-  },
-  props: {
-    paneId: {
-      type: String,
-      required: true
-    }
-  },
-  data() {
-    return {
-      availableScales: {},
-      priceScaleId: 'right',
-      name: ''
-    }
-  },
-  mounted() {
-    this.availableScales = getChartScales(
-      this.$store.state[this.paneId].indicators
-    )
-  },
-  methods: {
-    submit() {
-      this.close({
-        name: this.name,
-        priceScaleId: this.priceScaleId
-      })
-    }
-  }
+const props = defineProps<{
+  paneId: string
+}>()
+
+const store = useStore()
+const { close } = useDialog()
+
+const formRef = ref<HTMLFormElement | null>(null)
+const availableScales = ref<Record<string, string>>({})
+const priceScaleId = ref('right')
+const name = ref('')
+
+onMounted(() => {
+  availableScales.value = getChartScales(
+    store.state[props.paneId].indicators
+  )
+})
+
+function submit() {
+  close({
+    name: name.value,
+    priceScaleId: priceScaleId.value
+  })
 }
+
+defineExpose({ close })
 </script>

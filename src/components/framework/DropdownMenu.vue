@@ -401,7 +401,7 @@ export default {
     transform: scale(0.8);
   }
 
-  ::v-deep &-divider {
+  &-divider {
     background-color: var(--theme-background-200);
     height: 1px;
     padding: 0;
@@ -424,7 +424,7 @@ export default {
     }
   }
 
-  ::v-deep &-item {
+  &-item {
     border: 0;
     background: 0;
     padding: 0.625rem;

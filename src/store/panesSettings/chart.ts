@@ -14,7 +14,6 @@ import {
   SeriesOptionsMap,
   SeriesType
 } from 'lightweight-charts'
-import Vue from 'vue'
 import { MutationTree, ActionTree, GetterTree, Module } from 'vuex'
 import { ModulesState } from '..'
 import merge from 'lodash.merge'
@@ -145,12 +144,12 @@ const actions = {
         }
 
         const id = `_${randomString()}`
-        Vue.set(state.indicators, id, {
+        state.indicators[id] = {
           ...indicator,
           id,
           libraryId: indicator.id,
           series: []
-        })
+        }
         indicatorsIds.push(id)
       }
 
@@ -395,17 +394,17 @@ const actions = {
           }
 
           // toggle selected market
-          Vue.set(state.hiddenMarkets, market, !isHidden)
+          state.hiddenMarkets[market] = !isHidden
         } else if (!isHidden && market !== id) {
           // hide market other than selected
-          Vue.set(state.hiddenMarkets, market, true)
+          state.hiddenMarkets[market] = true
         } else if (isHidden && market === id) {
           // show current market
-          Vue.set(state.hiddenMarkets, market, false)
+          state.hiddenMarkets[market] = false
         }
       } else if (type === 'all') {
         if (containsHidden !== !isHidden) {
-          Vue.set(state.hiddenMarkets, market, !containsHidden)
+          state.hiddenMarkets[market] = !containsHidden
         }
       } else {
         const indexedMarket = rootState.panes.marketsListeners[market]
@@ -413,7 +412,7 @@ const actions = {
         const hide = type !== indexedMarket.type
 
         if (hide !== isHidden) {
-          Vue.set(state.hiddenMarkets, market, hide)
+          state.hiddenMarkets[market] = hide
         }
       }
     }
@@ -495,9 +494,9 @@ const mutations = {
   },
   SET_INDICATOR_ERROR(state, { id, error }) {
     if (error) {
-      Vue.set(state.indicatorsErrors, id, error)
+      state.indicatorsErrors[id] = error
     } else {
-      Vue.set(state.indicatorsErrors, id, null)
+      state.indicatorsErrors[id] = null
     }
   },
   SET_INDICATOR_OPTIONS_DEFINITIONS(state, { id, optionsDefinitions }) {
@@ -507,11 +506,11 @@ const mutations = {
     state.timeframe = value
   },
   ADD_INDICATOR(state, indicator) {
-    Vue.set(state.indicators, indicator.id, indicator)
+    state.indicators[indicator.id] = indicator
     state.indicatorOrder.push(indicator.id)
   },
   REMOVE_INDICATOR(state, id) {
-    Vue.delete(state.indicators, id)
+    delete state.indicators[id]
     state.indicatorOrder.splice(state.indicatorOrder.indexOf(id), 1)
   },
   SET_INDICATOR_OPTION(state, { id, key, value }) {
@@ -523,14 +522,14 @@ const mutations = {
       state.indicators[id].options = {} as SeriesOptions<keyof SeriesOptionsMap>
     }
 
-    Vue.set(state.indicators[id].options, key, value)
+    state.indicators[id].options[key] = value
   },
   REMOVE_INDICATOR_OPTION(state, { id, key }) {
     if (!state.indicators[id]) {
       return
     }
 
-    Vue.delete(state.indicators[id].options, key)
+    delete state.indicators[id].options[key]
   },
   SET_INDICATOR_SCRIPT(state, payload) {
     if (typeof payload.value === 'undefined') {
@@ -541,13 +540,13 @@ const mutations = {
       this.commit(state._id + '/FLAG_INDICATOR_AS_UNSAVED', payload.id)
     }
 
-    Vue.set(state.indicators[payload.id], 'script', payload.value)
+    state.indicators[payload.id].script = payload.value
   },
   FLAG_INDICATOR_AS_UNSAVED(state, id) {
-    Vue.set(state.indicators[id], 'unsavedChanges', true)
+    state.indicators[id].unsavedChanges = true
   },
   FLAG_INDICATOR_AS_SAVED(state, id) {
-    Vue.set(state.indicators[id], 'unsavedChanges', false)
+    state.indicators[id].unsavedChanges = false
   },
   TOGGLE_LAYOUTING(state, indicatorId: string) {
     if (typeof indicatorId === 'string' && !state.layouting) {
@@ -564,11 +563,11 @@ const mutations = {
       /\{([\w\d_]+)\}/g,
       (match, key) => state.indicators[id].options[key] || ''
     )
-    Vue.set(state.indicators[id], 'displayName', displayName)
+    state.indicators[id].displayName = displayName
   },
   TOGGLE_MARKET(state, marketId) {
     if (marketId) {
-      Vue.set(state.hiddenMarkets, marketId, !state.hiddenMarkets[marketId])
+      state.hiddenMarkets[marketId] = !state.hiddenMarkets[marketId]
     }
   },
   SET_PRICE_SCALE(state, { id, priceScale }) {

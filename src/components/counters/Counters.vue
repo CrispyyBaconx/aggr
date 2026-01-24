@@ -1,5 +1,5 @@
 <template>
-  <div class="pane-counters">
+  <div class="pane-counters" ref="el">
     <pane-header
       :paneId="paneId"
       :settings="() => import('@/components/counters/CountersDialog.vue')"
@@ -17,7 +17,7 @@
             width: (step.buy / (step.buy + step.sell)) * 100 + '%'
           }"
         >
-          <span v-if="!countersCount">{{ formatAmount(step.buy) }}</span>
+          <span v-if="!countersCount">{{ formatAmountValue(step.buy) }}</span>
           <span v-else>{{ step.buy }}</span>
         </div>
         <div
@@ -26,7 +26,7 @@
             width: (step.sell / (step.buy + step.sell)) * 100 + '%'
           }"
         >
-          <span v-if="!countersCount">{{ formatAmount(step.sell) }}</span>
+          <span v-if="!countersCount">{{ formatAmountValue(step.sell) }}</span>
           <span v-else>{{ step.sell }}</span>
         </div>
       </div>
@@ -34,14 +34,15 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Mixins } from 'vue-property-decorator'
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { useStore } from 'vuex'
 
 import { getBucketId, getHms } from '@/utils/helpers'
 import { formatAmount } from '@/services/productsService'
 
 import aggregatorService from '@/services/aggregatorService'
-import PaneMixin from '@/mixins/paneMixin'
+import { usePane } from '@/composables/usePane'
 import PaneHeader from '../panes/PaneHeader.vue'
 import {
   getAppBackgroundColor,
@@ -56,7 +57,7 @@ interface Counter {
 }
 
 interface CounterChunk {
-  timestamp: number
+  timestamp: number | null
   buy: number
   sell: number
 }
@@ -68,244 +69,249 @@ interface CounterStep {
   hasData: boolean
 }
 
-@Component({
-  components: { PaneHeader },
-  name: 'Counters'
-})
-export default class Counters extends Mixins(PaneMixin) {
-  steps: CounterStep[] = []
+const props = defineProps<{
+  paneId: string
+}>()
 
-  private _populateCountersInterval: number
-  private _activeChunk: CounterChunk
-  private _counters: Counter[]
-  private _feed: string = null
+const store = useStore()
+const instance = getCurrentInstance()
 
-  get liquidationsOnly() {
-    return this.$store.state[this.paneId].liquidationsOnly
+const { el, pane } = usePane(props.paneId)
+
+const steps = reactive<CounterStep[]>([])
+
+let _populateCountersInterval: number | null = null
+let _activeChunk: CounterChunk = {
+  timestamp: null,
+  buy: 0,
+  sell: 0
+}
+let _counters: Counter[] = []
+let _feed: string | null = null
+let _onStoreMutation: (() => void) | null = null
+
+const liquidationsOnly = computed(() => store.state[props.paneId].liquidationsOnly)
+const countersSteps = computed(() => store.state[props.paneId].steps)
+const countersCount = computed(() => store.state[props.paneId].count)
+const countersGranularity = computed(() => store.state[props.paneId].granularity)
+
+const activeSteps = computed(() => steps.filter(a => a.hasData))
+
+function onVolume(sums: any) {
+  const volume = {
+    buy: sums.vbuy,
+    sell: sums.vsell
   }
 
-  get countersSteps() {
-    return this.$store.state[this.paneId].steps
+  if (liquidationsOnly.value) {
+    volume.buy = sums.lbuy
+    volume.sell = sums.lsell
+  } else if (countersCount.value) {
+    volume.buy = sums.cbuy
+    volume.sell = sums.csell
   }
 
-  get countersCount() {
-    return this.$store.state[this.paneId].count
-  }
-
-  get countersGranularity() {
-    return this.$store.state[this.paneId].granularity
-  }
-
-  get activeSteps() {
-    return this.steps.filter(a => a.hasData)
-  }
-
-  created() {
-    this._onStoreMutation = this.$store.subscribe(mutation => {
-      switch (mutation.type) {
-        case 'settings/SET_BUY_COLOR':
-        case 'settings/SET_SELL_COLOR':
-          this.generateColors()
-          break
-        case 'panes/SET_PANE_MARKETS':
-          if (mutation.payload.id === this.paneId) {
-            this.createCounters()
-          }
-          break
-
-        case this.paneId + '/REPLACE_COUNTERS':
-        case this.paneId + '/TOGGLE_LIQUIDATIONS_ONLY':
-        case this.paneId + '/TOGGLE_COUNT':
-          this.createCounters()
-          break
-      }
-    })
-
-    this._populateCountersInterval = setInterval(
-      this.populateCounters.bind(this),
-      this.countersGranularity
-    ) as unknown as number
-  }
-
-  mounted() {
-    this.createCounters()
-    this.generateColors()
-  }
-
-  beforeDestroy() {
-    if (this._feed) {
-      aggregatorService.off(this._feed, this.onVolume)
+  if (volume.buy || volume.sell) {
+    if (!_activeChunk.timestamp) {
+      _activeChunk.timestamp = sums.timestamp
     }
 
-    clearInterval(this._populateCountersInterval)
-  }
+    _activeChunk.buy += volume.buy
+    _activeChunk.sell += volume.sell
 
-  onVolume(sums) {
-    const volume = {
-      buy: sums.vbuy,
-      sell: sums.vsell
+    for (let i = 0; i < steps.length; i++) {
+      steps[i].buy += volume.buy
+      steps[i].sell += volume.sell
     }
-
-    if (this.liquidationsOnly) {
-      volume.buy = sums.lbuy
-      volume.sell = sums.lsell
-    } else if (this.countersCount) {
-      volume.buy = sums.cbuy
-      volume.sell = sums.csell
-    }
-
-    if (volume.buy || volume.sell) {
-      if (!this._activeChunk.timestamp) {
-        this._activeChunk.timestamp = sums.timestamp
-      }
-
-      this._activeChunk.buy += volume.buy
-      this._activeChunk.sell += volume.sell
-
-      for (let i = 0; i < this.steps.length; i++) {
-        this.steps[i].buy += volume.buy
-        this.steps[i].sell += volume.sell
-      }
-    }
-  }
-  clearCounters() {
-    if (this._feed) {
-      console.debug(
-        `[counters/${this.paneId}] unsubscribe from feed`,
-        this._feed
-      )
-      aggregatorService.off(this._feed, this.onVolume)
-    }
-
-    if (this._counters) {
-      this._counters.splice(0, this._counters.length)
-      this._activeChunk.timestamp = null
-      this._activeChunk.buy = this._activeChunk.sell = 0
-      this.steps.splice(0, this.steps.length)
-    } else {
-      this._counters = []
-      this._activeChunk = {
-        timestamp: null,
-        buy: 0,
-        sell: 0
-      }
-      this.steps = []
-    }
-  }
-  generateColors() {
-    const style = getComputedStyle(document.documentElement)
-    const buyColor = splitColorCode(
-      style.getPropertyValue('--theme-buy-base'),
-      getAppBackgroundColor()
-    )
-    const sellColor = splitColorCode(
-      style.getPropertyValue('--theme-sell-base'),
-      getAppBackgroundColor()
-    )
-
-    const el = this.$el as HTMLElement
-    for (let i = 0; i < this.steps.length; i++) {
-      const lightenFactor = i * (0.25 / this.steps.length)
-      el.style.setProperty(
-        `--buy-color-${i + 1}`,
-        joinRgba(getLinearShade(buyColor, -lightenFactor, lightenFactor))
-      )
-      el.style.setProperty(
-        `--sell-color-${i + 1}`,
-        joinRgba(getLinearShade(sellColor, -lightenFactor, lightenFactor))
-      )
-    }
-  }
-  createCounters() {
-    this.clearCounters()
-
-    for (const step of this.countersSteps) {
-      const counter = {
-        duration: step,
-        chunks: []
-      }
-
-      this._counters.push(counter)
-
-      const first = this._counters.indexOf(counter) === 0
-
-      this.steps.push({
-        duration: getHms(counter.duration),
-        buy: 0,
-        sell: 0,
-        hasData: first
-      })
-    }
-
-    this._feed = 'bucket-' + getBucketId(this.pane.markets)
-    console.debug(`[counters/${this.paneId}] subscribe to feed`, this._feed)
-
-    if (this._feed.length) {
-      aggregatorService.on(this._feed, this.onVolume)
-    } else {
-      console.debug(`[counters/${this.paneId}] error feed empty...`)
-    }
-  }
-  populateCounters() {
-    const now = Date.now()
-
-    if (this._activeChunk.timestamp) {
-      this._counters[0].chunks.push({
-        timestamp: this._activeChunk.timestamp,
-        buy: this._activeChunk.buy,
-        sell: this._activeChunk.sell
-      })
-
-      this._activeChunk.timestamp = null
-      this._activeChunk.buy = 0
-      this._activeChunk.sell = 0
-    }
-
-    let chunksToDecrease = []
-    let decreaseBuy
-    let decreaseSell
-
-    for (let i = 0; i < this._counters.length; i++) {
-      if (chunksToDecrease.length) {
-        Array.prototype.push.apply(
-          this._counters[i].chunks,
-          chunksToDecrease.splice(0, chunksToDecrease.length)
-        )
-
-        if (!this.steps[i].hasData) {
-          this.steps[i].hasData = true
-        }
-      }
-
-      decreaseBuy = 0
-      decreaseSell = 0
-
-      let to = 0
-
-      for (let j = 0; j < this._counters[i].chunks.length; j++) {
-        decreaseBuy += this._counters[i].chunks[j].buy
-        decreaseSell += this._counters[i].chunks[j].sell
-        if (
-          this._counters[i].chunks[j].timestamp >=
-          now - this._counters[i].duration
-        ) {
-          to = j
-          break
-        }
-      }
-
-      if (to) {
-        chunksToDecrease = this._counters[i].chunks.splice(0, to + 1)
-        this.steps[i].buy -= decreaseBuy
-        this.steps[i].sell -= decreaseSell
-      }
-    }
-  }
-
-  formatAmount(amount) {
-    return formatAmount(amount)
   }
 }
+
+function clearCounters() {
+  if (_feed) {
+    console.debug(
+      `[counters/${props.paneId}] unsubscribe from feed`,
+      _feed
+    )
+    aggregatorService.off(_feed, onVolume)
+  }
+
+  if (_counters.length) {
+    _counters.splice(0, _counters.length)
+    _activeChunk.timestamp = null
+    _activeChunk.buy = _activeChunk.sell = 0
+    steps.splice(0, steps.length)
+  } else {
+    _counters = []
+    _activeChunk = {
+      timestamp: null,
+      buy: 0,
+      sell: 0
+    }
+  }
+}
+
+function generateColors() {
+  const style = getComputedStyle(document.documentElement)
+  const buyColor = splitColorCode(
+    style.getPropertyValue('--theme-buy-base'),
+    getAppBackgroundColor()
+  )
+  const sellColor = splitColorCode(
+    style.getPropertyValue('--theme-sell-base'),
+    getAppBackgroundColor()
+  )
+
+  const rootEl = instance?.proxy?.$el as HTMLElement
+  if (!rootEl) return
+
+  for (let i = 0; i < steps.length; i++) {
+    const lightenFactor = i * (0.25 / steps.length)
+    rootEl.style.setProperty(
+      `--buy-color-${i + 1}`,
+      joinRgba(getLinearShade(buyColor, -lightenFactor, lightenFactor))
+    )
+    rootEl.style.setProperty(
+      `--sell-color-${i + 1}`,
+      joinRgba(getLinearShade(sellColor, -lightenFactor, lightenFactor))
+    )
+  }
+}
+
+function createCounters() {
+  clearCounters()
+
+  for (const step of countersSteps.value) {
+    const counter = {
+      duration: step,
+      chunks: []
+    }
+
+    _counters.push(counter)
+
+    const first = _counters.indexOf(counter) === 0
+
+    steps.push({
+      duration: getHms(counter.duration),
+      buy: 0,
+      sell: 0,
+      hasData: first
+    })
+  }
+
+  _feed = 'bucket-' + getBucketId(pane.value.markets)
+  console.debug(`[counters/${props.paneId}] subscribe to feed`, _feed)
+
+  if (_feed.length) {
+    aggregatorService.on(_feed, onVolume)
+  } else {
+    console.debug(`[counters/${props.paneId}] error feed empty...`)
+  }
+}
+
+function populateCounters() {
+  const now = Date.now()
+
+  if (_activeChunk.timestamp) {
+    _counters[0].chunks.push({
+      timestamp: _activeChunk.timestamp,
+      buy: _activeChunk.buy,
+      sell: _activeChunk.sell
+    })
+
+    _activeChunk.timestamp = null
+    _activeChunk.buy = 0
+    _activeChunk.sell = 0
+  }
+
+  let chunksToDecrease: CounterChunk[] = []
+  let decreaseBuy: number
+  let decreaseSell: number
+
+  for (let i = 0; i < _counters.length; i++) {
+    if (chunksToDecrease.length) {
+      Array.prototype.push.apply(
+        _counters[i].chunks,
+        chunksToDecrease.splice(0, chunksToDecrease.length)
+      )
+
+      if (!steps[i].hasData) {
+        steps[i].hasData = true
+      }
+    }
+
+    decreaseBuy = 0
+    decreaseSell = 0
+
+    let to = 0
+
+    for (let j = 0; j < _counters[i].chunks.length; j++) {
+      decreaseBuy += _counters[i].chunks[j].buy
+      decreaseSell += _counters[i].chunks[j].sell
+      if (
+        (_counters[i].chunks[j].timestamp || 0) >=
+        now - _counters[i].duration
+      ) {
+        to = j
+        break
+      }
+    }
+
+    if (to) {
+      chunksToDecrease = _counters[i].chunks.splice(0, to + 1)
+      steps[i].buy -= decreaseBuy
+      steps[i].sell -= decreaseSell
+    }
+  }
+}
+
+function formatAmountValue(amount: number) {
+  return formatAmount(amount)
+}
+
+// Setup store mutation subscription
+_onStoreMutation = store.subscribe((mutation) => {
+  switch (mutation.type) {
+    case 'settings/SET_BUY_COLOR':
+    case 'settings/SET_SELL_COLOR':
+      generateColors()
+      break
+    case 'panes/SET_PANE_MARKETS':
+      if (mutation.payload.id === props.paneId) {
+        createCounters()
+      }
+      break
+
+    case props.paneId + '/REPLACE_COUNTERS':
+    case props.paneId + '/TOGGLE_LIQUIDATIONS_ONLY':
+    case props.paneId + '/TOGGLE_COUNT':
+      createCounters()
+      break
+  }
+})
+
+_populateCountersInterval = setInterval(
+  populateCounters,
+  countersGranularity.value
+) as unknown as number
+
+onMounted(() => {
+  createCounters()
+  generateColors()
+})
+
+onBeforeUnmount(() => {
+  if (_feed) {
+    aggregatorService.off(_feed, onVolume)
+  }
+
+  if (_populateCountersInterval) {
+    clearInterval(_populateCountersInterval)
+  }
+
+  if (_onStoreMutation) {
+    _onStoreMutation()
+  }
+})
 </script>
 
 <style lang="scss">

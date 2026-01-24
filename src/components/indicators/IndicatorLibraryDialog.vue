@@ -28,7 +28,7 @@
       <InstalledIndicators
         v-if="tab === 'installed'"
         key="installed"
-        ref="installed"
+        ref="installedRef"
         :pane-id="paneId"
         @close="close"
         @add="addToChart"
@@ -58,7 +58,7 @@
           type="file"
           class="input-file"
           @change="handleFile"
-          ref="importButton"
+          ref="importButtonRef"
         />
         Import <i class="icon-upload ml8"></i>
       </button>
@@ -73,13 +73,15 @@
   </Dialog>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import { ago } from '@/utils/helpers'
 import Dialog from '@/components/framework/Dialog.vue'
 import InstalledIndicators from '@/components/indicators/InstalledIndicators.vue'
 import CommunityIndicators from '@/components/indicators/CommunityIndicators.vue'
 import IndicatorDetail from '@/components/indicators/IndicatorDetail.vue'
-import DialogMixin from '@/mixins/dialogMixin'
+import { useDialog } from '@/composables/useDialog'
 import dialogService from '@/services/dialogService'
 import importService from '@/services/importService'
 import Tabs from '@/components/framework/Tabs.vue'
@@ -87,142 +89,143 @@ import Tab from '@/components/framework/Tab.vue'
 import TransitionHeight from '@/components/framework/TransitionHeight.vue'
 import workspacesService from '@/services/workspacesService'
 
-export default {
-  mixins: [DialogMixin],
-  components: {
-    InstalledIndicators,
-    CommunityIndicators,
-    IndicatorDetail,
-    TransitionHeight,
-    Dialog,
-    Tabs,
-    Tab
-  },
-  data: () => ({
-    name: '',
-    tab: 'installed',
-    selection: null,
-    communityTabEnabled: !!import.meta.env.VITE_APP_LIB_URL,
-    ago
-  }),
-  computed: {
-    isBack() {
-      if (this.tab === 'installed') {
-        return true
+const store = useStore()
+const { close } = useDialog()
+
+const installedRef = ref<InstanceType<typeof InstalledIndicators> | null>(null)
+const importButtonRef = ref<HTMLInputElement | null>(null)
+const tab = ref('installed')
+const selection = ref<any>(null)
+const communityTabEnabled = !!import.meta.env.VITE_APP_LIB_URL
+
+const isBack = computed(() => {
+  if (tab.value === 'installed') {
+    return true
+  }
+
+  return false
+})
+
+const paneId = computed(() => {
+  if (
+    store.state.app.focusedPaneId &&
+    store.state.panes.panes[store.state.app.focusedPaneId]?.type === 'chart'
+  ) {
+    return store.state.app.focusedPaneId
+  } else {
+    for (const id in store.state.panes.panes) {
+      if (store.state.panes.panes[id].type === 'chart') {
+        return id
       }
-
-      return false
-    },
-    paneId() {
-      if (
-        this.$store.state.app.focusedPaneId &&
-        this.$store.state.panes.panes[this.$store.state.app.focusedPaneId]
-          .type === 'chart'
-      ) {
-        return this.$store.state.app.focusedPaneId
-      } else {
-        for (const id in this.$store.state.panes.panes) {
-          if (this.$store.state.panes.panes[id].type === 'chart') {
-            return id
-          }
-        }
-      }
-
-      return null
-    }
-  },
-  methods: {
-    async handleFile(event) {
-      try {
-        const json = await importService.getJSON(event.target.files[0])
-
-        await importService.importIndicator(json, {
-          save: true,
-          openLibrary: true
-        })
-      } catch (error) {
-        this.$store.dispatch('app/showNotice', {
-          title: error.message,
-          type: 'error'
-        })
-      }
-    },
-    showNoPaneId() {
-      dialogService.confirm({
-        title: 'No chart',
-        message: `Add a chart to continue`,
-        cancel: null,
-        ok: 'Ok'
-      })
-    },
-    async addToChart(indicator, close = false) {
-      this.$store.dispatch(
-        this.paneId + '/addIndicator',
-        await workspacesService.incrementIndicatorUsage(indicator.id)
-      )
-
-      if (close) {
-        this.close()
-      }
-    },
-    async createIndicator(indicator = {}) {
-      if (!this.paneId) {
-        return this.showNoPaneId()
-      }
-
-      if (!indicator.name) {
-        indicator.name = 'Untitled'
-      }
-
-      if (!indicator.libraryId) {
-        indicator.libraryId = null
-      }
-
-      dialogService.openIndicator(
-        this.paneId,
-        await this.$store.dispatch(this.paneId + '/addIndicator', indicator)
-      )
-
-      this.close()
-    },
-    async promptCreateIndicator() {
-      if (!this.paneId) {
-        return this.showNoPaneId()
-      }
-
-      const payload = await dialogService.openAsPromise(
-        (await import('@/components/chart/CreateIndicatorDialog.vue')).default,
-        {
-          paneId: this.paneId
-        }
-      )
-
-      if (payload) {
-        this.createIndicator(payload)
-      }
-    },
-    setSelection(indicator) {
-      this.selection = indicator
-
-      if (this.$refs.installed) {
-        this.$refs.installed.getIndicators()
-      }
-    },
-    async reloadSelection(id) {
-      if (!this.selection) {
-        return
-      }
-
-      this.setSelection(
-        await workspacesService.getIndicator(id || this.selection.id)
-      )
     }
   }
+
+  return null
+})
+
+async function handleFile(event: Event) {
+  try {
+    const target = event.target as HTMLInputElement
+    const file = target.files?.[0]
+    if (!file) return
+
+    const json = await importService.getJSON(file)
+
+    await importService.importIndicator(json, {
+      save: true,
+      openLibrary: true
+    })
+  } catch (error: any) {
+    store.dispatch('app/showNotice', {
+      title: error.message,
+      type: 'error'
+    })
+  }
 }
+
+function showNoPaneId() {
+  dialogService.confirm({
+    title: 'No chart',
+    message: `Add a chart to continue`,
+    cancel: null,
+    ok: 'Ok'
+  })
+}
+
+async function addToChart(indicator: any, closeDialog = false) {
+  if (!paneId.value) return
+
+  store.dispatch(
+    paneId.value + '/addIndicator',
+    await workspacesService.incrementIndicatorUsage(indicator.id)
+  )
+
+  if (closeDialog) {
+    close()
+  }
+}
+
+async function createIndicator(indicator: any = {}) {
+  if (!paneId.value) {
+    return showNoPaneId()
+  }
+
+  if (!indicator.name) {
+    indicator.name = 'Untitled'
+  }
+
+  if (!indicator.libraryId) {
+    indicator.libraryId = null
+  }
+
+  dialogService.openIndicator(
+    paneId.value,
+    await store.dispatch(paneId.value + '/addIndicator', indicator)
+  )
+
+  close()
+}
+
+async function promptCreateIndicator() {
+  if (!paneId.value) {
+    return showNoPaneId()
+  }
+
+  const payload = await dialogService.openAsPromise(
+    (await import('@/components/chart/CreateIndicatorDialog.vue')).default,
+    {
+      paneId: paneId.value
+    }
+  )
+
+  if (payload) {
+    createIndicator(payload)
+  }
+}
+
+function setSelection(indicator: any) {
+  selection.value = indicator
+
+  if (installedRef.value) {
+    installedRef.value.getIndicators()
+  }
+}
+
+async function reloadSelection(id?: string) {
+  if (!selection.value) {
+    return
+  }
+
+  setSelection(
+    await workspacesService.getIndicator(id || selection.value.id)
+  )
+}
+
+defineExpose({ close })
 </script>
 <style lang="scss" scoped>
 .indicator-library-dialog {
-  ::v-deep {
+  :deep() {
     .dialog__content {
       width: 500px;
     }

@@ -1,4 +1,4 @@
-import Vue from 'vue'
+import { createApp, App, Component, ref, reactive, h } from 'vue'
 import store from '@/store'
 
 import ConfirmDialog from '@/components/framework/ConfirmDialog.vue'
@@ -11,117 +11,144 @@ export interface DialogPosition {
   h?: number
 }
 
+interface MountedDialog {
+  app: App
+  el: HTMLElement
+  close: () => void
+  output?: any
+}
+
 class DialogService {
-  mountedComponents: { [id: string]: any } = {}
-  dialogPositions: { [id: string]: any } = {}
+  mountedComponents: { [id: string]: MountedDialog } = {}
+  dialogPositions: { [id: string]: DialogPosition } = {}
   isInteracting = false
   hasDialogOpened = false
-  pickerInstance: any
+  pickerInstance: any = null
+  pickerApp: App | null = null
 
   createComponent(
-    component,
+    component: Component,
     props: any = {},
-    resolve = null,
+    resolve: ((value: any) => void) | null = null,
     dialogId?: string
-  ): Vue {
-    const Factory = Vue.extend(Object.assign({ store }, component))
-
-    const cmp: any = new Factory(
-      Object.assign(
-        {},
-        {
-          dialogId: dialogId,
-          propsData: Object.assign({}, props),
-          destroyed: () => {
-            if (dialogId && this.mountedComponents[dialogId]) {
-              delete this.mountedComponents[dialogId]
-
-              this.hasDialogOpened =
-                Object.keys(this.mountedComponents).length > 0
-            }
-
-            if (this.pickerInstance === cmp) {
-              delete this.pickerInstance
-            }
-
-            if (typeof resolve === 'function') {
-              resolve((cmp as any).output)
-            }
+  ): MountedDialog {
+    const container = document.createElement('div')
+    
+    let output: any = undefined
+    
+    // Create a wrapper component that handles close
+    const WrappedComponent = {
+      setup() {
+        return () => h(component, {
+          ...props,
+          dialogId,
+          onClose: (result: any) => {
+            output = result
+            cleanup()
+          },
+          'onUpdate:output': (val: any) => {
+            output = val
           }
-        }
-      )
-    )
+        })
+      }
+    }
 
-    cmp.dialogId = dialogId
+    const app = createApp(WrappedComponent)
+    app.use(store)
+    
+    const instance = app.mount(container)
 
-    return cmp
+    const cleanup = () => {
+      if (dialogId && this.mountedComponents[dialogId]) {
+        delete this.mountedComponents[dialogId]
+        this.hasDialogOpened = Object.keys(this.mountedComponents).length > 0
+      }
+
+      if (this.pickerInstance === result) {
+        this.pickerInstance = null
+        this.pickerApp = null
+      }
+
+      app.unmount()
+      if (container.parentNode) {
+        container.parentNode.removeChild(container)
+      }
+
+      if (typeof resolve === 'function') {
+        resolve(output)
+      }
+    }
+
+    const result: MountedDialog = {
+      app,
+      el: container,
+      close: cleanup,
+      get output() { return output }
+    }
+
+    return result
   }
 
-  async openAsPromise(component, props = {}, dialogId?: string): Promise<any> {
+  async openAsPromise(component: Component, props = {}, dialogId?: string): Promise<any> {
     return new Promise(resolve => {
-      component = this.createComponent(component, props, resolve, dialogId)
-
-      this.mountDialog(component)
+      const dialog = this.createComponent(component, props, resolve, dialogId)
+      this.mountDialog(dialog, dialogId)
     })
   }
 
-  open(component, props = {}, dialogId?: string, onClose?: () => void): Vue {
-    component = this.createComponent(component, props, onClose, dialogId)
-
-    this.mountDialog(component)
-
-    return component
+  open(component: Component, props = {}, dialogId?: string, onClose?: () => void): MountedDialog {
+    const dialog = this.createComponent(component, props, onClose || null, dialogId)
+    this.mountDialog(dialog, dialogId)
+    return dialog
   }
 
-  mountDialog(cmp: Vue) {
+  mountDialog(dialog: MountedDialog, dialogId?: string) {
     const container = document.getElementById('app') || document.body
+    container.appendChild(dialog.el)
 
-    const mounted = cmp.$mount()
-    container.appendChild(mounted.$el)
-
-    const id = (cmp as any).dialogId
-
-    if (id) {
-      if (this.mountedComponents[id]) {
-        this.mountedComponents[id].close()
+    if (dialogId) {
+      if (this.mountedComponents[dialogId]) {
+        this.mountedComponents[dialogId].close()
       }
 
-      this.mountedComponents[id] = cmp
-
+      this.mountedComponents[dialogId] = dialog
       this.hasDialogOpened = Object.keys(this.mountedComponents).length > 0
     }
   }
 
-  isDialogOpened(name) {
+  isDialogOpened(name: string) {
     return !!this.mountedComponents[name]
   }
 
   async openPicker(
-    initialColor,
+    initialColor: string,
     label?: string,
-    onInput?: () => void,
+    onInput?: (color: string) => void,
     onClose?: () => void
   ) {
+    // For picker, we need a different approach since it needs to persist
+    // and handle multiple calls
     if (this.pickerInstance) {
-      this.pickerInstance.$off('input')
-      this.pickerInstance.setColorFromProp(initialColor)
-
-      this.pickerInstance.label = typeof label !== 'undefined' ? label : null
+      // Update existing picker
+      if (this.pickerInstance.setColorFromProp) {
+        this.pickerInstance.setColorFromProp(initialColor)
+      }
+      if (typeof label !== 'undefined') {
+        this.pickerInstance.label = label
+      }
     } else {
-      this.pickerInstance = this.open(
-        (await import('@/components/framework/picker/ColorPickerDialog.vue'))
-          .default,
+      const component = (await import('@/components/framework/picker/ColorPickerDialog.vue')).default
+      const dialog = this.open(
+        component,
         {
           value: initialColor,
-          label
+          label,
+          onInput
         },
-        null,
+        undefined,
         onClose
       )
-    }
-
-    if (typeof onInput === 'function') {
-      this.pickerInstance.$on('input', onInput)
+      this.pickerInstance = dialog
     }
 
     return this.pickerInstance

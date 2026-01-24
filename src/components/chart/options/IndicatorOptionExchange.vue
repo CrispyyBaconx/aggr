@@ -2,37 +2,43 @@
   <div class="indicator-option-exchange form-group">
     <label>{{ label }}<slot name="description" /></label>
     <dropdown-button
-      v-model="value"
+      :modelValue="value"
       :options="exchanges"
-      :placeholder="definition.placeholder"
+      :placeholder="(definition as any)?.placeholder"
       class="-outline form-control -arrow"
-      @input="$emit('input', $event)"
+      @update:modelValue="$emit('input', $event)"
     ></dropdown-button>
   </div>
 </template>
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
-import IndicatorOptionMixin from '@/mixins/indicatorOptionMixin'
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
 
-@Component({
-  name: 'IndicatorOptionLineStyle',
-  mixins: [IndicatorOptionMixin],
-  components: {
-    DropdownButton
-  }
-})
-export default class IndicatorOptionLineStyle extends Vue {
-  get exchanges() {
-    return this.$store.getters['exchanges/getExchanges'].reduce(
-      (acc, exchange) => {
-        acc[exchange] = exchange
-        return acc
-      },
-      {
-        null: 'Choose'
-      }
-    )
-  }
-}
+defineProps<{
+  paneId: string
+  indicatorId: string
+  label: string
+  value: string
+  definition?: Record<string, unknown>
+}>()
+
+defineEmits<{
+  (e: 'input', value: string): void
+}>()
+
+const store = useStore()
+
+const exchanges = computed(() =>
+  store.getters['exchanges/getExchanges'].reduce(
+    (acc: Record<string, string>, exchange: string) => {
+      acc[exchange] = exchange
+      return acc
+    },
+    {
+      null: 'Choose'
+    }
+  )
+)
 </script>

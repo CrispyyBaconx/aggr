@@ -81,7 +81,7 @@ class HistoricalService extends EventEmitter {
           })
         }
 
-        console.log(
+        console.debug(
           `[historicalService] Cached ${this.backendTickers.size} backend tickers`
         )
         this.tickersFetched = true
@@ -374,7 +374,7 @@ class HistoricalService extends EventEmitter {
     const { fetchResolution, needsAggregation } =
       this.getBestResolution(timeframe)
 
-    console.log(
+    console.debug(
       `[historicalService] Fetching ${this.timeframeToResolution(fetchResolution)} bars` +
         (needsAggregation
           ? ` (will aggregate to ${this.timeframeToResolution(timeframe)})`
@@ -387,18 +387,10 @@ class HistoricalService extends EventEmitter {
 
     // Fetch data for each market in parallel
     const fetchPromises = markets.map(async market => {
-      const backendTicker = this.findBackendTicker(market)
-      if (backendTicker) {
-        console.log(
-          `[historicalService] Mapped ${market} -> ${backendTicker.exchange}:${backendTicker.symbol}`
-        )
-      }
-
       const url = this.getBackendApiUrl(from, to, fetchResolution, market)
       const [exchange, pair] = parseMarket(market)
 
       try {
-        console.log(`[historicalService] Fetching: ${url}`)
         const response = await fetch(url)
 
         if (!response.ok) {

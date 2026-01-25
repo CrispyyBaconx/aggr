@@ -59,7 +59,7 @@ export default class Backend extends Exchange {
 
     try {
       const url = `${backendUrl}/api/tickers${apiKey ? `?token=${apiKey}` : ''}`
-      console.log(`[${this.id}] Fetching available tickers from ${backendUrl}`)
+      console.debug(`[${this.id}] Fetching available tickers`)
 
       const response = await fetch(url)
       if (!response.ok) {
@@ -79,7 +79,7 @@ export default class Backend extends Exchange {
           })
         }
 
-        console.log(
+        console.debug(
           `[${this.id}] Cached ${this.availableTickers.size} available tickers`
         )
         this.tickersFetched = true
@@ -121,9 +121,6 @@ export default class Backend extends Exchange {
     for (const transformed of transformations) {
       const key = `${normalizedExchange}:${transformed}`.toLowerCase()
       if (this.availableTickers.has(key)) {
-        console.log(
-          `[${this.id}] Mapped ${exchangeId}:${pair} -> ${normalizedExchange}:${transformed}`
-        )
         return this.availableTickers.get(key)!
       }
     }
@@ -234,9 +231,7 @@ export default class Backend extends Exchange {
     // Read API key dynamically (settings may not be configured at constructor time)
     const apiKey = this.getApiKey()
 
-    console.log(
-      `[${this.id}] Creating WebSocket with auth: ${apiKey ? 'yes' : 'no'}`
-    )
+    console.debug(`[${this.id}] Creating WebSocket connection`)
 
     // Create WebSocket without protocol header (use message auth instead)
     const api = new WebSocket(url) as any
@@ -264,7 +259,7 @@ export default class Backend extends Exchange {
         // Handle auth response
         if (json.cmd === 'auth' || (json.ok !== undefined && !json.pattern)) {
           if (json.ok) {
-            console.log(`[${this.id}] Authentication successful`)
+            console.debug(`[${this.id}] Authenticated`)
             api._authenticated = true
             if (api._authCallback) {
               api._authCallback()
@@ -286,11 +281,11 @@ export default class Backend extends Exchange {
 
     api.onopen = () => {
       api._wasOpened = true
-      console.log(`[${this.id}] Connected to backend WebSocket`)
+      console.debug(`[${this.id}] Connected`)
 
       const authKey = this.getApiKey()
       if (authKey) {
-        console.log(`[${this.id}] Sending auth message`)
+        console.debug(`[${this.id}] Authenticating`)
         api.send(JSON.stringify({ cmd: 'auth', token: authKey }))
 
         // Wait for auth acknowledgment before subscribing
@@ -318,7 +313,7 @@ export default class Backend extends Exchange {
     }
 
     api.onclose = (event: CloseEvent) => {
-      console.log(`[${this.id}] WebSocket closed:`, event.code, event.reason)
+      console.debug(`[${this.id}] Disconnected:`, event.code)
       this.stopKeepAlive(api)
 
       const pairsToReconnect = [...api._pending, ...api._connected]
@@ -493,16 +488,6 @@ export default class Backend extends Exchange {
     // Determine exchange to report as (use original if proxying)
     const reportExchange = sub?.originalExchange || this.id
     const reportPair = sub?.originalPair || symbol
-
-    // Debug: log what we're emitting
-    const tradeValue = data.price * data.quantity
-    if (tradeValue > 50000) {
-      console.log(
-        `[${this.id}] Emitting trade: ${reportExchange}:${reportPair} ` +
-          `$${tradeValue.toFixed(0)} (${data.side}) ` +
-          `sub=${sub ? 'found' : 'not found'}`
-      )
-    }
 
     // Handle liquidation
     if (data.is_liquidation) {
@@ -692,11 +677,6 @@ export default class Backend extends Exchange {
     const url = await this.getUrl()
     if (!url) return null
 
-    const apiKey = this.getApiKey()
-    console.log(
-      `[${this.id}] getSharedConnection: url=${url}, hasApiKey=${!!apiKey}, keyLength=${apiKey?.length || 0}`
-    )
-
     // If we already have an open connection, reuse it
     if (this.sharedApi && this.sharedApi.readyState === WebSocket.OPEN) {
       return this.sharedApi
@@ -773,9 +753,6 @@ export default class Backend extends Exchange {
     // Find the matching backend ticker
     const backendTicker = this.findBackendTicker(originalExchange, pair)
     if (!backendTicker) {
-      console.log(
-        `[${this.id}] No backend ticker for ${originalExchange}:${pair}, falling back to direct connection`
-      )
       return false // Return false so aggregator falls back to direct connection
     }
 
@@ -843,10 +820,7 @@ export default class Backend extends Exchange {
       })
     )
 
-    console.log(
-      `[${this.id}] Subscribed: trackingKey=${trackingKey}, pattern=${pattern}, ` +
-        `originalExchange=${originalExchange}, originalPair=${originalPair}`
-    )
+    console.debug(`[${this.id}] Subscribed to ${pattern}`)
 
     // Emit subscribed event with ORIGINAL exchange so aggregator tracks it correctly
     this.emit(

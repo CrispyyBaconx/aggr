@@ -171,15 +171,6 @@ class Aggregator {
       const marketKey = trade.exchange + ':' + trade.pair
 
       if (!this.connections[marketKey] || !trade.size || !trade.price) {
-        // Debug: log why trade is being skipped
-        if (trade.price * trade.size > 50000) {
-          console.debug(
-            `[aggregator] Skipping trade ${marketKey}: ` +
-              `hasConnection=${!!this.connections[marketKey]}, ` +
-              `size=${trade.size}, price=${trade.price}, ` +
-              `connections=[${Object.keys(this.connections).slice(0, 5).join(', ')}...]`
-          )
-        }
         continue
       }
 
@@ -206,15 +197,6 @@ class Aggregator {
       const marketKey = trade.exchange + ':' + trade.pair
 
       if (!this.connections[marketKey] || !trade.size || !trade.price) {
-        // Debug: log why trade is being skipped
-        if (trade.price * trade.size > 50000) {
-          console.debug(
-            `[aggregator.aggregate] Skipping trade ${marketKey}: ` +
-              `hasConnection=${!!this.connections[marketKey]}, ` +
-              `size=${trade.size}, price=${trade.price}, ` +
-              `connections=[${Object.keys(this.connections).slice(0, 5).join(', ')}...]`
-          )
-        }
         continue
       }
 
@@ -474,10 +456,6 @@ class Aggregator {
   onSubscribed(exchangeId, pair, url) {
     const marketKey = exchangeId + ':' + pair
 
-    console.debug(
-      `[aggregator] onSubscribed: registering connection ${marketKey}`
-    )
-
     if (this.connections[marketKey]) {
       return
     }
@@ -723,14 +701,19 @@ class Aggregator {
 
                   // If backend doesn't have this ticker, fall back to direct connection
                   if (!success) {
-                    console.log(
-                      `[aggregator] Backend unavailable for ${marketInfo.market}, using direct connection`
-                    )
                     const directExchange = getExchangeById(
                       marketInfo.exchangeId
                     )
                     if (directExchange) {
-                      await directExchange.link(marketInfo.market)
+                      try {
+                        // Fetch products first if needed
+                        if (directExchange.requiresProducts) {
+                          await directExchange.getProducts()
+                        }
+                        await directExchange.link(marketInfo.market)
+                      } catch {
+                        // Direct connection also unavailable - silently skip
+                      }
                     }
                   } else {
                     // Manually register connection with ORIGINAL exchange ID
@@ -749,28 +732,26 @@ class Aggregator {
                   await exchange.link(market)
                 }
               } catch (error) {
-                console.error(error)
-
                 // Fallback to direct exchange connection on backend failure
                 if (
                   useBackend &&
                   exchangeId === 'BACKEND' &&
                   typeof marketInfo === 'object'
                 ) {
-                  console.warn(
-                    `[aggregator] Backend failed for ${marketInfo.market}, falling back to direct connection`
-                  )
                   const directExchange = getExchangeById(marketInfo.exchangeId)
                   if (directExchange) {
                     try {
+                      // Fetch products first if needed
+                      if (directExchange.requiresProducts) {
+                        await directExchange.getProducts()
+                      }
                       await directExchange.link(marketInfo.market)
-                    } catch (fallbackError) {
-                      console.error(
-                        `[aggregator] Direct fallback also failed:`,
-                        fallbackError
-                      )
+                    } catch {
+                      // Direct connection also unavailable - silently skip
                     }
                   }
+                } else {
+                  console.warn('[aggregator] Connection error:', error)
                 }
               }
             }

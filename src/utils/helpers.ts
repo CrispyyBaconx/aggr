@@ -495,7 +495,11 @@ export function handleFetchSuccess(message): void {
 }
 
 export function getApiUrl(path: string): string {
-  let base = import.meta.env.VITE_APP_API_URL
+  let base = import.meta.env?.VITE_APP_API_URL || ''
+
+  if (!base) {
+    return ''
+  }
 
   if (!/\/$/.test(base)) {
     base += '/'

@@ -1,5 +1,5 @@
 <template>
-  <dropdown :value="value" @input="$emit('input', $event)">
+  <dropdown :modelValue="modelValue" @update:modelValue="$emit('update:modelValue', $event)">
     <div class="timeframe-dropdown">
       <div class="dropdown-item timeframe-dropdown__header" @click.stop>
         <timeframe-input
@@ -77,12 +77,13 @@ export default {
     TimeframeInput,
     ToggableSection
   },
+  emits: ['update:modelValue'],
   props: {
     paneId: {
       type: String,
       required: true
     },
-    value: {
+    modelValue: {
       type: HTMLButtonElement,
       default: null
     }

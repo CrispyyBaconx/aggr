@@ -1,5 +1,5 @@
 <template>
-  <dropdown :value="value" @input="$emit('input', $event)">
+  <dropdown :modelValue="modelValue" @update:modelValue="$emit('update:modelValue', $event)">
     <div class="dropdown-divider" data-label="Scales"></div>
 
     <button
@@ -25,8 +25,9 @@ import { getChartScales } from '../chart/options'
 
 export default {
   name: 'PriceScaleDropdown',
+  emits: ['update:modelValue'],
   props: {
-    value: {
+    modelValue: {
       type: HTMLButtonElement,
       default: null
     },

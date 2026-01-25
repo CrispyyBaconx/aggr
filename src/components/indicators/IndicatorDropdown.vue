@@ -1,5 +1,5 @@
 <template>
-  <dropdown :value="value" @input="$emit('input', $event)">
+  <dropdown :modelValue="modelValue" @update:modelValue="$emit('update:modelValue', $event)">
     <div class="dropdown-divider" :data-label="indicatorName"></div>
     <button type="button" class="dropdown-item" @click="editIndicator">
       <i class="icon-edit"></i>
@@ -55,8 +55,9 @@ export default {
   components: {
     PriceScaleButton
   },
+  emits: ['update:modelValue'],
   props: {
-    value: {
+    modelValue: {
       type: HTMLButtonElement,
       default: null
     },
@@ -85,7 +86,7 @@ export default {
     }
   },
   watch: {
-    value(value) {
+    modelValue(value) {
       if (value) {
         this.updateLabels()
       }

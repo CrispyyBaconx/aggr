@@ -1,23 +1,26 @@
 <template>
-  <transition
-    name="dropdown"
-    @enter="onEnterStart"
-    @after-enter="onEnterEnd"
-    @before-leave="onLeaveStart"
-  >
-    <div
-      class="dropdown hide-scrollbar"
-      :class="[
-        noScroll && 'dropdown--no-scroll',
-        transparent && 'dropdown--transparent'
-      ]"
-      v-if="triggerElement"
-      :style="{ top: top + 'px', left: left + 'px' }"
-      @click.stop="!interactive && toggle(null, true)"
+  <Teleport to="#app">
+    <transition
+      name="dropdown"
+      @enter="onEnterStart"
+      @after-enter="onEnterEnd"
+      @before-leave="onLeaveStart"
     >
-      <slot />
-    </div>
-  </transition>
+      <div
+        ref="dropdownEl"
+        class="dropdown hide-scrollbar"
+        :class="[
+          noScroll && 'dropdown--no-scroll',
+          transparent && 'dropdown--transparent'
+        ]"
+        v-if="triggerElement"
+        :style="{ top: top + 'px', left: left + 'px' }"
+        @click.stop="!interactive && toggle(null, true)"
+      >
+        <slot />
+      </div>
+    </transition>
+  </Teleport>
 </template>
 
 <script lang="ts">
@@ -25,8 +28,9 @@ import { isTouchSupported } from '@/utils/touchevent'
 
 export default {
   name: 'Dropdown',
+  emits: ['update:modelValue', 'opened', 'closed'],
   props: {
-    value: {
+    modelValue: {
       required: false,
       default: null
     },
@@ -74,7 +78,7 @@ export default {
     /**
      * v-model (which contain the triggerElement) was updated from parent component
      */
-    value(triggerElement) {
+    modelValue(triggerElement) {
       this.toggle(triggerElement)
     }
   },
@@ -84,16 +88,12 @@ export default {
     left: null
   }),
   mounted() {
-    if (this.value) {
-      this.toggle(this.value)
+    if (this.modelValue) {
+      this.toggle(this.modelValue)
     }
   },
-  beforeDestroy() {
+  beforeUnmount() {
     this.toggle(null, true)
-
-    if (this.$el instanceof HTMLElement) {
-      document.getElementById('app').removeChild(this.$el)
-    }
   },
   methods: {
     /**
@@ -104,15 +104,12 @@ export default {
         nextTriggerElement.classList.add('dropdown-trigger')
       }
 
-      document.getElementById('app').appendChild(this.$el)
-
       this.bindResize()
 
+      // Wait for Vue to render the dropdown element (Teleport handles DOM placement)
       await this.$nextTick()
 
-      if (this.$el instanceof HTMLElement) {
-        this.fitScreen()
-      }
+      this.fitScreen()
 
       if (!this.isolate) {
         this.bindClickOutside()
@@ -144,7 +141,8 @@ export default {
       this.fitScreen()
 
       if (this.autoFocus) {
-        const button = this.$el.querySelector('button')
+        const dropdownEl = this.$refs.dropdownEl as HTMLElement
+        const button = dropdownEl?.querySelector('button')
 
         if (button) {
           button.focus()
@@ -186,7 +184,7 @@ export default {
       }
 
       if (emit) {
-        this.$emit('input', this.triggerElement)
+        this.$emit('update:modelValue', this.triggerElement)
       }
     },
 
@@ -203,7 +201,7 @@ export default {
         return
       }
 
-      const dropdownElement = this.$el as HTMLElement
+      const dropdownElement = this.$refs.dropdownEl as HTMLElement
       if (!dropdownElement || !dropdownElement.getBoundingClientRect) {
         return
       }
@@ -370,7 +368,7 @@ export default {
 }
 </script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .dropdown {
   position: fixed;
   z-index: 10;

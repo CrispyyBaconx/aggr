@@ -202,8 +202,8 @@ onMounted(() => {
   document.addEventListener('fullscreenchange', handleFullScreenChange)
 })
 
-const useAudio = computed(() => store.state.settings.useAudio)
-const audioVolume = computed(() => store.state.settings.audioVolume)
+const useAudio = computed(() => store.state.settings?.useAudio ?? false)
+const audioVolume = computed(() => store.state.settings?.audioVolume ?? 1)
 
 const volumeSliderEvents = computed(() => {
   if (!volumeSliderOpened.value) {

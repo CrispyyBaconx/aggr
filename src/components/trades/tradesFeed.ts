@@ -344,11 +344,11 @@ export default class TradesFeed {
   }
 
   getTradesThesholds() {
-    return store.state[this.paneId].thresholds
+    return store.state[this.paneId]?.thresholds || []
   }
 
   getLiquidationsThresholds() {
-    return store.state[this.paneId].liquidations
+    return store.state[this.paneId]?.liquidations || []
   }
 
   async loadGifs() {
@@ -357,6 +357,10 @@ export default class TradesFeed {
   }
 
   async loadThresholdsGifs(thresholds) {
+    if (!thresholds?.length) {
+      return
+    }
+
     for (const threshold of thresholds) {
       if (threshold.buyGif) {
         gifsService.getGifs(threshold.buyGif)
@@ -372,6 +376,20 @@ export default class TradesFeed {
     const tradesThresholds = this.getTradesThesholds()
     const liquidationsThresholds = this.getLiquidationsThresholds()
 
+    if (!tradesThresholds.length || !liquidationsThresholds.length) {
+      // Use safe defaults when thresholds aren't available yet
+      this.tradesColors = []
+      this.liquidationsColors = []
+      this.maxLevel = 0
+      this.minimumTradeAmount = 0
+      this.significantTradeAmount = 1000
+      this.maximumTradeAmount = Infinity
+      this.minimumLiquidationAmount = 0
+      this.significantLiquidationAmount = 1000
+      this.maximumLiquidationAmount = Infinity
+      return
+    }
+
     const appBackgroundColor = getAppBackgroundColor()
     this.tradesColors = this.prepareColorsThresholds(
       tradesThresholds,
@@ -385,7 +403,7 @@ export default class TradesFeed {
     this.maxLevel = tradesThresholds.length - 1
 
     this.minimumTradeAmount = tradesThresholds[0].amount
-    this.significantTradeAmount = tradesThresholds[1].amount
+    this.significantTradeAmount = tradesThresholds[1]?.amount ?? tradesThresholds[0].amount
     if (tradesThresholds[tradesThresholds.length - 1].max) {
       this.maximumTradeAmount =
         tradesThresholds[tradesThresholds.length - 1].amount
@@ -394,7 +412,7 @@ export default class TradesFeed {
     }
 
     this.minimumLiquidationAmount = liquidationsThresholds[0].amount
-    this.significantLiquidationAmount = liquidationsThresholds[1].amount
+    this.significantLiquidationAmount = liquidationsThresholds[1]?.amount ?? liquidationsThresholds[0].amount
     if (liquidationsThresholds[liquidationsThresholds.length - 1].max) {
       this.maximumLiquidationAmount =
         liquidationsThresholds[liquidationsThresholds.length - 1].amount
@@ -455,12 +473,20 @@ export default class TradesFeed {
   }
 
   async cacheAudio(prepareThresholds = true) {
-    const audioThreshold = store.state[this.paneId].audioThreshold
+    const paneState = store.state[this.paneId]
+    const settings = store.state.settings
+
+    if (!paneState || !settings) {
+      this.audioThreshold = Infinity
+      return
+    }
+
+    const audioThreshold = paneState.audioThreshold
 
     if (
-      !store.state.settings.useAudio ||
-      store.state[this.paneId].muted ||
-      store.state[this.paneId].audioVolume === 0
+      !settings.useAudio ||
+      paneState.muted ||
+      paneState.audioVolume === 0
     ) {
       this.audioThreshold = Infinity
       return
@@ -481,7 +507,7 @@ export default class TradesFeed {
     }
 
     if (!this.tradesAudios || prepareThresholds) {
-      const audioPitch = store.state[this.paneId].audioPitch
+      const audioPitch = paneState.audioPitch
 
       this.tradesAudios = await this.cacheAudioThresholds(
         this.getTradesThesholds(),
@@ -516,15 +542,18 @@ export default class TradesFeed {
   }
 
   cachePreferences() {
-    this.slippageMode = store.state.settings.calculateSlippage
-    this.showTrades = store.state[this.paneId].showTrades
-    this.showLiquidations = store.state[this.paneId].showLiquidations
-    this.showGifs = !store.state.settings.disableAnimations
-    this.showLogos = store.state[this.paneId].showLogos
-    this.showPairs = store.state[this.paneId].showPairs
-    this.showPrices = store.state[this.paneId].showPrices
-    this.showAvgPrice = store.state[this.paneId].showAvgPrice
-    this.showTimeAgo = store.state[this.paneId].showTimeAgo
+    const settings = store.state.settings
+    const paneState = store.state[this.paneId]
+
+    this.slippageMode = settings?.calculateSlippage
+    this.showTrades = paneState?.showTrades ?? true
+    this.showLiquidations = paneState?.showLiquidations ?? true
+    this.showGifs = !(settings?.disableAnimations ?? false)
+    this.showLogos = paneState?.showLogos ?? true
+    this.showPairs = paneState?.showPairs ?? false
+    this.showPrices = paneState?.showPrices ?? true
+    this.showAvgPrice = paneState?.showAvgPrice ?? false
+    this.showTimeAgo = paneState?.showTimeAgo ?? false
 
     if (this.showTimeAgo && !this.timeUpdateInterval) {
       this.setupTimeUpdateInterval()
@@ -537,16 +566,25 @@ export default class TradesFeed {
   cachePaneMarkets() {
     this.marketsMultipliers = {}
 
-    this.paneMarkets = store.state.panes.panes[this.paneId].markets.reduce(
+    const pane = store.state.panes?.panes?.[this.paneId]
+    const paneState = store.state[this.paneId]
+    const activeExchanges = store.state.app?.activeExchanges || {}
+
+    if (!pane?.markets) {
+      this.paneMarkets = {}
+      return
+    }
+
+    this.paneMarkets = pane.markets.reduce(
       (output, marketKey) => {
         const [exchange] = marketKey.split(':')
 
-        if (!store.state.app.activeExchanges[exchange]) {
+        if (!activeExchanges[exchange]) {
           output[marketKey] = false
           return output
         }
 
-        const multiplier = store.state[this.paneId].multipliers[marketKey]
+        const multiplier = paneState?.multipliers?.[marketKey]
 
         if (typeof multiplier !== 'undefined') {
           this.marketsMultipliers[marketKey] = multiplier

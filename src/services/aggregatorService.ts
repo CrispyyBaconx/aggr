@@ -90,7 +90,7 @@ class AggregatorService extends EventEmitter {
         }
       }
 
-      const product = store.state.panes.marketsListeners[market]
+      const product = store.state.panes?.marketsListeners?.[market]
 
       if (product) {
         if (this.normalizeDecimalsQueue.timeout) {
@@ -225,17 +225,23 @@ class AggregatorService extends EventEmitter {
   normalizeDecimals() {
     this.normalizeDecimalsQueue.timeout = null
 
+    const marketsListeners = store.state.panes?.marketsListeners
+    if (!marketsListeners) {
+      this.normalizeDecimalsQueue = null
+      return
+    }
+
     const decimalsByLocalMarkets: {
       [localPair: string]: { [market: string]: number }
     } = {}
 
     for (const market in marketDecimals) {
-      if (!store.state.panes.marketsListeners[market]) {
+      if (!marketsListeners[market]) {
         continue
       }
 
       const localPair = stripStablePair(
-        store.state.panes.marketsListeners[market].local
+        marketsListeners[market].local
       )
 
       if (this.normalizeDecimalsQueue.markets.indexOf(localPair) === -1) {

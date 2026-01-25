@@ -174,7 +174,7 @@ class WorkspacesService {
           console.log(err)
           alert(
             err.message +
-              '\n\nEither reset the browser data on this site or contact the devs on the github :\nhttps://github.com/Tucsky/aggr/issues/new'
+              '\n\nEither reset the browser data on this site or contact the devs on the github :\nhttps://github.com/CrispyyBaconx/aggr/issues/new'
           )
         })
     })

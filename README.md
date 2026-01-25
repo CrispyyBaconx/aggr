@@ -29,26 +29,20 @@ The core functionality involves an aggregator that processes raw trades within a
 
 ## Local Installation and Execution Instructions
 
-To begin, we highly recommend utilizing Volta, a node and npm version manager. We provide a convenient script to automate its installation process. This script is compatible with the bash shell, which is available on all major operating systems including Windows, macOS, and Linux.
-
-```bash
-	./scripts/install-volta.sh
-```
-
-If you want to use with your own data, edit /.env.local with <code>API_URL=your url</code> and build the app (<code>npm run build</code>).
+If you want to use with your own data, edit /.env.local with <code>API_URL=your url</code> and build the app (<code>bun run build</code>).
 
 For development, just as any vuejs project
 
 1. Clone the repo
 
 ```bash
-git clone https://github.com/Tucsky/aggr
+git clone https://github.com/CrispyyBaconx/aggr
 ```
 
 2. Install dependencies
 
 ```bash
-npm install
+bun install
 ```
 
 3. Run it
@@ -58,20 +52,20 @@ npm install
 Development mode
 
 ```bash
-npm run cors
+bun run cors
 ```
 
 This will start a cors proxy for your development environment
 
 ```bash
-npm run serve
+bun run serve
 ```
 
 This will automatically open a browser window at localhost:8080
 
 
 ```bash
-npm run build
+bun run build
 ```
 
 and access the dist/index.html directly in the browser later without having to run a command
@@ -81,7 +75,7 @@ and access the dist/index.html directly in the browser later without having to r
 build your own aggr client docker:
 
 ```bash
-git clone https://github.com/Tucsky/aggr
+git clone https://github.com/CrispyyBaconx/aggr
 cd aggr
 docker-compose -f "docker\docker-compose.yml" up -d --build # prod
 ```
@@ -104,9 +98,9 @@ You can use this project without historical data just by opening the app in your
 
 In order to show historical data YOU WILL need to setup your own server to provide the data using aggr-server.
 
-See [aggr-server repository](https://github.com/Tucsky/aggr-server).
+See [aggr-server repository](https://github.com/CrispyyBaconx/aggr-server).
 
-Let's say you have a server instance running on port 3000, start the client with an environment variable `API_URL=http://localhost:3000/ npm run serve`
+Let's say you have a server instance running on port 3000, start the client with an environment variable `API_URL=http://localhost:3000/ bun run serve`
 
 ## Community
 

@@ -355,7 +355,7 @@
     <template v-slot:footer>
       <a
         class="btn -text mrauto"
-        href="https://github.com/Tucsky/aggr"
+        href="https://github.com/CrispyyBaconx/aggr"
         target="_blank"
         v-tippy
         title="Github"

@@ -31,7 +31,7 @@
           type="checkbox"
           class="form-control"
           :checked="currentEditorOptions.wordWrap === 'on'"
-          @change="$emit('cmd', ['toggleWordWrap', !$event.target.checked])"
+          @change="$emit('cmd', ['toggleWordWrap', !($event.target as HTMLInputElement).checked])"
         />
         <div></div>
         <span>Word Wrap</span>
@@ -39,7 +39,7 @@
     </div>
     <a
       class="dropdown-item mb8"
-      href="https://github.com/Tucsky/aggr/wiki/introduction-to-scripting"
+      href="https://github.com/CrispyyBaconx/aggr/wiki/introduction-to-scripting"
       target="_blank"
       title="Scripting documentation"
       v-tippy

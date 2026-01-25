@@ -29,7 +29,7 @@ export default {
   data: () => ({
     dialogInstance: null
   }),
-  beforeDestroy() {
+  beforeUnmount() {
     if (this.dialogInstance) {
       this.dialogInstance.close()
     }

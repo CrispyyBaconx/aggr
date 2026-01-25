@@ -96,7 +96,7 @@ export default {
 
     this.updateHandlePosition(true)
   },
-  beforeDestroy() {
+  beforeUnmount() {
     window.removeEventListener('resize', this.handleResize)
 
     if (this._dragHandler) {

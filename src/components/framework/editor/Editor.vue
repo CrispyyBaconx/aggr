@@ -168,11 +168,20 @@ async function onContextMenu(event: MouseEvent) {
     editorOptions: currentEditorOptions
   }
 
-  if (contextMenuComponent) {
-    contextMenuComponent.$off('cmd')
-    for (const key in propsData) {
-      contextMenuComponent[key] = (propsData as any)[key]
+  const cmdHandler = (args: string[]) => {
+    const methodName = args[0]
+    if (methodName === 'zoom') {
+      zoom(args[1] as unknown as number, args[2] as unknown as boolean)
+    } else if (methodName === 'toggleWordWrap') {
+      toggleWordWrap(args[1] as unknown as boolean)
     }
+  }
+
+  if (contextMenuComponent) {
+    for (const key in propsData) {
+      contextMenuComponent.instance[key] = (propsData as any)[key]
+    }
+    contextMenuComponent.instance.onCmd = cmdHandler
   } else {
     document.body.style.cursor = 'progress'
     const module = await import(
@@ -180,18 +189,12 @@ async function onContextMenu(event: MouseEvent) {
     )
     document.body.style.cursor = ''
 
-    contextMenuComponent = createComponent(module.default, propsData)
+    contextMenuComponent = createComponent(module.default, {
+      ...propsData,
+      onCmd: cmdHandler
+    })
     mountComponent(contextMenuComponent)
   }
-
-  contextMenuComponent.$on('cmd', (args: string[]) => {
-    const methodName = args[0]
-    if (methodName === 'zoom') {
-      zoom(args[1] as unknown as number, args[2] as unknown as boolean)
-    } else if (methodName === 'toggleWordWrap') {
-      toggleWordWrap(args[1] as unknown as boolean)
-    }
-  })
 }
 
 function zoom(value: number, override?: boolean) {

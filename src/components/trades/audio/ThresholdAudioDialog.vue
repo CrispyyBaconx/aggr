@@ -401,25 +401,21 @@ export default {
       }
     },
     openSoundAssistant(type, side) {
-      const dialog = dialogService.open(AudioAssistantDialog, {
+      dialogService.open(AudioAssistantDialog, {
         type,
-        error: this[side + 'Error']
-      })
+        error: this[side + 'Error'],
+        onTest: ({ event, litteral }) => this.testCustom(side, event, litteral),
+        onStop: this.restartWebAudio,
+        onAppend: ({ litteral, uploadedSound }) => {
+          if (uploadedSound) {
+            this.uploadedSounds.push(uploadedSound)
+          }
 
-      dialog.$on('test', ({ event, litteral }) =>
-        this.testCustom(side, event, litteral)
-      )
-      dialog.$on('stop', this.restartWebAudio)
-
-      dialog.$on('append', ({ litteral, uploadedSound }) => {
-        if (uploadedSound) {
-          this.uploadedSounds.push(uploadedSound)
-        }
-
-        if (this[side + 'Audio'].trim().length) {
-          this[side + 'Audio'] += `\n${litteral}`
-        } else {
-          this[side + 'Audio'] = litteral
+          if (this[side + 'Audio'].trim().length) {
+            this[side + 'Audio'] += `\n${litteral}`
+          } else {
+            this[side + 'Audio'] = litteral
+          }
         }
       })
     },

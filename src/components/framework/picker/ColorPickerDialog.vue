@@ -1,6 +1,6 @@
 <template>
   <Dialog
-    @mousedown.native.stop
+    @mousedown.stop
     @clickOutside="close"
     class="color-picker-dialog"
     :resizable="false"
@@ -233,7 +233,7 @@ export default {
     this.updateCanvas(this.colors)
   },
 
-  beforeDestroy() {
+  beforeUnmount() {
     document.removeEventListener('mousemove', this.moveThumbWithMouse)
     document.removeEventListener('touchmove', this.moveThumbWithTouch)
     document.removeEventListener('mouseup', this.stopMovingThumb)

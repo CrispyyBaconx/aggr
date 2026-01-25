@@ -74,7 +74,7 @@ export default {
       }
     }
   },
-  beforeDestroy() {
+  beforeUnmount() {
     if (this.imageObjectUrl) {
       URL.revokeObjectURL(this.imageObjectUrl)
       this.imageObjectUrl = null

@@ -385,7 +385,7 @@
       <a href="javascript:void(0);" class="btn -text" @click="hide">Cancel</a>
       <btn
         class="-large -green ml8"
-        @click.native="submit"
+        @click="submit"
         :loading="isLoading"
       >
         {{ submitLabel }}
@@ -843,7 +843,7 @@ export default {
 
     this.$refs.input.focus()
   },
-  beforeDestroy() {
+  beforeUnmount() {
     document.removeEventListener('paste', this.onPaste)
     document.removeEventListener('keydown', this.onKeydown)
 
@@ -1166,13 +1166,12 @@ export default {
         selectAll = Boolean(!this.allExchangesEnabled)
       }
 
-      this.$set(
-        this.$store.state.settings,
-        'searchExchanges',
-        this.exchanges.reduce((output, id) => {
+      this.$store.state.settings.searchExchanges = this.exchanges.reduce(
+        (output, id) => {
           output[id] = selectAll ? true : false
           return output
-        }, {})
+        },
+        {}
       )
     },
 

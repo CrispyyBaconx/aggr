@@ -594,8 +594,13 @@ export default class ChartControl {
 
   async toggleTimeframeDropdown(event) {
     const propsData = {
-      value: event.currentTarget,
-      paneId: this.chart.paneId
+      modelValue: event.currentTarget,
+      paneId: this.chart.paneId,
+      'onUpdate:modelValue': (value: any) => {
+        if (components.timeframeDropdown) {
+          components.timeframeDropdown.instance.modelValue = value
+        }
+      }
     }
 
     if (!components.timeframeDropdown) {
@@ -603,16 +608,12 @@ export default class ChartControl {
       components.timeframeDropdown = createComponent(module.default, propsData)
 
       mountComponent(components.timeframeDropdown)
-
-      components.timeframeDropdown.$on('input', value => {
-        components.timeframeDropdown.value = value
-      })
     } else {
-      if (components.timeframeDropdown.value === event.currentTarget) {
-        components.timeframeDropdown.value = null
+      if (components.timeframeDropdown.instance.modelValue === event.currentTarget) {
+        components.timeframeDropdown.instance.modelValue = null
       } else {
-        components.timeframeDropdown.paneId = propsData.paneId
-        components.timeframeDropdown.value = propsData.value
+        components.timeframeDropdown.instance.paneId = propsData.paneId
+        components.timeframeDropdown.instance.modelValue = propsData.modelValue
       }
     }
   }

@@ -112,13 +112,13 @@
         v-on="volumeSliderEvents"
         @mousedown.stop
         @touchstart.stop
-        @mouseleave="volumeSliderTriggerEvents.mouseleave?.($event)"
         ref="volumeSliderRef"
         class="volume-slider"
-        interactive
-        no-scroll
-        transparent
-        on-sides
+        :interactive="true"
+        :no-scroll="true"
+        :transparent="true"
+        :on-sides="true"
+        :margin="24"
       >
         <slider
           style="width: 100px"
@@ -126,10 +126,8 @@
           :max="3"
           :step="0.01"
           :label="true"
-          :model-value="audioVolume"
-          @update:model-value="
-            store.dispatch('settings/setAudioVolume', $event)
-          "
+          :value="audioVolume"
+          @input="store.dispatch('settings/setAudioVolume', $event)"
           @reset="store.dispatch('settings/setAudioVolume', 1)"
           log
         />
@@ -185,7 +183,10 @@ const store = useStore()
 
 const menuDropdownRef = ref<{ toggle: (el: HTMLElement) => void } | null>(null)
 const panesDropdownRef = ref<{ toggle: (el: HTMLElement) => void } | null>(null)
-const volumeSliderRef = ref<{ $el: HTMLElement } | null>(null)
+const volumeSliderRef = ref<{
+  $el: HTMLElement
+  $refs: { dropdownEl: HTMLElement }
+} | null>(null)
 const volumeSliderTriggerRef = ref<HTMLElement | null>(null)
 
 const volumeSliderOpened = ref<HTMLElement | null>(null)
@@ -226,9 +227,11 @@ const volumeSliderTriggerEvents = computed(() => {
   if (volumeSliderOpened.value) {
     return {
       mouseleave: (event: MouseEvent) => {
+        const dropdownEl = volumeSliderRef.value?.$refs?.dropdownEl
         if (
-          event.relatedTarget === volumeSliderRef.value?.$el ||
-          volumeSliderRef.value?.$el.contains(event.relatedTarget as Node)
+          dropdownEl &&
+          (event.relatedTarget === dropdownEl ||
+            dropdownEl.contains(event.relatedTarget as Node))
         ) {
           return
         }

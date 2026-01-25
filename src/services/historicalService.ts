@@ -33,10 +33,19 @@ interface BackendBarsResponse {
   oi: number[] // open interest
 }
 
+// Supported resolutions by backend /api/bars
+// From API docs: 1s, 1m, 5m, 15m, 30m, 1h, 4h, 1d
+const SUPPORTED_RESOLUTIONS = [1, 60, 300, 900, 1800, 3600, 14400, 86400]
+
 class HistoricalService extends EventEmitter {
   url: string
   backendUrl: string
   promisesOfData: { [keyword: string]: Promise<HistoricalResponse> } = {}
+
+  // Cache of backend tickers for market mapping
+  private backendTickers: Map<string, { exchange: string; symbol: string }> =
+    new Map()
+  private tickersFetched = false
 
   constructor() {
     super()
@@ -45,7 +54,105 @@ class HistoricalService extends EventEmitter {
     this.backendUrl = import.meta.env.VITE_APP_BACKEND_URL || ''
   }
 
+  /**
+   * Fetch and cache available tickers from backend
+   */
+  async fetchBackendTickers(): Promise<void> {
+    if (this.tickersFetched || !this.backendUrl) return
+
+    try {
+      const apiKey = import.meta.env.VITE_APP_BACKEND_API_KEY
+      const url = apiKey
+        ? `${this.backendUrl}/api/tickers?token=${apiKey}`
+        : `${this.backendUrl}/api/tickers`
+
+      const response = await fetch(url)
+      const data = await response.json()
+
+      if (data.tickers && Array.isArray(data.tickers)) {
+        this.backendTickers.clear()
+
+        for (const ticker of data.tickers) {
+          // Store as "exchange:symbol" -> { exchange, symbol }
+          const key = `${ticker.exchange}:${ticker.symbol}`.toLowerCase()
+          this.backendTickers.set(key, {
+            symbol: ticker.symbol,
+            exchange: ticker.exchange
+          })
+        }
+
+        console.log(
+          `[historicalService] Cached ${this.backendTickers.size} backend tickers`
+        )
+        this.tickersFetched = true
+      }
+    } catch (err) {
+      console.error('[historicalService] Failed to fetch backend tickers:', err)
+    }
+  }
+
+  /**
+   * Find matching backend ticker for an aggr market
+   * e.g., BINANCE_FUTURES:btcusd_perp -> { exchange: "binance", symbol: "BTCUSDT" }
+   */
+  findBackendTicker(
+    market: string
+  ): { exchange: string; symbol: string } | null {
+    const [exchangeId, pair] = parseMarket(market)
+    if (!exchangeId || !pair) return null
+
+    // Normalize exchange name (BINANCE_FUTURES -> binance)
+    const normalizedExchange = exchangeId
+      .toLowerCase()
+      .replace('_futures', '')
+      .replace('_spot', '')
+      .replace('_us', '')
+
+    // Extract base asset for hyperliquid-style symbols (just "BTC", "ETH", etc.)
+    const hyperliquidSymbol = pair
+      .toUpperCase()
+      .replace(/USD.*$/i, '')
+      .replace(/_PERP$/i, '')
+      .replace(/-PERPETUAL$/i, '')
+
+    // Try common symbol transformations
+    const symbolVariants = [
+      pair.toUpperCase(),
+      pair.toUpperCase().replace('USD_PERP', 'USDT'),
+      pair.toUpperCase().replace('_PERP', ''),
+      pair.toUpperCase().replace('-', ''),
+      pair.toUpperCase() + 'T', // btcusd -> BTCUSDT
+      hyperliquidSymbol // For hyperliquid which just uses BTC, ETH, etc.
+    ]
+
+    for (const symbol of symbolVariants) {
+      const key = `${normalizedExchange}:${symbol}`.toLowerCase()
+      const ticker = this.backendTickers.get(key)
+      if (ticker) {
+        return ticker
+      }
+    }
+
+    // Try matching just by base asset
+    const baseAsset = pair.replace(/usd.*$/i, '').toUpperCase()
+    for (const [key, ticker] of this.backendTickers) {
+      if (
+        key.startsWith(normalizedExchange + ':') &&
+        ticker.symbol.startsWith(baseAsset)
+      ) {
+        return ticker
+      }
+    }
+
+    return null
+  }
+
   filterOutUnavailableMarkets(markets: string[]) {
+    // If backend is configured, all markets are available for historical data
+    if (this.backendUrl) {
+      return markets
+    }
+
     return markets.filter(
       market => store.state.app.historicalMarkets.indexOf(market) !== -1
     )
@@ -68,31 +175,114 @@ class HistoricalService extends EventEmitter {
   }
 
   /**
+   * Find the best resolution to fetch from backend for a given timeframe
+   * Returns { fetchResolution, needsAggregation }
+   */
+  getBestResolution(timeframe: number): {
+    fetchResolution: number
+    needsAggregation: boolean
+  } {
+    // If the exact resolution is supported, use it
+    if (SUPPORTED_RESOLUTIONS.includes(timeframe)) {
+      return { fetchResolution: timeframe, needsAggregation: false }
+    }
+
+    // Find the largest supported resolution that divides evenly into the requested timeframe
+    // or use 1s if nothing divides evenly
+    for (let i = SUPPORTED_RESOLUTIONS.length - 1; i >= 0; i--) {
+      const res = SUPPORTED_RESOLUTIONS[i]
+      if (res < timeframe && timeframe % res === 0) {
+        return { fetchResolution: res, needsAggregation: true }
+      }
+    }
+
+    // Default to 1s and aggregate
+    return { fetchResolution: 1, needsAggregation: true }
+  }
+
+  /**
    * Build backend API URL for /api/bars endpoint
+   * Uses ticker mapping to convert aggr market format to backend format
    */
   getBackendApiUrl(
     from: number,
     to: number,
-    timeframe: number,
+    resolution: number,
     market: string
-  ): string {
+  ): string | null {
     const [exchange, symbol] = parseMarket(market)
-    const resolution = this.timeframeToResolution(timeframe)
+    const resolutionStr = this.timeframeToResolution(resolution)
 
-    // Determine market type based on exchange naming convention
-    const marketType = exchange.toLowerCase().includes('spot')
-      ? 'spot'
-      : 'futures'
+    // Try to find the mapped backend ticker
+    const backendTicker = this.findBackendTicker(market)
+
+    let backendExchange: string
+    let backendSymbol: string
+    let marketType: string
+
+    if (backendTicker) {
+      // Use mapped values
+      backendExchange = backendTicker.exchange
+      backendSymbol = backendTicker.symbol
+      // Determine market type based on original exchange name
+      const exchangeLower = exchange.toLowerCase()
+      if (
+        exchangeLower.includes('_futures') ||
+        exchangeLower.includes('futures')
+      ) {
+        marketType = 'futures'
+      } else if (
+        exchangeLower.includes('_spot') ||
+        exchangeLower.includes('spot')
+      ) {
+        marketType = 'spot'
+      } else if (
+        // Known perpetual/futures-only exchanges
+        [
+          'bitmex',
+          'dydx',
+          'hyperliquid',
+          'bybit',
+          'bitget',
+          'okex',
+          'phemex'
+        ].includes(exchangeLower)
+      ) {
+        marketType = 'futures'
+      } else {
+        // Default to spot for exchanges without suffix (BINANCE, COINBASE, etc.)
+        marketType = 'spot'
+      }
+    } else {
+      // Fallback to basic normalization
+      const exchangeLower = exchange.toLowerCase()
+      backendExchange = exchangeLower
+        .replace('_futures', '')
+        .replace('_spot', '')
+        .replace('_us', '')
+      backendSymbol = symbol.toUpperCase()
+
+      // Determine market type
+      if (exchangeLower.includes('spot')) {
+        marketType = 'spot'
+      } else if (
+        exchangeLower.includes('futures') ||
+        ['bitmex', 'dydx', 'hyperliquid', 'bybit', 'bitget', 'okex'].includes(
+          backendExchange
+        )
+      ) {
+        marketType = 'futures'
+      } else {
+        marketType = 'spot'
+      }
+    }
 
     const params = new URLSearchParams({
-      symbol: symbol.toUpperCase(),
-      exchange: exchange
-        .toLowerCase()
-        .replace('_futures', '')
-        .replace('_spot', ''),
+      symbol: backendSymbol,
+      exchange: backendExchange,
       market_type: marketType,
-      resolution,
-      from: Math.floor(from / 1000).toString(), // Convert ms to seconds
+      resolution: resolutionStr,
+      from: Math.floor(from / 1000).toString(),
       to: Math.floor(to / 1000).toString()
     })
 
@@ -105,6 +295,71 @@ class HistoricalService extends EventEmitter {
   }
 
   /**
+   * Aggregate bars from a smaller timeframe to a larger one
+   */
+  aggregateBars(bars: Bar[], targetTimeframe: number): Bar[] {
+    if (bars.length === 0) return []
+
+    const aggregated: Bar[] = []
+    const isOdd = isOddTimeframe(targetTimeframe)
+
+    let currentBar: Bar | null = null
+    let currentBucketTime: number | null = null
+
+    for (const bar of bars) {
+      // bar.time is in seconds, same as floorTimestampToTimeframe expects
+      const bucketTime = floorTimestampToTimeframe(
+        bar.time,
+        targetTimeframe,
+        isOdd
+      )
+
+      if (currentBucketTime !== bucketTime) {
+        // Save previous bar
+        if (currentBar) {
+          aggregated.push(currentBar)
+        }
+
+        // Start new bar
+        currentBucketTime = bucketTime
+        currentBar = {
+          time: bucketTime,
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          vbuy: bar.vbuy || 0,
+          vsell: bar.vsell || 0,
+          cbuy: bar.cbuy || 0,
+          csell: bar.csell || 0,
+          lbuy: bar.lbuy || 0,
+          lsell: bar.lsell || 0,
+          exchange: bar.exchange,
+          pair: bar.pair
+        }
+      } else if (currentBar) {
+        // Aggregate into current bar
+        currentBar.high = Math.max(currentBar.high, bar.high)
+        currentBar.low = Math.min(currentBar.low, bar.low)
+        currentBar.close = bar.close
+        currentBar.vbuy += bar.vbuy || 0
+        currentBar.vsell += bar.vsell || 0
+        currentBar.cbuy += bar.cbuy || 0
+        currentBar.csell += bar.csell || 0
+        currentBar.lbuy += bar.lbuy || 0
+        currentBar.lsell += bar.lsell || 0
+      }
+    }
+
+    // Don't forget the last bar
+    if (currentBar) {
+      aggregated.push(currentBar)
+    }
+
+    return aggregated
+  }
+
+  /**
    * Fetch historical data from backend /api/bars endpoint
    */
   async fetchFromBackend(
@@ -113,24 +368,55 @@ class HistoricalService extends EventEmitter {
     timeframe: number,
     markets: string[]
   ): Promise<HistoricalResponse> {
+    // Ensure we have backend tickers for proper market mapping
+    await this.fetchBackendTickers()
+
+    const { fetchResolution, needsAggregation } =
+      this.getBestResolution(timeframe)
+
+    console.log(
+      `[historicalService] Fetching ${this.timeframeToResolution(fetchResolution)} bars` +
+        (needsAggregation
+          ? ` (will aggregate to ${this.timeframeToResolution(timeframe)})`
+          : '')
+    )
+
     const allBars: Bar[] = []
     const initialPrices: InitialPrices = {}
     const preferQuoteCurrencySize = store.state.settings.preferQuoteCurrencySize
 
     // Fetch data for each market in parallel
     const fetchPromises = markets.map(async market => {
-      const url = this.getBackendApiUrl(from, to, timeframe, market)
+      const backendTicker = this.findBackendTicker(market)
+      if (backendTicker) {
+        console.log(
+          `[historicalService] Mapped ${market} -> ${backendTicker.exchange}:${backendTicker.symbol}`
+        )
+      }
+
+      const url = this.getBackendApiUrl(from, to, fetchResolution, market)
       const [exchange, pair] = parseMarket(market)
 
       try {
+        console.log(`[historicalService] Fetching: ${url}`)
         const response = await fetch(url)
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
         const json: BackendBarsResponse = await response.json()
 
         if (json.s === 'error') {
-          throw new Error(json.errmsg || 'Backend API error')
+          // Don't throw - just warn and skip this market
+          console.warn(
+            `[historicalService] Backend error for ${market}: ${json.errmsg}`
+          )
+          return []
         }
 
         if (json.s === 'no_data' || !json.t || json.t.length === 0) {
+          console.warn(`[historicalService] No data from backend for ${market}`)
           return []
         }
 
@@ -141,8 +427,6 @@ class HistoricalService extends EventEmitter {
           const delta = json.d?.[i] || 0
 
           // Derive buy/sell volumes from total volume and delta
-          // delta = vbuy - vsell, volume = vbuy + vsell
-          // Therefore: vbuy = (volume + delta) / 2, vsell = (volume - delta) / 2
           let vbuy = (volume + delta) / 2
           let vsell = (volume - delta) / 2
 
@@ -155,16 +439,16 @@ class HistoricalService extends EventEmitter {
           }
 
           const bar: Bar = {
-            time: json.t[i], // Already in Unix seconds
+            time: json.t[i], // Keep in seconds - chart expects seconds
             open: json.o[i],
             high: json.h[i],
             low: json.l[i],
             close: close,
             vbuy,
             vsell,
-            cbuy: 0, // Trade counts not available from /api/bars
+            cbuy: 0,
             csell: 0,
-            lbuy: 0, // Liquidations not available from /api/bars
+            lbuy: 0,
             lsell: 0,
             exchange,
             pair
@@ -176,6 +460,11 @@ class HistoricalService extends EventEmitter {
           }
 
           bars.push(bar)
+        }
+
+        // Aggregate if needed
+        if (needsAggregation && bars.length > 0) {
+          return this.aggregateBars(bars, timeframe)
         }
 
         return bars
@@ -280,7 +569,6 @@ class HistoricalService extends EventEmitter {
         if (contentType && contentType.indexOf('application/json') !== -1) {
           json = await response.json()
         } else {
-          // text = error
           throw new Error(await response.text())
         }
 
@@ -309,13 +597,11 @@ class HistoricalService extends EventEmitter {
       })
       .catch(err => {
         handleFetchError(err)
-
         throw err
       })
       .then(data => {
         store.commit('app/TOGGLE_LOADING', false)
         delete this.promisesOfData[url]
-
         return data
       })
 
@@ -332,7 +618,6 @@ class HistoricalService extends EventEmitter {
       return data
     }
 
-    // base timestamp of results
     let firstBarTimestamp: number
 
     if (Array.isArray(data[0])) {
@@ -348,7 +633,6 @@ class HistoricalService extends EventEmitter {
 
     for (let i = 0; i < data.length; i++) {
       if (!data[i].time && data[i][0]) {
-        // new format is array, transform into objet
         data[i] = {
           time:
             typeof columns['time'] !== 'undefined'
@@ -398,9 +682,7 @@ class HistoricalService extends EventEmitter {
               : 0
         }
       } else {
-        // pending bar was sent
         if (!lastClosedBars[data[i].market]) {
-          // get latest bar for that market
           for (let j = i - 1; j >= 0; j--) {
             if (data[j].market === data[i].market) {
               lastClosedBars[data[i].market] = data[j]
@@ -409,7 +691,6 @@ class HistoricalService extends EventEmitter {
           }
         }
 
-        // format pending bar time floored to timeframe
         data[i].time = floorTimestampToTimeframe(
           data[i].time / 1000,
           timeframe,
@@ -429,7 +710,6 @@ class HistoricalService extends EventEmitter {
           !lastClosedBars[data[i].market] ||
           lastClosedBars[data[i].market].time < data[i].time
         ) {
-          // store reference bar for this market (either because it didn't exist or because reference bar time is < than pending bar time)
           lastClosedBars[data[i].market] = data[i]
         } else if (lastClosedBars[data[i].market] !== data[i]) {
           lastClosedBars[data[i].market].vbuy += data[i].vbuy
@@ -469,7 +749,6 @@ class HistoricalService extends EventEmitter {
 
       if (data[i].time === firstBarTimestamp) {
         const marketIndex = markets.indexOf(data[i].market)
-
         markets.splice(marketIndex, 1)
       }
 

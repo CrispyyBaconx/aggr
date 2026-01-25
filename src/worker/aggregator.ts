@@ -171,6 +171,15 @@ class Aggregator {
       const marketKey = trade.exchange + ':' + trade.pair
 
       if (!this.connections[marketKey] || !trade.size || !trade.price) {
+        // Debug: log why trade is being skipped
+        if (trade.price * trade.size > 50000) {
+          console.debug(
+            `[aggregator] Skipping trade ${marketKey}: ` +
+              `hasConnection=${!!this.connections[marketKey]}, ` +
+              `size=${trade.size}, price=${trade.price}, ` +
+              `connections=[${Object.keys(this.connections).slice(0, 5).join(', ')}...]`
+          )
+        }
         continue
       }
 
@@ -197,6 +206,15 @@ class Aggregator {
       const marketKey = trade.exchange + ':' + trade.pair
 
       if (!this.connections[marketKey] || !trade.size || !trade.price) {
+        // Debug: log why trade is being skipped
+        if (trade.price * trade.size > 50000) {
+          console.debug(
+            `[aggregator.aggregate] Skipping trade ${marketKey}: ` +
+              `hasConnection=${!!this.connections[marketKey]}, ` +
+              `size=${trade.size}, price=${trade.price}, ` +
+              `connections=[${Object.keys(this.connections).slice(0, 5).join(', ')}...]`
+          )
+        }
         continue
       }
 
@@ -456,6 +474,10 @@ class Aggregator {
   onSubscribed(exchangeId, pair, url) {
     const marketKey = exchangeId + ':' + pair
 
+    console.debug(
+      `[aggregator] onSubscribed: registering connection ${marketKey}`
+    )
+
     if (this.connections[marketKey]) {
       return
     }
@@ -620,6 +642,17 @@ class Aggregator {
   async connect(markets: string[], trackingId?: string) {
     console.log(`[aggregator] connect`, markets)
 
+    // Check if we should use backend as primary
+    const backendExchange = getExchangeById('BACKEND') as any
+    const useBackend =
+      backendExchange &&
+      settings.backendWsUrl &&
+      settings.useBackendPrimary !== false
+
+    if (useBackend) {
+      console.log(`[aggregator] using BACKEND as primary data source`)
+    }
+
     const marketsByExchange = markets.reduce((output, market) => {
       const [exchangeId, pair] = parseMarket(market)
 
@@ -627,12 +660,18 @@ class Aggregator {
         return {}
       }
 
-      if (!output[exchangeId]) {
-        output[exchangeId] = []
+      // Route through backend if configured as primary
+      const targetExchange = useBackend ? 'BACKEND' : exchangeId
+
+      if (!output[targetExchange]) {
+        output[targetExchange] = []
       }
 
-      if (output[exchangeId].indexOf(market) === -1) {
-        output[exchangeId].push(market)
+      // Store original market info for backend routing
+      const marketInfo = useBackend ? { market, exchangeId, pair } : market
+
+      if (output[targetExchange].indexOf(market) === -1) {
+        output[targetExchange].push(marketInfo)
       }
 
       return output
@@ -645,14 +684,12 @@ class Aggregator {
 
       if (exchange) {
         if (exchange.requiresProducts) {
-          // shouldn't happen, products are ensured on the client before we get to this point
           await exchange.getProducts()
         }
 
+        const marketCount = marketsByExchange[exchangeId].length
         const estimatedTimeToConnectThemAll =
-          exchange.getEstimatedTimeToConnect(
-            marketsByExchange[exchangeId].length
-          )
+          exchange.getEstimatedTimeToConnect(marketCount)
 
         if (estimatedTimeToConnectThemAll > 1000 * 20) {
           this.ctx.postMessage({
@@ -661,9 +698,7 @@ class Aggregator {
               id: exchangeId + '-connection-delay',
               type: 'warning',
               timeout: estimatedTimeToConnectThemAll,
-              title: `Connecting to ${
-                marketsByExchange[exchangeId].length
-              } markets on ${exchangeId}\nThis will take about ${getHms(
+              title: `Connecting to ${marketCount} markets on ${exchangeId}\nThis will take about ${getHms(
                 estimatedTimeToConnectThemAll,
                 undefined,
                 ' and '
@@ -674,11 +709,69 @@ class Aggregator {
 
         promises.push(
           (async () => {
-            for (const market of marketsByExchange[exchangeId]) {
+            for (const marketInfo of marketsByExchange[exchangeId]) {
               try {
-                await exchange.link(market)
+                if (
+                  useBackend &&
+                  exchangeId === 'BACKEND' &&
+                  typeof marketInfo === 'object'
+                ) {
+                  // Route through backend with original exchange info
+                  const success = await backendExchange.linkProxied(
+                    marketInfo.market
+                  )
+
+                  // If backend doesn't have this ticker, fall back to direct connection
+                  if (!success) {
+                    console.log(
+                      `[aggregator] Backend unavailable for ${marketInfo.market}, using direct connection`
+                    )
+                    const directExchange = getExchangeById(
+                      marketInfo.exchangeId
+                    )
+                    if (directExchange) {
+                      await directExchange.link(marketInfo.market)
+                    }
+                  } else {
+                    // Manually register connection with ORIGINAL exchange ID
+                    // (Backend's 'subscribed' event would use BACKEND as exchange)
+                    this.onSubscribed(
+                      marketInfo.exchangeId,
+                      marketInfo.pair.toLowerCase(),
+                      settings.backendWsUrl
+                    )
+                  }
+                } else {
+                  const market =
+                    typeof marketInfo === 'object'
+                      ? marketInfo.market
+                      : marketInfo
+                  await exchange.link(market)
+                }
               } catch (error) {
                 console.error(error)
+
+                // Fallback to direct exchange connection on backend failure
+                if (
+                  useBackend &&
+                  exchangeId === 'BACKEND' &&
+                  typeof marketInfo === 'object'
+                ) {
+                  console.warn(
+                    `[aggregator] Backend failed for ${marketInfo.market}, falling back to direct connection`
+                  )
+                  const directExchange = getExchangeById(marketInfo.exchangeId)
+                  if (directExchange) {
+                    try {
+                      await directExchange.link(marketInfo.market)
+                    } catch (fallbackError) {
+                      console.error(
+                        `[aggregator] Direct fallback also failed:`,
+                        fallbackError
+                      )
+                    }
+                  }
+                }
               }
             }
           })()

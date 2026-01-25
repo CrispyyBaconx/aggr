@@ -236,6 +236,20 @@ const mutations = {
   SET_API_SUPPORTED_TIMEFRAMES(state, value) {
     if (value && value.trim()) {
       state.apiSupportedTimeframes = value.split(',')
+    } else if (import.meta.env.VITE_APP_BACKEND_URL) {
+      // If backend is configured, support all standard timeframes
+      state.apiSupportedTimeframes = [
+        '1',
+        '5',
+        '15',
+        '60',
+        '300',
+        '900',
+        '1800',
+        '3600',
+        '14400',
+        '86400'
+      ]
     } else {
       state.apiSupportedTimeframes = []
     }

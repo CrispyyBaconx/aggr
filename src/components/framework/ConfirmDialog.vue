@@ -77,7 +77,16 @@ const props = withDefaults(
   }
 )
 
-const { output, close } = useDialog()
+const emit = defineEmits<{
+  close: [value: unknown]
+}>()
+
+const { output, close: useDialogClose } = useDialog()
+
+function close(data?: unknown) {
+  emit('close', data)
+  useDialogClose(data)
+}
 
 const dialogRef = ref<InstanceType<typeof Dialog> | null>(null)
 const isSubmitEnabled = ref(!props.requireScroll)

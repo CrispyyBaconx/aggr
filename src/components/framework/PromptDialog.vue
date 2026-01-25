@@ -85,7 +85,11 @@ const props = withDefaults(
   }
 )
 
-const { output, close } = useDialog()
+const emit = defineEmits<{
+  close: [value: unknown]
+}>()
+
+const { output, close: useDialogClose } = useDialog()
 
 const formRef = ref<HTMLFormElement | null>(null)
 const editorRef = ref<any>(null)
@@ -97,6 +101,11 @@ onMounted(() => {
     value.value = props.input
   }
 })
+
+function close(data?: unknown) {
+  emit('close', data)
+  useDialogClose(data)
+}
 
 function submit() {
   close(value.value)

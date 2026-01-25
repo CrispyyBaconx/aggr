@@ -424,10 +424,11 @@ class HistoricalService extends EventEmitter {
 
           const close = json.c[i]
 
-          // Convert to base currency if not using quote currency
-          if (!preferQuoteCurrencySize && close) {
-            vbuy = vbuy / close
-            vsell = vsell / close
+          // Backend returns volumes in BASE currency (e.g., BTC)
+          // Convert to quote currency (e.g., USD) if preferQuoteCurrencySize is true
+          if (preferQuoteCurrencySize && close) {
+            vbuy = vbuy * close
+            vsell = vsell * close
           }
 
           const bar: Bar = {

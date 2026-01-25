@@ -11,12 +11,14 @@
         class="dropdown hide-scrollbar"
         :class="[
           noScroll && 'dropdown--no-scroll',
-          transparent && 'dropdown--transparent'
+          transparent && 'dropdown--transparent',
+          $attrs.class
         ]"
         v-if="triggerElement"
         :style="{ top: top + 'px', left: left + 'px' }"
         @click.stop="!interactive && toggle(null, true)"
         @mousedown="$emit('mousedown', $event)"
+        @touchstart="$emit('touchstart', $event)"
       >
         <slot />
       </div>
@@ -29,7 +31,8 @@ import { isTouchSupported } from '@/utils/touchevent'
 
 export default {
   name: 'Dropdown',
-  emits: ['update:modelValue', 'opened', 'closed', 'mousedown'],
+  inheritAttrs: false,
+  emits: ['update:modelValue', 'opened', 'closed', 'mousedown', 'touchstart'],
   props: {
     modelValue: {
       required: false,

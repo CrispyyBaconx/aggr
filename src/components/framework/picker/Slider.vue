@@ -17,7 +17,7 @@
           class="slider__handle"
           @mousedown="select"
           @touchstart="select"
-          :style="handleStyle"
+          :style="`left: ${handle.position}%;`"
         />
         <template #content>
           <slot name="tooltip" :value="handle.value">
@@ -69,10 +69,6 @@ export default {
       }
       // Otherwise, show completion only when there's no gradient
       return !this.gradient
-    },
-    handleStyle() {
-      // Always just position - let CSS handle the white color
-      return `left: ${this.handle.position}%;`
     }
   },
   watch: {

@@ -460,7 +460,7 @@ async function refreshGradients() {
 }
 
 function reorderThresholds() {
-  props.thresholds.sort((a, b) => a.amount - b.amount)
+  store.commit(props.paneId + '/SORT_THRESHOLDS', props.type)
 }
 
 function deleteThreshold(id: string) {

@@ -49,6 +49,7 @@ export default {
   components: {
     TransitionHeight
   },
+  emits: ['update:model'],
   props: {
     model: {
       required: false,
@@ -119,7 +120,9 @@ export default {
   },
   methods: {
     toggle(event?: MouseEvent) {
-      event && event.stopPropagation()
+      if (event) {
+        event.stopPropagation()
+      }
 
       if (this.id) {
         this.$store.commit('settings/TOGGLE_SECTION', this.sectionId)
@@ -127,11 +130,13 @@ export default {
       }
 
       let index = this.model.indexOf(this.sectionId)
+      let newModel = [...this.model]
 
-      if (this.autoClose && this.model.length) {
-        this.model.splice(0, this.model.length)
+      if (this.autoClose && newModel.length) {
+        newModel = []
 
         if (index !== -1) {
+          this.$emit('update:model', newModel)
           return
         }
 
@@ -139,10 +144,12 @@ export default {
       }
 
       if (index === -1) {
-        this.model.push(this.sectionId)
+        newModel.push(this.sectionId)
       } else {
-        this.model.splice(index, 1)
+        newModel.splice(index, 1)
       }
+
+      this.$emit('update:model', newModel)
     }
   }
 }

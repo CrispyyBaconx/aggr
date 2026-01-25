@@ -1,6 +1,6 @@
 <template>
   <transition name="draggable-market">
-    <div class="draggable-market" :style="styles">
+    <div v-show="true" class="draggable-market" :style="styles">
       <i :class="`icon-${market.exchange}`" class="draggable-market__icon"></i>
       {{ market.id }}
     </div>

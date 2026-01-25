@@ -24,8 +24,8 @@ export default class AlertEventHandler {
   private referencePrice: number
   private moved: boolean
 
-  private levelDragMoveHandler: (event) => {}
-  private levelDragEndHandler: (event) => {}
+  private levelDragMoveHandler: (event: MouseEvent | TouchEvent) => void
+  private levelDragEndHandler: (event: MouseEvent | TouchEvent) => void
 
   constructor(chart: ChartController, event: MouseEvent | TouchEvent) {
     this.chart = chart
@@ -160,8 +160,6 @@ export default class AlertEventHandler {
         Math.abs(this.originalOffset.y - this.offset.y) <
         10
 
-    store.state.settings.alerts &&
-      (event.altKey || store.state.settings.alertsClick)
     const market = this.alert.market
 
     if (this.priceline || canCreate) {

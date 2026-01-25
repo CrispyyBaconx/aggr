@@ -292,7 +292,6 @@ class WorkspacesService {
     if (this.urlStrategy === 'hash') {
       urlWorkspaceId = location.hash.substring(1)
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-extra-semi
       ;[, urlWorkspaceId, urlPairs] = decodeURIComponent(
         location.pathname
       ).split('/')

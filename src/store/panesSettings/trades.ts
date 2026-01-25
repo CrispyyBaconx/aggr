@@ -348,6 +348,9 @@ const mutations = {
         market
       )
     }
+  },
+  SORT_THRESHOLDS(state, type: string) {
+    state[type].sort((a: Threshold, b: Threshold) => a.amount - b.amount)
   }
 } as MutationTree<TradesPaneState>
 

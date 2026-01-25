@@ -16,6 +16,7 @@
         v-if="triggerElement"
         :style="{ top: top + 'px', left: left + 'px' }"
         @click.stop="!interactive && toggle(null, true)"
+        @mousedown="$emit('mousedown', $event)"
       >
         <slot />
       </div>
@@ -28,7 +29,7 @@ import { isTouchSupported } from '@/utils/touchevent'
 
 export default {
   name: 'Dropdown',
-  emits: ['update:modelValue', 'opened', 'closed'],
+  emits: ['update:modelValue', 'opened', 'closed', 'mousedown'],
   props: {
     modelValue: {
       required: false,
@@ -206,7 +207,7 @@ export default {
         return
       }
 
-      dropdownElement.offsetHeight
+      void dropdownElement.offsetHeight
 
       const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight

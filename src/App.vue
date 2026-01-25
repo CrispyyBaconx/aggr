@@ -70,20 +70,22 @@ let favicons: { up?: string; down?: string } = {}
 
 const showSearch = computed(() => store.state.app?.showSearch)
 
-const isBooted = computed(() => {
-  const booted = store.state.app && store.state.app.isBooted
+const isBooted = computed(() => store.state.app?.isBooted)
 
-  clearTimeout(stuckTimeout)
+watch(
+  isBooted,
+  booted => {
+    clearTimeout(stuckTimeout)
 
-  if (!booted) {
-    showStuck.value = false
-    stuckTimeout = setTimeout(() => {
-      showStuck.value = true
-    }, 15000) as unknown as number
-  }
-
-  return booted
-})
+    if (!booted) {
+      showStuck.value = false
+      stuckTimeout = setTimeout(() => {
+        showStuck.value = true
+      }, 15000) as unknown as number
+    }
+  },
+  { immediate: true }
+)
 
 const isLoading = computed(() => store.state.app?.isLoading)
 

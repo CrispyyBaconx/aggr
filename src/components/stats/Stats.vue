@@ -252,7 +252,9 @@ async function refreshChartDimensions(debounceTime = 500) {
 
   _refreshChartDimensionsTimeout = setTimeout(() => {
     const rootEl = instance?.proxy?.$el as HTMLElement
-    _chart && _chart.resize(rootEl?.clientWidth || 0, rootEl?.clientHeight || 0)
+    if (_chart) {
+      _chart.resize(rootEl?.clientWidth || 0, rootEl?.clientHeight || 0)
+    }
   }, debounceTime) as unknown as number
 }
 

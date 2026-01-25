@@ -120,7 +120,7 @@ function normalizeCommonVariables(input, indicatorId) {
  */
 function determineFunctionState(instruction: IndicatorFunction) {
   if (
-    typeof seriesUtils[instruction.name] &&
+    seriesUtils[instruction.name] &&
     typeof seriesUtils[instruction.name].state === 'object'
   ) {
     instruction.state = {}
@@ -878,7 +878,6 @@ function getSeriePath(
 
   // or in the others indicator that are already in
   if (!indicatorId && serieIndicatorsMap[serieId]) {
-    // eslint-disable-next-line @typescript-eslint/no-extra-semi
     ;({ indicatorId, plotIndex } = serieIndicatorsMap[serieId])
   }
 

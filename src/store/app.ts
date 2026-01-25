@@ -252,7 +252,7 @@ const mutations = {
 
       if (paneElement) {
         paneElement.classList.remove('pane--selected')
-        paneElement.offsetHeight
+        void paneElement.offsetHeight
         paneElement.classList.add('pane--selected')
       }
     }

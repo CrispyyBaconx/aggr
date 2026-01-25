@@ -193,7 +193,7 @@ export default {
         return
       }
 
-      dropdownElement.offsetHeight
+      void dropdownElement.offsetHeight
 
       const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight

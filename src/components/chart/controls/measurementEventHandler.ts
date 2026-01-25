@@ -28,9 +28,9 @@ export default class MeasurementEventHandler {
   private top: number
   private left: number
   private width: number
-  private onMoveHandler: (event) => {}
-  private onEndHandler: (event) => {}
-  private onPanHandler: (event) => {}
+  private onMoveHandler: (event: MouseEvent | TouchEvent) => void
+  private onEndHandler: (event: MouseEvent | TouchEvent) => void
+  private onPanHandler: (event: MouseEvent | TouchEvent) => void
 
   constructor(chart: ChartController, event: MouseEvent | TouchEvent) {
     this.chart = chart

@@ -2,6 +2,7 @@ import Exchange from '../exchange'
 
 import Aggr from './aggr'
 import Aster from './aster'
+import Backend from './backend'
 import Binance from './binance'
 import BinanceFutures from './binance_futures'
 import BinanceUs from './binance_us'
@@ -29,6 +30,7 @@ import Poloniex from './poloniex'
 import WhiteBIT from './whitebit'
 
 export const exchanges = [
+  new Backend(), // Backend as first/primary exchange
   new Aggr(),
   new Aster(),
   new Bitmex(),

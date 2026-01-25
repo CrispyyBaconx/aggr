@@ -8,8 +8,12 @@ interface ImportMetaEnv {
 	readonly VITE_APP_PUBLIC_VAPID_KEY: string;
 	readonly VITE_APP_PUBLIC_PATH: string;
 	readonly VITE_APP_VERSION: string;
-  }
-  
-  interface ImportMeta {
+	// Backend API configuration
+	readonly VITE_APP_BACKEND_URL: string;
+	readonly VITE_APP_BACKEND_WS_URL: string;
+	readonly VITE_APP_BACKEND_API_KEY: string;
+}
+
+interface ImportMeta {
 	readonly env: ImportMetaEnv;
-  } 
+}

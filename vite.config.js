@@ -28,6 +28,7 @@ process.env.VITE_APP_BUILD_DATE =
   date.toLocaleString('en-US', { month: 'short' }).toLowerCase()
 
 process.env.VITE_APP_EXCHANGES = [
+  'BACKEND', // Custom backend API (primary data source)
   'AGGR',
   'ASTER',
   'BITMEX',

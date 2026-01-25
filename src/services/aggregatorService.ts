@@ -18,6 +18,16 @@ import workspacesService from './workspacesService'
 class AggregatorService extends EventEmitter {
   public worker: Worker
 
+  /**
+   * Whether to use backend as primary data source
+   */
+  public useBackendPrimary: boolean = true
+
+  /**
+   * Backend connection status
+   */
+  public backendConnected: boolean = false
+
   private normalizeDecimalsQueue: {
     timeout?: number
     markets: string[]
@@ -34,11 +44,89 @@ class AggregatorService extends EventEmitter {
 
     this.listenUtilityEvents()
     this.listenVisibilityChange()
+    this.initializeBackendConfig()
+  }
+
+  /**
+   * Initialize backend configuration from environment
+   */
+  initializeBackendConfig() {
+    const backendUrl = import.meta.env.VITE_APP_BACKEND_URL
+    const backendWsUrl = import.meta.env.VITE_APP_BACKEND_WS_URL
+    const backendApiKey = import.meta.env.VITE_APP_BACKEND_API_KEY
+
+    if (backendUrl || backendWsUrl) {
+      console.log('[aggregatorService] Backend API configured:', {
+        url: backendUrl,
+        wsUrl: backendWsUrl,
+        hasApiKey: !!backendApiKey
+      })
+
+      // Send backend config to worker
+      this.dispatch({
+        op: 'configureAggregator',
+        data: { key: 'backendUrl', value: backendUrl }
+      })
+
+      this.dispatch({
+        op: 'configureAggregator',
+        data: { key: 'backendWsUrl', value: backendWsUrl }
+      })
+
+      if (backendApiKey) {
+        this.dispatch({
+          op: 'configureAggregator',
+          data: { key: 'backendApiKey', value: backendApiKey }
+        })
+      }
+
+      this.dispatch({
+        op: 'configureAggregator',
+        data: { key: 'useBackendPrimary', value: this.useBackendPrimary }
+      })
+    }
+  }
+
+  /**
+   * Set whether to use backend as primary data source
+   */
+  setUseBackendPrimary(value: boolean) {
+    this.useBackendPrimary = value
+
+    this.dispatch({
+      op: 'configureAggregator',
+      data: { key: 'useBackendPrimary', value }
+    })
+  }
+
+  /**
+   * Check if backend is configured
+   */
+  isBackendConfigured(): boolean {
+    return !!(
+      import.meta.env.VITE_APP_BACKEND_URL ||
+      import.meta.env.VITE_APP_BACKEND_WS_URL
+    )
   }
 
   listenUtilityEvents() {
     this.once('hello', () => {
       workspacesService.initialize()
+    })
+
+    // Listen for backend connection status
+    this.on('backendStatus', (status: { connected: boolean }) => {
+      this.backendConnected = status.connected
+      console.log('[aggregatorService] Backend status:', status.connected ? 'connected' : 'disconnected')
+
+      if (!status.connected && this.useBackendPrimary) {
+        store.dispatch('app/showNotice', {
+          id: 'backend-disconnected',
+          type: 'warning',
+          title: 'Backend disconnected, using direct exchange connections',
+          timeout: 5000
+        })
+      }
     })
 
     this.on('error', async event => {
@@ -53,6 +141,12 @@ class AggregatorService extends EventEmitter {
       if (
         notificationService.hasDismissed(event.exchangeId + event.originalUrl)
       ) {
+        return
+      }
+
+      // Don't show connection issue dialog for backend exchange
+      if (event.exchangeId === 'BACKEND') {
+        console.warn('[aggregatorService] Backend connection failed, falling back to direct exchanges')
         return
       }
 
@@ -125,6 +219,21 @@ class AggregatorService extends EventEmitter {
             forceFetch ? 'force fetch products' : 'get stored or fetch'
           })`
         )
+
+        // For BACKEND exchange, fetch from /api/tickers
+        if (exchangeId === 'BACKEND') {
+          const productsData = await this.fetchBackendProducts()
+          this.dispatch({
+            op: 'getExchangeProducts',
+            data: {
+              exchangeId,
+              data: productsData
+            },
+            trackingId
+          })
+          return
+        }
+
         const productsData = await getStoredProductsOrFetch(
           exchangeId,
           endpoints,
@@ -141,6 +250,51 @@ class AggregatorService extends EventEmitter {
         })
       }
     )
+  }
+
+  /**
+   * Fetch available products from backend /api/tickers
+   */
+  async fetchBackendProducts(): Promise<{ products: string[] }> {
+    const backendUrl = import.meta.env.VITE_APP_BACKEND_URL
+    if (!backendUrl) {
+      return { products: [] }
+    }
+
+    try {
+      const apiKey = import.meta.env.VITE_APP_BACKEND_API_KEY
+      const url = apiKey
+        ? `${backendUrl}/api/tickers?token=${apiKey}`
+        : `${backendUrl}/api/tickers`
+
+      const response = await fetch(url)
+      const data = await response.json()
+
+      if (!data.tickers) {
+        return { products: [] }
+      }
+
+      // Extract unique symbols from tickers
+      const products: string[] = []
+      for (const ticker of data.tickers) {
+        const symbol = ticker.symbol?.toLowerCase()
+        if (symbol && products.indexOf(symbol) === -1) {
+          products.push(symbol)
+        }
+      }
+
+      console.log(`[aggregatorService] Fetched ${products.length} products from backend`)
+
+      // Store historical markets for chart backfill
+      store.commit('app/SET_HISTORICAL_MARKETS', 
+        data.tickers.map((t: any) => `BACKEND:${t.symbol?.toLowerCase()}`)
+      )
+
+      return { products }
+    } catch (err) {
+      console.error('[aggregatorService] Failed to fetch backend products:', err)
+      return { products: [] }
+    }
   }
 
   dispatch(payload: AggregatorPayload) {

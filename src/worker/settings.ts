@@ -5,5 +5,10 @@ export default {
   aggregationLength: null,
   preferQuoteCurrencySize: null,
   wsProxyUrl: null,
-  buckets: {}
+  buckets: {},
+  // Backend API configuration
+  backendUrl: null,
+  backendWsUrl: null,
+  backendApiKey: null,
+  useBackendPrimary: true
 } as AggregatorSettings

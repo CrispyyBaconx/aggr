@@ -320,8 +320,10 @@ export function getMarketProduct(exchangeId, symbol, noStable?: boolean) {
     exchangeId === 'BINANCE_FUTURES' ||
     exchangeId === 'DYDX' ||
     exchangeId === 'HYPERLIQUID' ||
-    exchangeId === 'ASTER'
+    exchangeId === 'ASTER' ||
+    exchangeId === 'BACKEND'
   ) {
+    // BACKEND exchange defaults to perp since it primarily tracks futures
     type = 'perp'
   } else if (exchangeId === 'COINBASE' && COINBASE_INTX_REGEX.test(symbol)) {
     type = 'perp'
@@ -457,6 +459,80 @@ export function getMarketProduct(exchangeId, symbol, noStable?: boolean) {
   }
 }
 
+/**
+ * Fetch available markets from backend /api/tickers endpoint
+ */
+export async function getBackendSupportedMarkets(): Promise<string[]> {
+  const backendUrl = import.meta.env.VITE_APP_BACKEND_URL
+  if (!backendUrl) {
+    return []
+  }
+
+  const now = Date.now()
+  const cacheKey = 'BACKEND_SUPPORTED_PAIRS'
+
+  // Check cache first
+  try {
+    const cache = JSON.parse(localStorage.getItem(cacheKey))
+
+    if (cache && cache.products && cache.products.length) {
+      if (now - cache.timestamp < 1000 * 60 * 5) {
+        return cache.products
+      }
+    }
+  } catch (error) {
+    // Cache invalid, continue to fetch
+  }
+
+  try {
+    const apiKey = import.meta.env.VITE_APP_BACKEND_API_KEY
+    const url = apiKey
+      ? `${backendUrl}/api/tickers?token=${apiKey}`
+      : `${backendUrl}/api/tickers`
+
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error(`Backend API returned ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (!data.tickers || !data.tickers.length) {
+      throw new Error('No tickers from backend')
+    }
+
+    // Extract markets in format "EXCHANGE:SYMBOL"
+    const products: string[] = []
+    for (const ticker of data.tickers) {
+      const exchange = ticker.exchange?.toUpperCase()
+      const symbol = ticker.symbol?.toUpperCase()
+      if (exchange && symbol) {
+        const market = `${exchange}:${symbol}`
+        if (products.indexOf(market) === -1) {
+          products.push(market)
+        }
+      }
+    }
+
+    // Cache the results
+    localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        products,
+        timestamp: now
+      })
+    )
+
+    console.log(`[productsService] Fetched ${products.length} markets from backend`)
+
+    return products
+  } catch (error) {
+    console.warn('[productsService] Failed to fetch backend markets:', error.message)
+    return []
+  }
+}
+
 export async function getApiSupportedMarkets() {
   let products = import.meta.env.VITE_APP_API_SUPPORTED_PAIRS as
     | string
@@ -465,6 +541,15 @@ export async function getApiSupportedMarkets() {
     products = (products as string).split(',').map(market => market.trim())
   } else {
     products = []
+  }
+
+  // Try backend first if configured
+  const backendUrl = import.meta.env.VITE_APP_BACKEND_URL
+  if (backendUrl) {
+    const backendProducts = await getBackendSupportedMarkets()
+    if (backendProducts.length > 0) {
+      return backendProducts
+    }
   }
 
   if (!import.meta.env.VITE_APP_API_URL) {

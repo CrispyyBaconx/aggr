@@ -19,20 +19,185 @@ export interface HistoricalResponse {
   initialPrices: InitialPrices
 }
 
+// TradingView UDF format from backend /api/bars
+interface BackendBarsResponse {
+  s: 'ok' | 'no_data' | 'error'
+  errmsg?: string
+  t: number[] // timestamps (Unix seconds)
+  o: number[] // open
+  h: number[] // high
+  l: number[] // low
+  c: number[] // close
+  v: number[] // volume
+  d: number[] // delta (buy_volume - sell_volume)
+  oi: number[] // open interest
+}
+
 class HistoricalService extends EventEmitter {
   url: string
+  backendUrl: string
   promisesOfData: { [keyword: string]: Promise<HistoricalResponse> } = {}
 
   constructor() {
     super()
 
     this.url = getApiUrl('historical')
+    this.backendUrl = import.meta.env.VITE_APP_BACKEND_URL || ''
   }
 
   filterOutUnavailableMarkets(markets: string[]) {
     return markets.filter(
       market => store.state.app.historicalMarkets.indexOf(market) !== -1
     )
+  }
+
+  /**
+   * Convert timeframe in seconds to resolution string for backend API
+   * e.g., 60 -> '1m', 300 -> '5m', 3600 -> '1h'
+   */
+  timeframeToResolution(timeframe: number): string {
+    if (timeframe < 60) {
+      return `${timeframe}s`
+    } else if (timeframe < 3600) {
+      return `${timeframe / 60}m`
+    } else if (timeframe < 86400) {
+      return `${timeframe / 3600}h`
+    } else {
+      return `${timeframe / 86400}d`
+    }
+  }
+
+  /**
+   * Build backend API URL for /api/bars endpoint
+   */
+  getBackendApiUrl(
+    from: number,
+    to: number,
+    timeframe: number,
+    market: string
+  ): string {
+    const [exchange, symbol] = parseMarket(market)
+    const resolution = this.timeframeToResolution(timeframe)
+
+    // Determine market type based on exchange naming convention
+    const marketType = exchange.toLowerCase().includes('spot')
+      ? 'spot'
+      : 'futures'
+
+    const params = new URLSearchParams({
+      symbol: symbol.toUpperCase(),
+      exchange: exchange.toLowerCase().replace('_futures', '').replace('_spot', ''),
+      market_type: marketType,
+      resolution,
+      from: Math.floor(from / 1000).toString(), // Convert ms to seconds
+      to: Math.floor(to / 1000).toString()
+    })
+
+    const apiKey = import.meta.env.VITE_APP_BACKEND_API_KEY
+    if (apiKey) {
+      params.set('token', apiKey)
+    }
+
+    return `${this.backendUrl}/api/bars?${params.toString()}`
+  }
+
+  /**
+   * Fetch historical data from backend /api/bars endpoint
+   */
+  async fetchFromBackend(
+    from: number,
+    to: number,
+    timeframe: number,
+    markets: string[]
+  ): Promise<HistoricalResponse> {
+    const allBars: Bar[] = []
+    const initialPrices: InitialPrices = {}
+    const preferQuoteCurrencySize = store.state.settings.preferQuoteCurrencySize
+
+    // Fetch data for each market in parallel
+    const fetchPromises = markets.map(async market => {
+      const url = this.getBackendApiUrl(from, to, timeframe, market)
+      const [exchange, pair] = parseMarket(market)
+
+      try {
+        const response = await fetch(url)
+        const json: BackendBarsResponse = await response.json()
+
+        if (json.s === 'error') {
+          throw new Error(json.errmsg || 'Backend API error')
+        }
+
+        if (json.s === 'no_data' || !json.t || json.t.length === 0) {
+          return []
+        }
+
+        // Transform TradingView UDF arrays to Bar objects
+        const bars: Bar[] = []
+        for (let i = 0; i < json.t.length; i++) {
+          const volume = json.v?.[i] || 0
+          const delta = json.d?.[i] || 0
+
+          // Derive buy/sell volumes from total volume and delta
+          // delta = vbuy - vsell, volume = vbuy + vsell
+          // Therefore: vbuy = (volume + delta) / 2, vsell = (volume - delta) / 2
+          let vbuy = (volume + delta) / 2
+          let vsell = (volume - delta) / 2
+
+          const close = json.c[i]
+
+          // Convert to base currency if not using quote currency
+          if (!preferQuoteCurrencySize && close) {
+            vbuy = vbuy / close
+            vsell = vsell / close
+          }
+
+          const bar: Bar = {
+            time: json.t[i], // Already in Unix seconds
+            open: json.o[i],
+            high: json.h[i],
+            low: json.l[i],
+            close: close,
+            vbuy,
+            vsell,
+            cbuy: 0, // Trade counts not available from /api/bars
+            csell: 0,
+            lbuy: 0, // Liquidations not available from /api/bars
+            lsell: 0,
+            exchange,
+            pair
+          }
+
+          // Store initial price for this market
+          if (i === 0) {
+            initialPrices[market] = bar.close
+          }
+
+          bars.push(bar)
+        }
+
+        return bars
+      } catch (err) {
+        console.warn(`[historicalService] Failed to fetch ${market} from backend:`, err)
+        return []
+      }
+    })
+
+    const results = await Promise.all(fetchPromises)
+    results.forEach(bars => allBars.push(...bars))
+
+    // Sort bars by time
+    allBars.sort((a, b) => a.time - b.time)
+
+    if (allBars.length === 0) {
+      throw new Error('No more data')
+    }
+
+    return {
+      data: allBars,
+      from: allBars[0].time,
+      to: allBars[allBars.length - 1].time,
+      initialPrices
+    }
   }
 
   getApiUrl(from, to, timeframe, markets) {
@@ -46,6 +211,42 @@ class HistoricalService extends EventEmitter {
   }
 
   fetch(
+    from: number,
+    to: number,
+    timeframe: number,
+    markets: string[]
+  ): Promise<HistoricalResponse> {
+    // Use backend API if configured
+    if (this.backendUrl) {
+      const cacheKey = `backend:${from}:${to}:${timeframe}:${markets.join(',')}`
+
+      if (this.promisesOfData[cacheKey]) {
+        return this.promisesOfData[cacheKey]
+      }
+
+      this.promisesOfData[cacheKey] = this.fetchFromBackend(from, to, timeframe, markets)
+        .catch(err => {
+          // Fallback to legacy API on backend failure
+          console.warn('[historicalService] Backend fetch failed, trying legacy API:', err)
+          return this.fetchLegacy(from, to, timeframe, markets)
+        })
+        .then(data => {
+          store.commit('app/TOGGLE_LOADING', false)
+          delete this.promisesOfData[cacheKey]
+          return data
+        })
+
+      return this.promisesOfData[cacheKey]
+    }
+
+    // Fallback to legacy API
+    return this.fetchLegacy(from, to, timeframe, markets)
+  }
+
+  /**
+   * Legacy fetch method using the old aggr-server format
+   */
+  fetchLegacy(
     from: number,
     to: number,
     timeframe: number,
@@ -106,6 +307,7 @@ class HistoricalService extends EventEmitter {
 
     return this.promisesOfData[url]
   }
+
   normalizePoints(data, columns, timeframe, markets: string[]) {
     const lastClosedBars = {}
     const initialPrices = {}

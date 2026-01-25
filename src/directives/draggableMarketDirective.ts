@@ -30,10 +30,8 @@ async function createDraggableMarketComponent(target) {
 
 function destroyDraggableMarketComponent() {
   if (draggableMarketComponent) {
-    draggableMarketComponent.$destroy()
-    draggableMarketComponent.$el.parentNode.removeChild(
-      draggableMarketComponent.$el
-    )
+    draggableMarketComponent.app.unmount()
+    draggableMarketComponent.el.remove()
     draggableMarketComponent = null
 
     document.body.classList.remove('-dragging-market')
@@ -50,7 +48,7 @@ async function handleDragMove(event: MouseEvent | TouchEvent) {
   if (!draggableMarketComponent) {
     await createDraggableMarketComponent(target)
   } else {
-    draggableMarketComponent.target = target
+    draggableMarketComponent.instance.updateTarget(target)
   }
 }
 
@@ -149,7 +147,7 @@ function emitContext(event: MouseEvent | TouchEvent) {
 }
 
 const draggableHandlers = {
-  bind(el) {
+  mounted(el) {
     const touchEvents = isTouchSupported()
 
     if (touchEvents && window.innerWidth < 768) {
@@ -162,7 +160,7 @@ const draggableHandlers = {
     )
   },
 
-  unbind(el) {
+  unmounted(el) {
     const touchEvents = isTouchSupported()
 
     if (touchEvents && window.innerWidth < 768) {
@@ -181,11 +179,11 @@ const draggableHandlers = {
 }
 
 const iframeHandlers = {
-  bind(el) {
+  mounted(el) {
     el.addEventListener('click', emitContext)
   },
 
-  unbind(el) {
+  unmounted(el) {
     el.removeEventListener('click', emitContext)
   }
 }

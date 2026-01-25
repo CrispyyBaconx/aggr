@@ -303,7 +303,7 @@ export default class ChartControl {
     const paneId = this.chart.paneId
 
     this.createContextMenu({
-      value: {
+      modelValue: {
         top: y - 1,
         left: x - 1,
         width: 2,
@@ -314,28 +314,14 @@ export default class ChartControl {
       timeframe,
       timestamp,
       paneId,
-      alert,
+      alert: alert || null,
       getPrice: this.chart.getPrice.bind(this.chart)
     })
   }
 
   async createContextMenu(propsData) {
-    if (components.contextMenu) {
-      components.contextMenu.$off('cmd')
-      for (const key in propsData) {
-        components.contextMenu[key] = propsData[key]
-      }
-    } else {
-      document.body.style.cursor = 'progress'
-      const module = await import(`@/components/chart/ChartContextMenu.vue`)
-      document.body.style.cursor = ''
-
-      components.contextMenu = createComponent(module.default, propsData)
-
-      mountComponent(components.contextMenu)
-    }
-
-    components.contextMenu.$on('cmd', args => {
+    // Create command handler
+    const onCmd = (args: any[]) => {
       if (this.chart[args[0]] instanceof Function) {
         this.chart[args[0]](...args.slice(1))
       } else {
@@ -343,7 +329,30 @@ export default class ChartControl {
           `[chart/control] ContextMenu->chart->${args[0]} is not a function`
         )
       }
+    }
+
+    if (components.contextMenu) {
+      // Update existing context menu props
+      for (const key in propsData) {
+        components.contextMenu.el.querySelector('[data-v-app]')?.__vue_app__?.unmount()
+      }
+      // Recreate component with new props
+      components.contextMenu.app.unmount()
+      components.contextMenu.el.remove()
+      components.contextMenu = null
+    }
+
+    document.body.style.cursor = 'progress'
+    const module = await import(`@/components/chart/ChartContextMenu.vue`)
+    document.body.style.cursor = ''
+
+    // Add command handler as prop
+    components.contextMenu = createComponent(module.default, {
+      ...propsData,
+      onCmd
     })
+
+    mountComponent(components.contextMenu)
   }
 
   onClick(event: MouseEvent | TouchEvent) {

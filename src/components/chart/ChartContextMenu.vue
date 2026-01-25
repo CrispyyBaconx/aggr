@@ -93,7 +93,7 @@ import dialogService from '@/services/dialogService'
 import alertService, { MarketAlert } from '@/services/alertService'
 import { ChartPaneState } from '@/store/panesSettings/chart'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: any
   paneId: string
   timeframe: string
@@ -101,8 +101,10 @@ const props = defineProps<{
   getPrice: (() => number) | null
   price: number | null
   timestamp: number | null
-  alert: MarketAlert | null
-}>()
+  alert?: MarketAlert | null
+}>(), {
+  alert: null
+})
 
 const emit = defineEmits<{
   'update:modelValue': [value: any]

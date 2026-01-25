@@ -1,5 +1,11 @@
 import { createApp, h, App, Component } from 'vue'
 import store from '@/store'
+import VueTippy from 'vue-tippy'
+import DropdownComponent from '@/components/framework/Dropdown.vue'
+import Editable from '@/components/framework/Editable.vue'
+import Presets from '@/components/framework/Presets.vue'
+import autofocus from '@/directives/autofocusDirective'
+import draggableMarket from '@/directives/draggableMarketDirective'
 
 const DAY = 60 * 60 * 24
 
@@ -545,15 +551,30 @@ export function getClosestValue(array, value) {
   })
 }
 
-export function createComponent(componentModule: Component, props: any = {}): { app: App; el: HTMLElement } {
+export function createComponent(componentModule: Component, props: any = {}): { app: App; el: HTMLElement; instance: any } {
   const container = document.createElement('div')
   
   const app = createApp(componentModule, props)
   app.use(store)
   
+  // Register global plugins, components and directives
+  app.use(VueTippy, {
+    defaultProps: {
+      allowHTML: true,
+      animation: false,
+      hideOnClick: false,
+      placement: 'bottom'
+    }
+  })
+  app.component('dropdown', DropdownComponent)
+  app.component('editable', Editable)
+  app.component('presets', Presets)
+  app.directive('autofocus', autofocus)
+  app.directive('draggable-market', draggableMarket)
+  
   const instance = app.mount(container)
   
-  return { app, el: container }
+  return { app, el: container, instance }
 }
 
 export function mountComponent(result: { app: App; el: HTMLElement }, container?: HTMLElement): void {

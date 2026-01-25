@@ -1,5 +1,5 @@
 export default {
-  bind(el) {
+  mounted(el) {
     // When the component of the element gets activated
     setTimeout(() => {
       el.focus()

@@ -20,6 +20,7 @@ export default {
   },
   data() {
     return {
+      currentTarget: this.target,
       position: {
         x: this.target.x,
         y: this.target.y
@@ -36,20 +37,24 @@ export default {
   },
   watch: {
     target(value) {
-      if (!this.animating) {
-        this.animate(value)
-      }
+      this.updateTarget(value)
     }
   },
   methods: {
+    updateTarget(target) {
+      this.currentTarget = target
+      if (!this.animating) {
+        this.animate(target)
+      }
+    },
     animate(target) {
       if (target) {
         this.animating = true
       }
 
       const offset = {
-        x: this.target.x - this.position.x,
-        y: this.target.y - this.position.y
+        x: this.currentTarget.x - this.position.x,
+        y: this.currentTarget.y - this.position.y
       }
 
       const distance = Math.abs(offset.x) + Math.abs(offset.y)
@@ -64,7 +69,8 @@ export default {
 
       requestAnimationFrame(this.animate)
     }
-  }
+  },
+  expose: ['updateTarget']
 }
 </script>
 <style lang="scss">

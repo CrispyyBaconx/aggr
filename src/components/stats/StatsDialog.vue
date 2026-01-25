@@ -22,7 +22,17 @@ const props = defineProps<{
   paneId: string
 }>()
 
-const { close } = useDialog()
+const emit = defineEmits<{
+  close: [value: unknown]
+}>()
+
+const { close: useDialogClose } = useDialog()
+
+function close(data?: unknown) {
+  emit('close', data)
+  useDialogClose(data)
+}
+
 const { name, renamePane } = usePaneDialog({
   paneId: props.paneId,
   close

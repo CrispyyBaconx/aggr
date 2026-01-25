@@ -49,7 +49,16 @@ import { ref } from 'vue'
 import Dialog from '@/components/framework/Dialog.vue'
 import { useDialog } from '@/composables/useDialog'
 
-const { close } = useDialog()
+const emit = defineEmits<{
+  close: [value: unknown]
+}>()
+
+const { close: useDialogClose } = useDialog()
+
+function close(data?: unknown) {
+  emit('close', data)
+  useDialogClose(data)
+}
 
 const includeAmounts = ref(false)
 const includeColors = ref(true)

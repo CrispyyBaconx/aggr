@@ -110,7 +110,16 @@ const STEPS = [
   }
 ]
 
-const { output, close } = useDialog()
+const emit = defineEmits<{
+  close: [value: unknown]
+}>()
+
+const { output, close: useDialogClose } = useDialog()
+
+function close(data?: unknown) {
+  emit('close', data)
+  useDialogClose(data)
+}
 
 const dialogOpened = ref(false)
 const stepIndex = ref(0)

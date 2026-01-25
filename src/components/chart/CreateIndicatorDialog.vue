@@ -46,7 +46,17 @@ const props = defineProps<{
 }>()
 
 const store = useStore()
-const { close } = useDialog()
+
+const emit = defineEmits<{
+  close: [value: unknown]
+}>()
+
+const { close: useDialogClose } = useDialog()
+
+function close(data?: unknown) {
+  emit('close', data)
+  useDialogClose(data)
+}
 
 const formRef = ref<HTMLFormElement | null>(null)
 const availableScales = ref<Record<string, string>>({})

@@ -161,7 +161,17 @@ const props = defineProps<{
 }>()
 
 const store = useStore()
-const { output, close } = useDialog()
+
+const emit = defineEmits<{
+  close: [value: unknown]
+}>()
+
+const { output, close: useDialogClose } = useDialog()
+
+function close(data?: unknown) {
+  emit('close', data)
+  useDialogClose(data)
+}
 
 const loaderRef = ref<InstanceType<typeof Loader> | null>(null)
 const data = ref<string | null>(null)

@@ -64,7 +64,16 @@ const props = defineProps<{
   workspace: Workspace
 }>()
 
-const { close } = useDialog()
+const emit = defineEmits<{
+  close: [value: unknown]
+}>()
+
+const { close: useDialogClose } = useDialog()
+
+function close(data?: unknown) {
+  emit('close', data)
+  useDialogClose(data)
+}
 
 const workspaceName = ref(props.workspace.name)
 

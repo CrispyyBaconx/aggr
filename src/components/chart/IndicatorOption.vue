@@ -30,32 +30,32 @@ import {
 } from './options'
 import { ALLOWED_OPTION_TYPES } from './buildUtils'
 
-const IndicatorOptionNumber = defineAsyncComponent(() =>
-  import('@/components/chart/options/IndicatorOptionNumber.vue')
+const IndicatorOptionNumber = defineAsyncComponent(
+  () => import('@/components/chart/options/IndicatorOptionNumber.vue')
 )
-const IndicatorOptionText = defineAsyncComponent(() =>
-  import('@/components/chart/options/IndicatorOptionText.vue')
+const IndicatorOptionText = defineAsyncComponent(
+  () => import('@/components/chart/options/IndicatorOptionText.vue')
 )
-const IndicatorOptionList = defineAsyncComponent(() =>
-  import('@/components/chart/options/IndicatorOptionList.vue')
+const IndicatorOptionList = defineAsyncComponent(
+  () => import('@/components/chart/options/IndicatorOptionList.vue')
 )
-const IndicatorOptionLineStyle = defineAsyncComponent(() =>
-  import('@/components/chart/options/IndicatorOptionLineStyle.vue')
+const IndicatorOptionLineStyle = defineAsyncComponent(
+  () => import('@/components/chart/options/IndicatorOptionLineStyle.vue')
 )
-const IndicatorOptionLineType = defineAsyncComponent(() =>
-  import('@/components/chart/options/IndicatorOptionLineType.vue')
+const IndicatorOptionLineType = defineAsyncComponent(
+  () => import('@/components/chart/options/IndicatorOptionLineType.vue')
 )
-const IndicatorOptionExchange = defineAsyncComponent(() =>
-  import('@/components/chart/options/IndicatorOptionExchange.vue')
+const IndicatorOptionExchange = defineAsyncComponent(
+  () => import('@/components/chart/options/IndicatorOptionExchange.vue')
 )
-const IndicatorOptionRange = defineAsyncComponent(() =>
-  import('@/components/chart/options/IndicatorOptionRange.vue')
+const IndicatorOptionRange = defineAsyncComponent(
+  () => import('@/components/chart/options/IndicatorOptionRange.vue')
 )
-const IndicatorOptionCheckbox = defineAsyncComponent(() =>
-  import('@/components/chart/options/IndicatorOptionCheckbox.vue')
+const IndicatorOptionCheckbox = defineAsyncComponent(
+  () => import('@/components/chart/options/IndicatorOptionCheckbox.vue')
 )
-const IndicatorOptionColor = defineAsyncComponent(() =>
-  import('@/components/chart/options/IndicatorOptionColor.vue')
+const IndicatorOptionColor = defineAsyncComponent(
+  () => import('@/components/chart/options/IndicatorOptionColor.vue')
 )
 
 const props = defineProps<{
@@ -75,12 +75,16 @@ const store = useStore()
 const type = ref<string | null>(null)
 const value = ref<unknown>(null)
 
-const currentIndicatorValue = computed(() =>
-  store.state[props.paneId].indicators[props.indicatorId].options[props.name]
+const currentIndicatorValue = computed(
+  () =>
+    store.state[props.paneId].indicators[props.indicatorId].options[props.name]
 )
 
-const definition = computed(() =>
-  store.state[props.paneId].indicators[props.indicatorId].optionsDefinitions[props.name] || {}
+const definition = computed(
+  () =>
+    store.state[props.paneId].indicators[props.indicatorId].optionsDefinitions[
+      props.name
+    ] || {}
 )
 
 const label = computed(() => definition.value.label || props.name)
@@ -101,20 +105,26 @@ const componentName = computed(() => {
   return `IndicatorOption${type.value[0].toUpperCase()}${type.value.toLowerCase().slice(1)}`
 })
 
-watch(() => definition.value, () => {
-  type.value = getType()
-})
-
-watch(() => currentIndicatorValue.value, () => {
-  const newValue = getValue()
-
-  if (
-    +value.value !== +newValue ||
-    (isNaN(+(value.value as number)) && newValue !== value.value)
-  ) {
-    value.value = newValue
+watch(
+  () => definition.value,
+  () => {
+    type.value = getType()
   }
-})
+)
+
+watch(
+  () => currentIndicatorValue.value,
+  () => {
+    const newValue = getValue()
+
+    if (
+      +value.value !== +newValue ||
+      (isNaN(+(value.value as number)) && newValue !== value.value)
+    ) {
+      value.value = newValue
+    }
+  }
+)
 
 // created equivalent
 value.value = getValue()

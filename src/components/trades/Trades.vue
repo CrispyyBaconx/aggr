@@ -80,7 +80,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  getCurrentInstance
+} from 'vue'
 import { useStore } from 'vuex'
 
 import { Trade } from '@/types/types'
@@ -116,11 +122,17 @@ const market = computed(() => pane.value.markets[0])
 
 const showLogos = computed(() => store.state[props.paneId].showLogos)
 
-const monochromeLogos = computed(() => store.state[props.paneId].monochromeLogos)
+const monochromeLogos = computed(
+  () => store.state[props.paneId].monochromeLogos
+)
 
-const thresholdsMultipler = computed(() => store.state[props.paneId].thresholdsMultipler)
+const thresholdsMultipler = computed(
+  () => store.state[props.paneId].thresholdsMultipler
+)
 
-const minAmount = computed(() => (store.state[props.paneId] as TradesPaneState).thresholds[0].amount)
+const minAmount = computed(
+  () => (store.state[props.paneId] as TradesPaneState).thresholds[0].amount
+)
 
 const gradient = computed(() => [
   store.state[props.paneId].thresholds[0].buyColor,
@@ -194,7 +206,7 @@ function upgradeToLite() {
 }
 
 // Setup store mutation subscription
-_onStoreMutation = store.subscribe((mutation) => {
+_onStoreMutation = store.subscribe(mutation => {
   if (!feed) return
 
   switch (mutation.type) {

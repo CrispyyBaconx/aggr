@@ -352,8 +352,8 @@ export default {
           return this[key]
             ? 'gain*' + this[key]
             : 0 != defaultAudioAttributes[key]
-            ? 0
-            : null
+              ? 0
+              : null
         } else {
           return this[key] != defaultAudioAttributes[key] ? this[key] : null
         }

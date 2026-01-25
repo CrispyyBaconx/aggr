@@ -3,7 +3,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, onBeforeUnmount, nextTick, getCurrentInstance } from 'vue'
+import {
+  ref,
+  reactive,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  getCurrentInstance
+} from 'vue'
 import monaco from './editor'
 import { createComponent, getEventCords, mountComponent } from '@/utils/helpers'
 import {
@@ -11,17 +19,22 @@ import {
   IndicatorEditorWordWrapOption
 } from '@/store/panesSettings/chart'
 
-const props = withDefaults(defineProps<{
-  modelValue?: string
-  editorOptions?: IndicatorEditorOptions
-}>(), {
-  modelValue: '',
-  editorOptions: () => ({})
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue?: string
+    editorOptions?: IndicatorEditorOptions
+  }>(),
+  {
+    modelValue: '',
+    editorOptions: () => ({})
+  }
+)
 
 const emit = defineEmits<{
   blur: [value: string]
-  options: [options: { fontSize: number; wordWrap: IndicatorEditorWordWrapOption }]
+  options: [
+    options: { fontSize: number; wordWrap: IndicatorEditorWordWrapOption }
+  ]
 }>()
 
 const instance = getCurrentInstance()
@@ -37,22 +50,30 @@ const currentEditorOptions = reactive({
   wordWrap: 'off' as IndicatorEditorWordWrapOption
 })
 
-watch(() => props.editorOptions, (options) => {
-  if (editorInstance && options) {
-    editorInstance.updateOptions(options)
-  }
-}, { deep: true })
+watch(
+  () => props.editorOptions,
+  options => {
+    if (editorInstance && options) {
+      editorInstance.updateOptions(options)
+    }
+  },
+  { deep: true }
+)
 
-watch(() => props.modelValue, (value) => {
-  if (!preventOverride && editorInstance) {
-    editorInstance.setValue(value)
+watch(
+  () => props.modelValue,
+  value => {
+    if (!preventOverride && editorInstance) {
+      editorInstance.setValue(value)
+    }
   }
-})
+)
 
 onMounted(async () => {
   for (const key in props.editorOptions) {
     if (props.editorOptions[key as keyof IndicatorEditorOptions]) {
-      (currentEditorOptions as any)[key] = props.editorOptions[key as keyof IndicatorEditorOptions]
+      ;(currentEditorOptions as any)[key] =
+        props.editorOptions[key as keyof IndicatorEditorOptions]
     }
   }
 

@@ -48,9 +48,7 @@
       <a href="javascript:void(0);" class="btn -text mr8" @click="close(false)"
         >Cancel</a
       >
-      <button class="btn -large -green" @click="submitWorkspace">
-        IMPORT
-      </button>
+      <button class="btn -large -green" @click="submitWorkspace">IMPORT</button>
     </footer>
   </Dialog>
 </template>

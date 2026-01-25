@@ -61,7 +61,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, getCurrentInstance } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  getCurrentInstance
+} from 'vue'
 import { useStore } from 'vuex'
 import { usePane } from '../../composables/usePane'
 import aggregatorService from '../../services/aggregatorService'
@@ -176,7 +183,8 @@ let drawOffset = 0
 let minAmount = 0
 let minAudio = 0
 let colors: { [type: string]: ColorConfig } = {}
-let sounds: { [type: string]: { buy: AudioFunction; sell: AudioFunction }[] } = {}
+let sounds: { [type: string]: { buy: AudioFunction; sell: AudioFunction }[] } =
+  {}
 
 let baseSizingCurrency = false
 let filters: { [key: number]: boolean } = {}
@@ -199,7 +207,9 @@ let _onStoreMutation: (() => void) | null = null
 
 const market = computed(() => pane.value.markets[0])
 
-const thresholdsMultipler = computed(() => store.state[props.paneId].thresholdsMultipler)
+const thresholdsMultipler = computed(
+  () => store.state[props.paneId].thresholdsMultipler
+)
 
 const minAmountValue = computed(() => minAmount)
 
@@ -230,9 +240,7 @@ function onTrades(trades: Trade[]) {
 
   for (let i = 0; i < trades.length; i++) {
     const marketKey = trades[i].exchange + ':' + trades[i].pair
-    const type = trades[i].liquidation
-      ? TradeType.liquidation
-      : TradeType.trade
+    const type = trades[i].liquidation ? TradeType.liquidation : TradeType.trade
 
     if (!filters[type] || !paneMarkets[marketKey]) {
       continue
@@ -259,11 +267,7 @@ function onTrades(trades: Trade[]) {
       side = trades[i].side
     }
 
-    const colorResult = getColors(
-      trades[i].amount,
-      trades[i].side,
-      type
-    )
+    const colorResult = getColors(trades[i].amount, trades[i].side, type)
 
     maxCount = Math.max(maxCount, trades[i].count || 1)
 
@@ -316,21 +320,14 @@ async function prepareTypeFilter(checkRequirements?: boolean) {
     [TradeType.liquidation]: store.state[props.paneId].showLiquidations
   }
 
-  baseSizingCurrency =
-    !store.state.settings.preferQuoteCurrencySize
+  baseSizingCurrency = !store.state.settings.preferQuoteCurrencySize
 
   if (checkRequirements) {
     for (const type in filters) {
       if (!filters[+type] && typeof colors[type] !== 'undefined') {
         delete colors[type]
-      } else if (
-        filters[+type] &&
-        typeof colors[type] === 'undefined'
-      ) {
-        prepareThresholds(
-          +type as TradeType,
-          getThresholdsByType(+type)
-        )
+      } else if (filters[+type] && typeof colors[type] === 'undefined') {
+        prepareThresholds(+type as TradeType, getThresholdsByType(+type))
       }
 
       if (!filters[+type] && typeof sounds[type] !== 'undefined') {
@@ -354,19 +351,20 @@ async function prepareTypeFilter(checkRequirements?: boolean) {
 }
 
 function prepareMarkets() {
-  paneMarkets = store.state.panes.panes[
-    props.paneId
-  ].markets.reduce((output: { [key: string]: boolean }, marketKey: string) => {
-    const [exchange] = marketKey.split(':')
+  paneMarkets = store.state.panes.panes[props.paneId].markets.reduce(
+    (output: { [key: string]: boolean }, marketKey: string) => {
+      const [exchange] = marketKey.split(':')
 
-    if (!store.state.app.activeExchanges[exchange]) {
-      output[marketKey] = false
+      if (!store.state.app.activeExchanges[exchange]) {
+        output[marketKey] = false
+        return output
+      }
+
+      output[marketKey] = true
       return output
-    }
-
-    output[marketKey] = true
-    return output
-  }, {})
+    },
+    {}
+  )
 }
 
 async function prepareAudio(prepareSoundsFlag = true) {
@@ -383,10 +381,7 @@ async function prepareAudio(prepareSoundsFlag = true) {
   }
 
   if (audioThreshold) {
-    if (
-      typeof audioThreshold === 'string' &&
-      /\d\s*%$/.test(audioThreshold)
-    ) {
+    if (typeof audioThreshold === 'string' && /\d\s*%$/.test(audioThreshold)) {
       minAudio = minAmount * (parseFloat(audioThreshold) / 100)
     } else {
       minAudio = +audioThreshold
@@ -445,20 +440,13 @@ function prepareColors() {
   }
 
   buyColorBase = baseColorThreshold.buyColor
-  buyColor100 = joinRgba(
-    getLinearShade(splitColorCode(buyColorBase), 0.25)
-  )
+  buyColor100 = joinRgba(getLinearShade(splitColorCode(buyColorBase), 0.25))
   sellColorBase = baseColorThreshold.sellColor
-  sellColor100 = joinRgba(
-    getLinearShade(splitColorCode(sellColorBase), 0.25)
-  )
+  sellColor100 = joinRgba(getLinearShade(splitColorCode(sellColorBase), 0.25))
 
   for (const type in filters) {
     if (filters[+type]) {
-      prepareThresholds(
-        +type as TradeType,
-        getThresholdsByType(+type)
-      )
+      prepareThresholds(+type as TradeType, getThresholdsByType(+type))
     }
   }
 
@@ -619,8 +607,7 @@ function prepareDisplaySettings() {
   showHistograms = paneState.showHistograms
   showPairs = paneState.showPairs
   showAvgPrice = paneState.showAvgPrice
-  renderTrades =
-    !paneState.showHistograms || height > window.innerHeight / 24
+  renderTrades = !paneState.showHistograms || height > window.innerHeight / 24
   showPrices = paneState.showPrices
   offset = 0
   drawOffset = showHistograms ? lineHeight : 0
@@ -646,21 +633,17 @@ function resize() {
   let headerHeight = 0
 
   if (!store.state.settings.autoHideHeaders) {
-    headerHeight =
-      (store.state.panes.panes[props.paneId].zoom || 1) * 2 * 16
+    headerHeight = (store.state.panes.panes[props.paneId].zoom || 1) * 2 * 16
   }
 
   pxRatio = window.devicePixelRatio || 1
   const zoom = store.state.panes.panes[props.paneId].zoom || 1
 
   width = canvasEl.width = rootEl.clientWidth * pxRatio
-  height = canvasEl.height =
-    (rootEl.clientHeight - headerHeight) * pxRatio
+  height = canvasEl.height = (rootEl.clientHeight - headerHeight) * pxRatio
   fontSize = Math.round(12 * zoom * pxRatio)
   logoWidth = fontSize
-  paddingTop = Math.round(
-    Math.max(width * 0.005 * zoom, 2) * pxRatio
-  )
+  paddingTop = Math.round(Math.max(width * 0.005 * zoom, 2) * pxRatio)
   lineHeight = Math.round(fontSize + paddingTop)
   drawOffset = showHistograms ? lineHeight : 0
   maxLines = Math.ceil(height / lineHeight)
@@ -687,29 +670,25 @@ function refreshColumnsWidth() {
   const count = (showPairs ? 1 : 0) + (showPrices ? 1 : 0) + 2
 
   paddingLeft =
-    Math.round(Math.max(width * 0.01 * zoom, 2) * pxRatio) *
-    (count < 3 ? 4 : 1)
-  margin = Math.round(
-    Math.max(width * 0.01 * zoom, 4) * pxRatio
-  )
+    Math.round(Math.max(width * 0.01 * zoom, 2) * pxRatio) * (count < 3 ? 4 : 1)
+  margin = Math.round(Math.max(width * 0.01 * zoom, 4) * pxRatio)
 
-  const contentWidth =
-    width - margin * 2 - logoWidth - paddingLeft * count
+  const contentWidth = width - margin * 2 - logoWidth - paddingLeft * count
   timeWidth = contentWidth * (0.75 / count)
   maxWidth = (contentWidth - timeWidth) / (count - 1)
-  amountOffset =
-    width - timeWidth - margin - paddingLeft
+  amountOffset = width - timeWidth - margin - paddingLeft
   priceOffset = margin + logoWidth + paddingLeft
-  pairOffset =
-    priceOffset +
-    (showPrices ? paddingLeft + maxWidth : 0)
+  pairOffset = priceOffset + (showPrices ? paddingLeft + maxWidth : 0)
 }
 
 function getColors(amount: number, side: string, type: TradeType) {
   const colorsConfig = colors[type]
 
   for (let i = 0; i < colorsConfig.ranges.length; i++) {
-    if (i === colorsConfig.lastRangeIndex || amount < colorsConfig.ranges[i].to) {
+    if (
+      i === colorsConfig.lastRangeIndex ||
+      amount < colorsConfig.ranges[i].to
+    ) {
       let innerStep = GRADIENT_DETAIL - 1
 
       if (amount < colorsConfig.ranges[i].to) {
@@ -814,8 +793,7 @@ function renderTradesBatch() {
 function renderTrade(trade: TradeRendering) {
   if (!ctx) return
 
-  const tradeHeight =
-    paddingTop + Math.round((trade.step / 2) * pxRatio)
+  const tradeHeight = paddingTop + Math.round((trade.step / 2) * pxRatio)
   const totalHeight = lineHeight + tradeHeight * 2
 
   ctx.drawImage(ctx.canvas, 0, totalHeight)
@@ -825,11 +803,7 @@ function renderTrade(trade: TradeRendering) {
   drawHistogram(trade, totalHeight)
   ctx.fillStyle = trade.color
 
-  drawLogo(
-    trade.exchange,
-    margin,
-    drawOffset + totalHeight / 2 - logoWidth / 2
-  )
+  drawLogo(trade.exchange, margin, drawOffset + totalHeight / 2 - logoWidth / 2)
 
   if (showPairs) {
     drawPair(trade, totalHeight)
@@ -882,7 +856,11 @@ function drawPair(trade: TradeRendering, tradeHeight: number) {
   )
 }
 
-function drawPrice(trade: TradeRendering, marketKey: string, tradeHeight: number) {
+function drawPrice(
+  trade: TradeRendering,
+  marketKey: string,
+  tradeHeight: number
+) {
   if (!ctx) return
 
   ctx.textAlign = 'left'
@@ -894,15 +872,16 @@ function drawPrice(trade: TradeRendering, marketKey: string, tradeHeight: number
   )
 }
 
-function drawAmount(trade: TradeRendering, tradeHeight: number, liquidation: boolean) {
+function drawAmount(
+  trade: TradeRendering,
+  tradeHeight: number,
+  liquidation: boolean
+) {
   if (!ctx) return
 
   ctx.textAlign = 'right'
   const backupFont = ctx.font
-  ctx.font = ctx.font.replace(
-    new RegExp(`^(${fontSize}px)`),
-    'bold $1'
-  )
+  ctx.font = ctx.font.replace(new RegExp(`^(${fontSize}px)`), 'bold $1')
   const amount = baseSizingCurrency
     ? Math.round(trade.amount * 1e6) / 1e6
     : formatAmount(trade.amount)
@@ -957,10 +936,8 @@ function renderVolumeBySide() {
   const volume = volumeBySide.buy + volumeBySide.sell
   const total = insignificantVolume + volume
   const buyWidth = width * (volumeBySide.buy / total)
-  const buyWidthFast =
-    width * (insignificantVolumeBySide.buy / total)
-  const sellWidthFast =
-    width * (insignificantVolumeBySide.sell / total)
+  const buyWidthFast = width * (insignificantVolumeBySide.buy / total)
+  const sellWidthFast = width * (insignificantVolumeBySide.sell / total)
   const sellWidth = width * (volumeBySide.sell / total)
 
   const barHeight = renderTrades ? lineHeight : height
@@ -1002,19 +979,10 @@ function renderDebug() {
 
           const sell = range.sell[i]
           ctx.fillStyle = sell.background
-          ctx.fillRect(
-            width / 2,
-            0,
-            width / 2,
-            lineHeight
-          )
+          ctx.fillRect(width / 2, 0, width / 2, lineHeight)
           ctx.fillStyle = sell.color
           ctx.textAlign = 'left'
-          ctx.fillText(
-            'S: ' + sell.color,
-            width / 2,
-            lineHeight / 2
-          )
+          ctx.fillText('S: ' + sell.color, width / 2, lineHeight / 2)
         }
       }
     }
@@ -1119,7 +1087,7 @@ async function prepareEverything() {
 }
 
 // Setup store mutation subscription
-_onStoreMutation = store.subscribe((mutation) => {
+_onStoreMutation = store.subscribe(mutation => {
   switch (mutation.type) {
     case 'panes/SET_PANE_MARKETS':
       if (mutation.payload.id === props.paneId) {

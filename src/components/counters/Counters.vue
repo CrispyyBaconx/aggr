@@ -35,7 +35,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
+import {
+  ref,
+  reactive,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  getCurrentInstance
+} from 'vue'
 import { useStore } from 'vuex'
 
 import { getBucketId, getHms } from '@/utils/helpers'
@@ -90,10 +97,14 @@ let _counters: Counter[] = []
 let _feed: string | null = null
 let _onStoreMutation: (() => void) | null = null
 
-const liquidationsOnly = computed(() => store.state[props.paneId].liquidationsOnly)
+const liquidationsOnly = computed(
+  () => store.state[props.paneId].liquidationsOnly
+)
 const countersSteps = computed(() => store.state[props.paneId].steps)
 const countersCount = computed(() => store.state[props.paneId].count)
-const countersGranularity = computed(() => store.state[props.paneId].granularity)
+const countersGranularity = computed(
+  () => store.state[props.paneId].granularity
+)
 
 const activeSteps = computed(() => steps.filter(a => a.hasData))
 
@@ -128,10 +139,7 @@ function onVolume(sums: any) {
 
 function clearCounters() {
   if (_feed) {
-    console.debug(
-      `[counters/${props.paneId}] unsubscribe from feed`,
-      _feed
-    )
+    console.debug(`[counters/${props.paneId}] unsubscribe from feed`, _feed)
     aggregatorService.off(_feed, onVolume)
   }
 
@@ -269,7 +277,7 @@ function formatAmountValue(amount: number) {
 }
 
 // Setup store mutation subscription
-_onStoreMutation = store.subscribe((mutation) => {
+_onStoreMutation = store.subscribe(mutation => {
   switch (mutation.type) {
     case 'settings/SET_BUY_COLOR':
     case 'settings/SET_SELL_COLOR':

@@ -8,7 +8,10 @@ export interface UsePaneOptions {
 }
 
 // Overload signatures
-export function usePane(paneId: string, onResize?: (width: number, height: number, isMounting?: boolean) => void): {
+export function usePane(
+  paneId: string,
+  onResize?: (width: number, height: number, isMounting?: boolean) => void
+): {
   el: ReturnType<typeof ref<HTMLElement | null>>
   pane: ReturnType<typeof computed<Pane>>
   refreshZoom: () => void
@@ -21,13 +24,18 @@ export function usePane(options: UsePaneOptions): {
   focusPane: () => void
 }
 
-export function usePane(paneIdOrOptions: string | UsePaneOptions, onResizeArg?: (width: number, height: number, isMounting?: boolean) => void) {
+export function usePane(
+  paneIdOrOptions: string | UsePaneOptions,
+  onResizeArg?: (width: number, height: number, isMounting?: boolean) => void
+) {
   const store = useStore()
-  
+
   // Handle both signatures
   let paneId: string
-  let onResize: ((width: number, height: number, isMounting?: boolean) => void) | undefined
-  
+  let onResize:
+    | ((width: number, height: number, isMounting?: boolean) => void)
+    | undefined
+
   if (typeof paneIdOrOptions === 'string') {
     paneId = paneIdOrOptions
     onResize = onResizeArg
@@ -56,7 +64,7 @@ export function usePane(paneIdOrOptions: string | UsePaneOptions, onResizeArg?: 
   onMounted(() => {
     if (el.value) {
       el.value.id = paneId
-      
+
       // Only refresh zoom if pane exists in state
       if (store.state.panes?.panes?.[paneId]) {
         refreshZoom()

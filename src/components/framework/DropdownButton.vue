@@ -25,19 +25,22 @@
 import { ref, computed, onMounted } from 'vue'
 import Btn from '@/components/framework/Btn.vue'
 
-const props = withDefaults(defineProps<{
-  modelValue?: unknown
-  loading?: boolean
-  buttonClass?: string
-  placeholder?: string | null
-  options?: unknown[] | Record<string, unknown>
-}>(), {
-  modelValue: null,
-  loading: false,
-  buttonClass: '-arrow',
-  placeholder: null,
-  options: () => []
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue?: unknown
+    loading?: boolean
+    buttonClass?: string
+    placeholder?: string | null
+    options?: unknown[] | Record<string, unknown>
+  }>(),
+  {
+    modelValue: null,
+    loading: false,
+    buttonClass: '-arrow',
+    placeholder: null,
+    options: () => []
+  }
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: unknown]
@@ -52,7 +55,10 @@ onMounted(() => {
 
 const label = computed(() => {
   if (props.modelValue) {
-    return (props.options as Record<string, unknown>)[props.modelValue as string] || props.modelValue
+    return (
+      (props.options as Record<string, unknown>)[props.modelValue as string] ||
+      props.modelValue
+    )
   }
 
   if (props.placeholder) {

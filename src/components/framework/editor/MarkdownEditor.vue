@@ -20,17 +20,20 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { marked } from 'marked'
 import Loader from '@/components/framework/Loader.vue'
 
-const props = withDefaults(defineProps<{
-  modelValue?: string
-  minimal?: boolean
-  autofocus?: boolean
-  showPreview?: boolean
-}>(), {
-  modelValue: '',
-  minimal: false,
-  autofocus: false,
-  showPreview: false
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue?: string
+    minimal?: boolean
+    autofocus?: boolean
+    showPreview?: boolean
+  }>(),
+  {
+    modelValue: '',
+    minimal: false,
+    autofocus: false,
+    showPreview: false
+  }
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -46,15 +49,21 @@ const preview = computed(() => {
   return marked(props.modelValue)
 })
 
-watch(() => props.modelValue, (value) => {
-  if (editorInstance && value !== editorInstance.getValue()) {
-    editorInstance.setValue(value)
+watch(
+  () => props.modelValue,
+  value => {
+    if (editorInstance && value !== editorInstance.getValue()) {
+      editorInstance.setValue(value)
+    }
   }
-})
+)
 
-watch(() => props.showPreview, () => {
-  resize()
-})
+watch(
+  () => props.showPreview,
+  () => {
+    resize()
+  }
+)
 
 onMounted(async () => {
   await loadMonaco()

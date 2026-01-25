@@ -1,5 +1,8 @@
 <template>
-  <dropdown :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)">
+  <dropdown
+    :model-value="modelValue"
+    @update:model-value="$emit('update:modelValue', $event)"
+  >
     <button
       @click="$emit('cmd', ['toggleTimeframeDropdown', $event])"
       class="dropdown-item -arrow"
@@ -93,18 +96,21 @@ import dialogService from '@/services/dialogService'
 import alertService, { MarketAlert } from '@/services/alertService'
 import { ChartPaneState } from '@/store/panesSettings/chart'
 
-const props = withDefaults(defineProps<{
-  modelValue: any
-  paneId: string
-  timeframe: string
-  market: string
-  getPrice: (() => number) | null
-  price: number | null
-  timestamp: number | null
-  alert?: MarketAlert | null
-}>(), {
-  alert: null
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue: any
+    paneId: string
+    timeframe: string
+    market: string
+    getPrice: (() => number) | null
+    price: number | null
+    timestamp: number | null
+    alert?: MarketAlert | null
+  }>(),
+  {
+    alert: null
+  }
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: any]
@@ -125,9 +131,13 @@ const timeframeForHuman = computed(() => {
 
 const alertsEnabled = computed(() => store.state.settings.alerts)
 
-const showAlerts = computed(() => (store.state[props.paneId] as ChartPaneState).showAlerts)
+const showAlerts = computed(
+  () => (store.state[props.paneId] as ChartPaneState).showAlerts
+)
 
-const showAlertsLabel = computed(() => (store.state[props.paneId] as ChartPaneState).showAlertsLabel)
+const showAlertsLabel = computed(
+  () => (store.state[props.paneId] as ChartPaneState).showAlertsLabel
+)
 
 const priceFormatted = computed(() => {
   if (props.price === null) return ''
@@ -156,7 +166,9 @@ function toggleAlertsDropdown(event: MouseEvent) {
   if (alertsDropdownTrigger.value) {
     alertsDropdownTrigger.value = null
   } else {
-    alertsDropdownTrigger.value = (event.currentTarget as HTMLElement).parentElement
+    alertsDropdownTrigger.value = (
+      event.currentTarget as HTMLElement
+    ).parentElement
   }
 }
 
@@ -168,7 +180,9 @@ async function toggleAlertsSettingsDropdown(event: MouseEvent) {
   if (alertsDropdownSettingsTrigger.value) {
     alertsDropdownSettingsTrigger.value = null
   } else {
-    alertsDropdownSettingsTrigger.value = (event.currentTarget as HTMLElement).parentElement
+    alertsDropdownSettingsTrigger.value = (
+      event.currentTarget as HTMLElement
+    ).parentElement
   }
 }
 

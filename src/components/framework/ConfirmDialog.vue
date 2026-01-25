@@ -49,30 +49,33 @@ import Btn from '@/components/framework/Btn.vue'
 import Dialog from '@/components/framework/Dialog.vue'
 import { useDialog } from '@/composables/useDialog'
 
-const props = withDefaults(defineProps<{
-  title?: string
-  message: string
-  ok?: string
-  okIcon?: string
-  okClass?: string
-  cancel?: string
-  cancelIcon?: string | null
-  cancelClass?: string
-  html?: boolean
-  actions?: Array<{ label: string; callback?: (event: Event) => unknown }>
-  requireScroll?: boolean
-}>(), {
-  title: 'Confirmation',
-  ok: 'OK',
-  okIcon: 'icon-check',
-  okClass: '-green',
-  cancel: 'Cancel',
-  cancelIcon: null,
-  cancelClass: '-text',
-  html: false,
-  actions: () => [],
-  requireScroll: false
-})
+const props = withDefaults(
+  defineProps<{
+    title?: string
+    message: string
+    ok?: string
+    okIcon?: string
+    okClass?: string
+    cancel?: string
+    cancelIcon?: string | null
+    cancelClass?: string
+    html?: boolean
+    actions?: Array<{ label: string; callback?: (event: Event) => unknown }>
+    requireScroll?: boolean
+  }>(),
+  {
+    title: 'Confirmation',
+    ok: 'OK',
+    okIcon: 'icon-check',
+    okClass: '-green',
+    cancel: 'Cancel',
+    cancelIcon: null,
+    cancelClass: '-text',
+    html: false,
+    actions: () => [],
+    requireScroll: false
+  }
+)
 
 const { output, close } = useDialog()
 
@@ -136,7 +139,10 @@ function unbindScroll() {
   scrollHandler = null
 }
 
-function onClickAction(event: Event, action: { label: string; callback?: (event: Event) => unknown }) {
+function onClickAction(
+  event: Event,
+  action: { label: string; callback?: (event: Event) => unknown }
+) {
   if (action.callback) {
     const result = action.callback(event)
     if (typeof result !== 'undefined') {

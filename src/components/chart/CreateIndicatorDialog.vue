@@ -54,9 +54,7 @@ const priceScaleId = ref('right')
 const name = ref('')
 
 onMounted(() => {
-  availableScales.value = getChartScales(
-    store.state[props.paneId].indicators
-  )
+  availableScales.value = getChartScales(store.state[props.paneId].indicators)
 })
 
 function submit() {

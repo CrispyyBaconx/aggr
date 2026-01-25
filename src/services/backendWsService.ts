@@ -120,11 +120,11 @@ class BackendWsService extends EventEmitter {
           resolve()
         }
 
-        this.ws.onmessage = (event) => {
+        this.ws.onmessage = event => {
           this.handleMessage(event.data)
         }
 
-        this.ws.onerror = (error) => {
+        this.ws.onerror = error => {
           console.error('[backendWsService] WebSocket error:', error)
           this.emit('error', error)
           if (this.isConnecting) {
@@ -133,8 +133,12 @@ class BackendWsService extends EventEmitter {
           }
         }
 
-        this.ws.onclose = (event) => {
-          console.log('[backendWsService] WebSocket closed:', event.code, event.reason)
+        this.ws.onclose = event => {
+          console.log(
+            '[backendWsService] WebSocket closed:',
+            event.code,
+            event.reason
+          )
           this.isConnecting = false
           this.stopPing()
           this.emit('disconnected', event)
@@ -320,7 +324,10 @@ class BackendWsService extends EventEmitter {
         market,
         exchange: bar.exchange,
         pair: bar.symbol,
-        timestamp: typeof bar.timestamp === 'number' ? bar.timestamp : new Date(bar.timestamp).getTime(),
+        timestamp:
+          typeof bar.timestamp === 'number'
+            ? bar.timestamp
+            : new Date(bar.timestamp).getTime(),
         price: bar.close,
         size: bar.buy_volume,
         side: 'buy'
@@ -331,7 +338,10 @@ class BackendWsService extends EventEmitter {
           market,
           exchange: bar.exchange,
           pair: bar.symbol,
-          timestamp: typeof bar.timestamp === 'number' ? bar.timestamp : new Date(bar.timestamp).getTime(),
+          timestamp:
+            typeof bar.timestamp === 'number'
+              ? bar.timestamp
+              : new Date(bar.timestamp).getTime(),
           price: bar.close,
           size: bar.sell_volume,
           side: 'sell'
@@ -345,7 +355,10 @@ class BackendWsService extends EventEmitter {
         market,
         exchange: bar.exchange,
         pair: bar.symbol,
-        timestamp: typeof bar.timestamp === 'number' ? bar.timestamp : new Date(bar.timestamp).getTime(),
+        timestamp:
+          typeof bar.timestamp === 'number'
+            ? bar.timestamp
+            : new Date(bar.timestamp).getTime(),
         price: bar.close,
         size: bar.liq_long,
         side: 'sell', // Long liquidations are sells
@@ -358,7 +371,10 @@ class BackendWsService extends EventEmitter {
         market,
         exchange: bar.exchange,
         pair: bar.symbol,
-        timestamp: typeof bar.timestamp === 'number' ? bar.timestamp : new Date(bar.timestamp).getTime(),
+        timestamp:
+          typeof bar.timestamp === 'number'
+            ? bar.timestamp
+            : new Date(bar.timestamp).getTime(),
         price: bar.close,
         size: bar.liq_short,
         side: 'buy', // Short liquidations are buys
@@ -399,7 +415,9 @@ class BackendWsService extends EventEmitter {
     this.reconnectAttempts++
     const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 30000)
 
-    console.log(`[backendWsService] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`)
+    console.log(
+      `[backendWsService] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`
+    )
 
     this.reconnectTimeout = window.setTimeout(() => {
       this.reconnectTimeout = null

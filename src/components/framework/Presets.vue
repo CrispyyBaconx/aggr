@@ -140,19 +140,22 @@ interface PresetSummary {
   label: string
 }
 
-const props = withDefaults(defineProps<{
-  type: string
-  adapter: (originalPreset?: Preset) => Promise<Preset | undefined>
-  label?: string
-  showReset?: boolean
-  placeholder?: string | null
-  classes?: string
-}>(), {
-  label: 'Presets',
-  showReset: true,
-  placeholder: null,
-  classes: '-green'
-})
+const props = withDefaults(
+  defineProps<{
+    type: string
+    adapter: (originalPreset?: Preset) => Promise<Preset | undefined>
+    label?: string
+    showReset?: boolean
+    placeholder?: string | null
+    classes?: string
+  }>(),
+  {
+    label: 'Presets',
+    showReset: true,
+    placeholder: null,
+    classes: '-green'
+  }
+)
 
 const emit = defineEmits<{
   apply: [preset?: Preset & { name?: string }]
@@ -351,9 +354,7 @@ async function renamePreset(presetSummary: PresetSummary) {
 
 async function deletePreset(presetSummary: PresetSummary) {
   if (
-    await dialogService.confirm(
-      'Remove preset "' + presetSummary.label + '" ?'
-    )
+    await dialogService.confirm('Remove preset "' + presetSummary.label + '" ?')
   ) {
     await workspacesService.removePreset(presetSummary.id)
     presets.value.splice(presets.value.indexOf(presetSummary), 1)

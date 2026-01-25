@@ -59,10 +59,10 @@
           label="Vertical line color"
           @update:model-value="
             $event !== verticalGridlinesColor &&
-              store.commit(paneId + '/SET_GRIDLINES', {
-                type: 'vertical',
-                value: $event
-              })
+            store.commit(paneId + '/SET_GRIDLINES', {
+              type: 'vertical',
+              value: $event
+            })
           "
         ></color-picker-control>
       </div>
@@ -95,10 +95,10 @@
           label="Horizontal line color"
           @update:model-value="
             $event !== horizontalGridlinesColor &&
-              store.commit(paneId + '/SET_GRIDLINES', {
-                type: 'horizontal',
-                value: $event
-              })
+            store.commit(paneId + '/SET_GRIDLINES', {
+              type: 'horizontal',
+              value: $event
+            })
           "
         ></color-picker-control>
       </div>
@@ -123,7 +123,7 @@
         label="Watermark color"
         @update:model-value="
           $event !== watermarkColor &&
-            store.commit(paneId + '/SET_WATERMARK', { value: $event })
+          store.commit(paneId + '/SET_WATERMARK', { value: $event })
         "
       ></color-picker-control>
     </div>
@@ -147,7 +147,7 @@
         label="Border color"
         @update:model-value="
           $event !== borderColor &&
-            store.commit(paneId + '/SET_BORDER', { value: $event })
+          store.commit(paneId + '/SET_BORDER', { value: $event })
         "
       ></color-picker-control>
       <color-picker-control
@@ -156,7 +156,7 @@
         label="Text color"
         @update:model-value="
           $event !== textColor &&
-            store.commit(paneId + '/SET_TEXT_COLOR', { value: $event })
+          store.commit(paneId + '/SET_TEXT_COLOR', { value: $event })
         "
       ></color-picker-control>
     </div>
@@ -240,12 +240,22 @@ const props = defineProps<{
 const store = useStore()
 
 const showLegend = computed(() => store.state[props.paneId].showLegend)
-const fillGapsWithEmpty = computed(() => store.state[props.paneId].fillGapsWithEmpty)
+const fillGapsWithEmpty = computed(
+  () => store.state[props.paneId].fillGapsWithEmpty
+)
 const refreshRate = computed(() => store.state[props.paneId].refreshRate)
-const showVerticalGridlines = computed(() => store.state[props.paneId].showVerticalGridlines)
-const verticalGridlinesColor = computed(() => store.state[props.paneId].verticalGridlinesColor)
-const showHorizontalGridlines = computed(() => store.state[props.paneId].showHorizontalGridlines)
-const horizontalGridlinesColor = computed(() => store.state[props.paneId].horizontalGridlinesColor)
+const showVerticalGridlines = computed(
+  () => store.state[props.paneId].showVerticalGridlines
+)
+const verticalGridlinesColor = computed(
+  () => store.state[props.paneId].verticalGridlinesColor
+)
+const showHorizontalGridlines = computed(
+  () => store.state[props.paneId].showHorizontalGridlines
+)
+const horizontalGridlinesColor = computed(
+  () => store.state[props.paneId].horizontalGridlinesColor
+)
 const showWatermark = computed(() => store.state[props.paneId].showWatermark)
 const watermarkColor = computed(() => store.state[props.paneId].watermarkColor)
 const showBorder = computed(() => store.state[props.paneId].showBorder)

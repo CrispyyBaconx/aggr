@@ -78,7 +78,8 @@ const getters = {
     }
   },
   getFocusedPaneId: (state, getters, rootState) => (type: string) => {
-    const focusedPane = rootState.app.focusedPaneId && state.panes[rootState.app.focusedPaneId]
+    const focusedPane =
+      rootState.app.focusedPaneId && state.panes[rootState.app.focusedPaneId]
     if (focusedPane && focusedPane.type === type) {
       return rootState.app.focusedPaneId
     } else {
@@ -387,11 +388,7 @@ const actions = {
       return
     }
     zoom =
-      typeof zoom === 'number'
-        ? zoom
-        : pane.zoom
-          ? Math.max(0.1, pane.zoom)
-          : 1
+      typeof zoom === 'number' ? zoom : pane.zoom ? Math.max(0.1, pane.zoom) : 1
     const el = document.getElementById(id) as HTMLElement
 
     if (el) {

@@ -341,7 +341,6 @@ function parseVariables(output, variables): string {
           nonPersistentVariables.push(variableName)
         }
 
-        // eslint-disable-next-line no-useless-escape
         output = output.replace(
           new RegExp(
             '([^.$]|^)\\b(' + variableName + ')\\b(?!:)(?!\\()(?!\\$)',

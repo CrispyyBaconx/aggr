@@ -56,27 +56,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount, nextTick, getCurrentInstance } from 'vue'
+import {
+  ref,
+  reactive,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  getCurrentInstance
+} from 'vue'
 import dialogService, { DialogPosition } from '@/services/dialogService'
 import { getEventCords } from '../../utils/helpers'
 
-const props = withDefaults(defineProps<{
-  mask?: boolean
-  contrasted?: boolean
-  borderless?: boolean
-  resizable?: boolean
-  size?: string | null
-  bodyClass?: string
-  contentClass?: string
-  closeOnEscape?: boolean
-}>(), {
-  mask: true,
-  contrasted: false,
-  borderless: false,
-  resizable: true,
-  size: null,
-  closeOnEscape: true
-})
+const props = withDefaults(
+  defineProps<{
+    mask?: boolean
+    contrasted?: boolean
+    borderless?: boolean
+    resizable?: boolean
+    size?: string | null
+    bodyClass?: string
+    contentClass?: string
+    closeOnEscape?: boolean
+  }>(),
+  {
+    mask: true,
+    contrasted: false,
+    borderless: false,
+    resizable: true,
+    size: null,
+    closeOnEscape: true
+  }
+)
 
 const emit = defineEmits<{
   clickOutside: []
@@ -107,12 +117,11 @@ let _persistTimeout: ReturnType<typeof setTimeout> | undefined
 const instance = getCurrentInstance()
 
 onMounted(async () => {
-  const parentDialog = instance?.parent?.proxy as { dialogId?: string } | undefined
+  const parentDialog = instance?.parent?.proxy as
+    | { dialogId?: string }
+    | undefined
   if (parentDialog?.dialogId) {
-    setPosition(
-      dialogService.dialogPositions[parentDialog.dialogId],
-      true
-    )
+    setPosition(dialogService.dialogPositions[parentDialog.dialogId], true)
   }
 
   if (props.closeOnEscape) {
@@ -151,7 +160,9 @@ onBeforeUnmount(() => {
 
 function persistPosition() {
   const dialogPosition = position.value
-  const parentDialog = instance?.parent?.proxy as { dialogId?: string } | undefined
+  const parentDialog = instance?.parent?.proxy as
+    | { dialogId?: string }
+    | undefined
 
   if (parentDialog?.dialogId) {
     dialogService.dialogPositions[parentDialog.dialogId] = {
@@ -291,7 +302,10 @@ function savePosition(pos: DialogPosition) {
   }
 }
 
-function setPosition(pos: DialogPosition | undefined, shouldSavePosition?: boolean) {
+function setPosition(
+  pos: DialogPosition | undefined,
+  shouldSavePosition?: boolean
+) {
   if (!pos) {
     return
   }

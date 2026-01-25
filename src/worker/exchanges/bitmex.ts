@@ -24,8 +24,8 @@ export default class BITMEX extends Exchange {
       types[product.symbol] = product.isInverse
         ? 'inverse'
         : product.isQuanto
-        ? 'quanto'
-        : 'linear'
+          ? 'quanto'
+          : 'linear'
       multipliers[product.symbol] = product.multiplier
 
       if (types[product.symbol] === 'linear') {

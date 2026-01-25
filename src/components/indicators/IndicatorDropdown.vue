@@ -1,5 +1,8 @@
 <template>
-  <dropdown :modelValue="modelValue" @update:modelValue="$emit('update:modelValue', $event)">
+  <dropdown
+    :modelValue="modelValue"
+    @update:modelValue="$emit('update:modelValue', $event)"
+  >
     <div class="dropdown-divider" :data-label="indicatorName"></div>
     <button type="button" class="dropdown-item" @click="editIndicator">
       <i class="icon-edit"></i>

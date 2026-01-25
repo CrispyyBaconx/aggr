@@ -20,7 +20,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, getCurrentInstance } from 'vue'
+import {
+  ref,
+  reactive,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  getCurrentInstance
+} from 'vue'
 import { useStore } from 'vuex'
 import * as TV from 'lightweight-charts'
 import aggregatorService from '@/services/aggregatorService'
@@ -50,7 +58,9 @@ const instance = getCurrentInstance()
 const { el, pane } = usePane(props.paneId, onResize)
 
 const chartEl = ref<HTMLElement | null>(null)
-const data = reactive<{ [id: string]: { value: number | string; name: string; color: string } }>({})
+const data = reactive<{
+  [id: string]: { value: number | string; name: string; color: string }
+}>({})
 
 let _refreshChartDimensionsTimeout: number | null = null
 let _chart: TV.IChartApi | null = null
@@ -242,8 +252,7 @@ async function refreshChartDimensions(debounceTime = 500) {
 
   _refreshChartDimensionsTimeout = setTimeout(() => {
     const rootEl = instance?.proxy?.$el as HTMLElement
-    _chart &&
-      _chart.resize(rootEl?.clientWidth || 0, rootEl?.clientHeight || 0)
+    _chart && _chart.resize(rootEl?.clientWidth || 0, rootEl?.clientHeight || 0)
   }, debounceTime) as unknown as number
 }
 
@@ -252,7 +261,7 @@ function onResize() {
 }
 
 // Setup store mutation subscription
-_onStoreMutation = store.subscribe((mutation) => {
+_onStoreMutation = store.subscribe(mutation => {
   switch (mutation.type) {
     case 'settings/SET_TEXT_COLOR':
       if (_chart && mutation.payload) {

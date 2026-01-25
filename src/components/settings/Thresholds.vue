@@ -153,7 +153,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, getCurrentInstance } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  getCurrentInstance
+} from 'vue'
 import { useStore } from 'vuex'
 import { sleep, randomString } from '@/utils/helpers'
 import { formatAmount } from '@/services/productsService'
@@ -169,15 +176,18 @@ import defaultTresholds from '@/store/defaultThresholds.json'
 import merge from 'lodash.merge'
 import { Preset } from '@/types/types'
 
-const props = withDefaults(defineProps<{
-  paneId: string
-  label?: string
-  thresholds: Threshold[]
-  type?: string
-}>(), {
-  label: undefined,
-  type: 'thresholds'
-})
+const props = withDefaults(
+  defineProps<{
+    paneId: string
+    label?: string
+    thresholds: Threshold[]
+    type?: string
+  }>(),
+  {
+    label: undefined,
+    type: 'thresholds'
+  }
+)
 
 const store = useStore()
 const instance = getCurrentInstance()
@@ -204,11 +214,15 @@ const selectedThreshold = computed(() =>
   store.getters[props.paneId + '/getThreshold'](selectedThresholdId.value)
 )
 
-const showThresholdsAsTable = computed(() => store.state.settings.showThresholdsAsTable)
+const showThresholdsAsTable = computed(
+  () => store.state.settings.showThresholdsAsTable
+)
 
 const useAudio = computed(() => store.state.settings.useAudio)
 
-const capToLastThreshold = computed(() => props.thresholds[props.thresholds.length - 1].max)
+const capToLastThreshold = computed(
+  () => props.thresholds[props.thresholds.length - 1].max
+)
 
 function formatAmountHelper(amount: number, precision?: number) {
   return formatAmount(amount, precision)
@@ -275,7 +289,11 @@ onBeforeUnmount(() => {
 })
 
 function startDrag(event: MouseEvent | TouchEvent) {
-  if (!(event.target as HTMLElement).classList.contains('thresholds-slider__handler')) {
+  if (
+    !(event.target as HTMLElement).classList.contains(
+      'thresholds-slider__handler'
+    )
+  ) {
     return
   }
 
@@ -335,8 +353,7 @@ function doDrag(event: MouseEvent | TouchEvent) {
   )
   let amount =
     Math.exp(
-      ((minLeft + (left / _width!) * (_width! - minLeft)) /
-        _width!) *
+      ((minLeft + (left / _width!) * (_width! - minLeft)) / _width!) *
         Math.log(_maximum! + 1)
     ) - 1
 
@@ -465,7 +482,9 @@ function openThresholdAudio(thresholdId: string) {
 function flipSwatches(side: string) {
   const propName = `${side}Color`
 
-  const colors = props.thresholds.map((threshold: any) => threshold[propName]).reverse()
+  const colors = props.thresholds
+    .map((threshold: any) => threshold[propName])
+    .reverse()
 
   for (let i = 0; i < props.thresholds.length; i++) {
     store.commit(props.paneId + '/SET_THRESHOLD_COLOR', {

@@ -133,7 +133,8 @@ export default class MeasurementEventHandler {
     const x = [this.a.x, this.b.x].sort((a, b) => a - b)
     const y = [this.a.y, this.b.y].sort((a, b) => a - b)
     const prices = [this.a.price, this.b.price].sort((a, b) => a - b)
-    const percent = ((this.b.price - this.a.price) / Math.abs(this.a.price)) * 100;
+    const percent =
+      ((this.b.price - this.a.price) / Math.abs(this.a.price)) * 100
     return {
       position: {
         top: y[0],

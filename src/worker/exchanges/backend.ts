@@ -225,13 +225,17 @@ export default class Backend extends Exchange {
     if (!symbol) return false
 
     // Check if we're subscribed to this symbol
-    if (!this.subscriptions.has(symbol) && api._connected.indexOf(symbol) === -1) {
+    if (
+      !this.subscriptions.has(symbol) &&
+      api._connected.indexOf(symbol) === -1
+    ) {
       return false
     }
 
-    const timestamp = typeof data.timestamp === 'string'
-      ? new Date(data.timestamp).getTime()
-      : data.timestamp
+    const timestamp =
+      typeof data.timestamp === 'string'
+        ? new Date(data.timestamp).getTime()
+        : data.timestamp
 
     // Convert bar data to trades
     // The backend provides aggregated data, so we emit synthetic trades

@@ -38,7 +38,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, defineAsyncComponent, markRaw } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  defineAsyncComponent,
+  markRaw
+} from 'vue'
 import { useStore } from 'vuex'
 
 import { GridLayout, GridItem } from 'vue3-grid-layout'
@@ -48,14 +56,30 @@ import { GridItem as GridItemType } from '@/utils/grid'
 
 // Async component imports - need to be registered for dynamic component
 const paneComponents = {
-  chart: markRaw(defineAsyncComponent(() => import('@/components/chart/Chart.vue'))),
-  trades: markRaw(defineAsyncComponent(() => import('@/components/trades/Trades.vue'))),
-  stats: markRaw(defineAsyncComponent(() => import('@/components/stats/Stats.vue'))),
-  counters: markRaw(defineAsyncComponent(() => import('@/components/counters/Counters.vue'))),
-  prices: markRaw(defineAsyncComponent(() => import('@/components/prices/Prices.vue'))),
-  website: markRaw(defineAsyncComponent(() => import('@/components/website/Website.vue'))),
-  'trades-lite': markRaw(defineAsyncComponent(() => import('@/components/trades/TradesLite.vue'))),
-  alerts: markRaw(defineAsyncComponent(() => import('@/components/alerts/Alerts.vue')))
+  chart: markRaw(
+    defineAsyncComponent(() => import('@/components/chart/Chart.vue'))
+  ),
+  trades: markRaw(
+    defineAsyncComponent(() => import('@/components/trades/Trades.vue'))
+  ),
+  stats: markRaw(
+    defineAsyncComponent(() => import('@/components/stats/Stats.vue'))
+  ),
+  counters: markRaw(
+    defineAsyncComponent(() => import('@/components/counters/Counters.vue'))
+  ),
+  prices: markRaw(
+    defineAsyncComponent(() => import('@/components/prices/Prices.vue'))
+  ),
+  website: markRaw(
+    defineAsyncComponent(() => import('@/components/website/Website.vue'))
+  ),
+  'trades-lite': markRaw(
+    defineAsyncComponent(() => import('@/components/trades/TradesLite.vue'))
+  ),
+  alerts: markRaw(
+    defineAsyncComponent(() => import('@/components/alerts/Alerts.vue'))
+  )
 }
 
 const store = useStore()
@@ -90,7 +114,8 @@ function resizeMaximizedPane() {
       '-maximized'
     )[0] as HTMLElement
   } else {
-    maximizedItem = document.getElementById(_maximizedPaneId)?.parentElement || null
+    maximizedItem =
+      document.getElementById(_maximizedPaneId)?.parentElement || null
   }
 
   nextTick(() => {
@@ -131,7 +156,13 @@ function resizePane(id: string, height: number, width: number) {
   }
 }
 
-function onItemResized(id: string, h: number, w: number, hPx: number, wPx: number) {
+function onItemResized(
+  id: string,
+  h: number,
+  w: number,
+  hPx: number,
+  wPx: number
+) {
   resizePane(id, +hPx, +wPx)
 }
 
@@ -144,7 +175,13 @@ function onLayoutUpdated(gridItems: GridItemType[]) {
   store.commit('panes/UPDATE_LAYOUT', gridItems)
 }
 
-function onContainerResized(id: string, h: number, w: number, hPx: number, wPx: number) {
+function onContainerResized(
+  id: string,
+  h: number,
+  w: number,
+  hPx: number,
+  wPx: number
+) {
   resizePane(id, +hPx, +wPx)
 }
 
@@ -159,10 +196,7 @@ function updateRowHeight(event?: Event) {
   }
 
   if (event) {
-    _resizeTimeout = window.setTimeout(
-      () => updateRowHeight(),
-      200
-    )
+    _resizeTimeout = window.setTimeout(() => updateRowHeight(), 200)
   } else {
     _resizeTimeout = undefined
 

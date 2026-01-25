@@ -144,18 +144,21 @@ import { downloadAnything, getSiblings, slugify } from '@/utils/helpers'
 import dialogService from '@/services/dialogService'
 import { INFRAME } from '@/utils/constants'
 
-const props = withDefaults(defineProps<{
-  paneId: string
-  settings?: (() => Promise<any>) | null
-  showSearch?: boolean
-  showName?: boolean
-  split?: boolean
-}>(), {
-  settings: null,
-  showSearch: true,
-  showName: true,
-  split: true
-})
+const props = withDefaults(
+  defineProps<{
+    paneId: string
+    settings?: (() => Promise<any>) | null
+    showSearch?: boolean
+    showName?: boolean
+    split?: boolean
+  }>(),
+  {
+    settings: null,
+    showSearch: true,
+    showName: true,
+    split: true
+  }
+)
 
 const emit = defineEmits<{
   zoom: [value: number]

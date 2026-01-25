@@ -57,7 +57,12 @@ import Slider from '@/components/framework/picker/Slider.vue'
 
 const props = defineProps<{
   paneId: string
-  market: { identifier: string; multiplier: number; exchange?: string; pair?: string }
+  market: {
+    identifier: string
+    multiplier: number
+    exchange?: string
+    pair?: string
+  }
 }>()
 
 const hasMultiplier = computed(() => props.market.multiplier !== 1)

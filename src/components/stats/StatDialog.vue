@@ -162,10 +162,14 @@ const { close } = useDialog()
 
 const availableTypes = { line: 'Line', area: 'Area', histogram: 'Histogram' }
 
-const bucket = computed(() => store.state[props.paneId]?.buckets?.[props.bucketId])
+const bucket = computed(
+  () => store.state[props.paneId]?.buckets?.[props.bucketId]
+)
 
 const color = computed(() => bucket.value?.color)
-const conditionnalColor = computed(() => bucket.value?.conditionnalColor ?? false)
+const conditionnalColor = computed(
+  () => bucket.value?.conditionnalColor ?? false
+)
 const enabled = computed(() => bucket.value?.enabled)
 const name = computed(() => bucket.value?.name)
 const type = computed(() => bucket.value?.type)

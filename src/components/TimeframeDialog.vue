@@ -66,7 +66,7 @@ const valid = computed(() => {
 
 watch(
   () => store.state.app.showSearch,
-  (value) => {
+  value => {
     if (!value) {
       close(false)
     }

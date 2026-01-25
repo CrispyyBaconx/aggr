@@ -15,7 +15,12 @@
         class="form-control w-100"
         placeholder="ex: https://cryptopanic.com/widgets/news/?bg_color=FFFFFF&amp;font_family=sans&amp;header_bg_color=30343B&amp;header_text_color=FFFFFF&amp;link_color=0091C2&amp;news_feed=trending&amp;text_color=333333&amp;title=Latest%20News"
         :value="url"
-        @change="$store.dispatch(paneId + '/setUrl', ($event.target as HTMLInputElement).value)"
+        @change="
+          $store.dispatch(
+            paneId + '/setUrl',
+            ($event.target as HTMLInputElement).value
+          )
+        "
       />
       <p class="text-muted mt4" v-if="originalUrl">
         Currently set to

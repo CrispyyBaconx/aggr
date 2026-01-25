@@ -24,11 +24,7 @@
         <span class="mr4">Pane</span>
         <i class="icon-plus mlauto"></i>
       </button>
-      <dropdown
-        ref="panesDropdownRef"
-        @mousedown.stop
-        @touchstart.stop
-      >
+      <dropdown ref="panesDropdownRef" @mousedown.stop @touchstart.stop>
         <button
           class="dropdown-item dropdown-item--space-between"
           @click="addPane('chart')"
@@ -131,7 +127,9 @@
           :step="0.01"
           :label="true"
           :model-value="audioVolume"
-          @update:model-value="store.dispatch('settings/setAudioVolume', $event)"
+          @update:model-value="
+            store.dispatch('settings/setAudioVolume', $event)
+          "
           @reset="store.dispatch('settings/setAudioVolume', 1)"
           log
         />
@@ -195,10 +193,7 @@ const isFullscreen = ref(false)
 const open = ref(false)
 
 onMounted(() => {
-  document.addEventListener(
-    'webkitfullscreenchange',
-    handleFullScreenChange
-  )
+  document.addEventListener('webkitfullscreenchange', handleFullScreenChange)
   document.addEventListener('fullscreenchange', handleFullScreenChange)
 })
 
@@ -284,10 +279,7 @@ async function toggleFullscreen() {
 }
 
 function handleFullScreenChange() {
-  if (
-    document.fullscreenElement ||
-    (document as any).webkitFullscreenElement
-  ) {
+  if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
     isFullscreen.value = true
   } else {
     isFullscreen.value = false

@@ -86,7 +86,10 @@ class HistoricalService extends EventEmitter {
 
     const params = new URLSearchParams({
       symbol: symbol.toUpperCase(),
-      exchange: exchange.toLowerCase().replace('_futures', '').replace('_spot', ''),
+      exchange: exchange
+        .toLowerCase()
+        .replace('_futures', '')
+        .replace('_spot', ''),
       market_type: marketType,
       resolution,
       from: Math.floor(from / 1000).toString(), // Convert ms to seconds
@@ -177,7 +180,10 @@ class HistoricalService extends EventEmitter {
 
         return bars
       } catch (err) {
-        console.warn(`[historicalService] Failed to fetch ${market} from backend:`, err)
+        console.warn(
+          `[historicalService] Failed to fetch ${market} from backend:`,
+          err
+        )
         return []
       }
     })
@@ -224,10 +230,18 @@ class HistoricalService extends EventEmitter {
         return this.promisesOfData[cacheKey]
       }
 
-      this.promisesOfData[cacheKey] = this.fetchFromBackend(from, to, timeframe, markets)
+      this.promisesOfData[cacheKey] = this.fetchFromBackend(
+        from,
+        to,
+        timeframe,
+        markets
+      )
         .catch(err => {
           // Fallback to legacy API on backend failure
-          console.warn('[historicalService] Backend fetch failed, trying legacy API:', err)
+          console.warn(
+            '[historicalService] Backend fetch failed, trying legacy API:',
+            err
+          )
           return this.fetchLegacy(from, to, timeframe, markets)
         })
         .then(data => {

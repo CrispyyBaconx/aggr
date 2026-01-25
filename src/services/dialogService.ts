@@ -39,29 +39,30 @@ class DialogService {
     dialogId?: string
   ): MountedDialog {
     const container = document.createElement('div')
-    
+
     let output: any = undefined
-    
+
     // Create a wrapper component that handles close
     const WrappedComponent = {
       setup() {
-        return () => h(component, {
-          ...props,
-          dialogId,
-          onClose: (result: any) => {
-            output = result
-            cleanup()
-          },
-          'onUpdate:output': (val: any) => {
-            output = val
-          }
-        })
+        return () =>
+          h(component, {
+            ...props,
+            dialogId,
+            onClose: (result: any) => {
+              output = result
+              cleanup()
+            },
+            'onUpdate:output': (val: any) => {
+              output = val
+            }
+          })
       }
     }
 
     const app = createApp(WrappedComponent)
     app.use(store)
-    
+
     // Register global plugins
     app.use(VueTippy, {
       defaultProps: {
@@ -74,16 +75,16 @@ class DialogService {
         distance: 24
       }
     })
-    
+
     // Register global components
     app.component('dropdown', DropdownComponent)
     app.component('editable', Editable)
     app.component('presets', Presets)
-    
+
     // Register global directives
     app.directive('autofocus', autofocus)
     app.directive('draggable-market', draggableMarket)
-    
+
     const instance = app.mount(container)
 
     const cleanup = () => {
@@ -111,21 +112,37 @@ class DialogService {
       app,
       el: container,
       close: cleanup,
-      get output() { return output }
+      get output() {
+        return output
+      }
     }
 
     return result
   }
 
-  async openAsPromise(component: Component, props = {}, dialogId?: string): Promise<any> {
+  async openAsPromise(
+    component: Component,
+    props = {},
+    dialogId?: string
+  ): Promise<any> {
     return new Promise(resolve => {
       const dialog = this.createComponent(component, props, resolve, dialogId)
       this.mountDialog(dialog, dialogId)
     })
   }
 
-  open(component: Component, props = {}, dialogId?: string, onClose?: () => void): MountedDialog {
-    const dialog = this.createComponent(component, props, onClose || null, dialogId)
+  open(
+    component: Component,
+    props = {},
+    dialogId?: string,
+    onClose?: () => void
+  ): MountedDialog {
+    const dialog = this.createComponent(
+      component,
+      props,
+      onClose || null,
+      dialogId
+    )
     this.mountDialog(dialog, dialogId)
     return dialog
   }
@@ -165,7 +182,9 @@ class DialogService {
         this.pickerInstance.label = label
       }
     } else {
-      const component = (await import('@/components/framework/picker/ColorPickerDialog.vue')).default
+      const component = (
+        await import('@/components/framework/picker/ColorPickerDialog.vue')
+      ).default
       const dialog = this.open(
         component,
         {

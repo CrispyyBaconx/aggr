@@ -409,7 +409,7 @@ import workspacesService from '@/services/workspacesService'
 export default {
   components: {
     Btn,
-    // eslint-disable-next-line vue/no-reserved-component-names
+
     Dialog,
     Exchange,
     AudioSettings,

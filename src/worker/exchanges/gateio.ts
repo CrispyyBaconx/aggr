@@ -125,49 +125,45 @@ export default class GATEIO extends Exchange {
       return
     }
 
-    if (
-      json.event &&
-      json.event === 'update' &&
-      json.result
-    ) {
+    if (json.event && json.event === 'update' && json.result) {
       if (json.result.length && json.channel === 'futures.trades') {
-        const result = json.result.reduce((acc, trade) => {
-          if (trade.is_internal) {
-            acc.liquidations.push(this.formatLiquidation(trade))
-          } else {
-            acc.trades.push(this.formatFuturesTrade(trade))
+        const result = json.result.reduce(
+          (acc, trade) => {
+            if (trade.is_internal) {
+              acc.liquidations.push(this.formatLiquidation(trade))
+            } else {
+              acc.trades.push(this.formatFuturesTrade(trade))
+            }
+            return acc
+          },
+          {
+            trades: [],
+            liquidations: []
           }
-          return acc
-        }, {
-          trades: [],
-          liquidations: []
-        })
+        )
 
         if (result.trades.length) {
-          return this.emitTrades(
-            api.id,
-            result.trades
-          )
+          return this.emitTrades(api.id, result.trades)
         }
 
         if (result.liquidations.length) {
-          return this.emitLiquidations(
-            api.id,
-            result.liquidations
-          )
+          return this.emitLiquidations(api.id, result.liquidations)
         }
       }
       if (json.channel === 'spot.trades') {
-        return this.emitTrades(
-          api.id,
-          [this.formatSpotTrade(json.result)]
-        )
+        return this.emitTrades(api.id, [this.formatSpotTrade(json.result)])
       }
     }
   }
 
   onApiCreated(api) {
-    this.startKeepAlive(api, /fx-ws/.test(api.url) ? { channel: 'futures.ping' } : { channel: 'spot.ping' }, 18000)
+    this.startKeepAlive(
+      api,
+      /fx-ws/.test(api.url)
+        ? { channel: 'futures.ping' }
+        : { channel: 'spot.ping' },
+      18000
+    )
   }
 
   onApiRemoved(api) {

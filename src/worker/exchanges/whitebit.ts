@@ -4,9 +4,7 @@ export default class WHITEBIT extends Exchange {
   id = 'WHITEBIT'
 
   protected endpoints = {
-    PRODUCTS: [
-        'https://whitebit.com/api/v4/public/markets'
-    ]
+    PRODUCTS: ['https://whitebit.com/api/v4/public/markets']
   }
 
   async getUrl() {
@@ -14,9 +12,9 @@ export default class WHITEBIT extends Exchange {
   }
 
   formatProducts(response) {
-    const products = [...response.map(p => p.name)];
-    const productsUniqueSet = [...new Set(products)];
-    return productsUniqueSet;
+    const products = [...response.map(p => p.name)]
+    const productsUniqueSet = [...new Set(products)]
+    return productsUniqueSet
   }
 
   /**
@@ -52,9 +50,9 @@ export default class WHITEBIT extends Exchange {
 
     api.send(
       JSON.stringify({
-         id: 9,
-         method: 'trades_unsubscribe',
-         params: [pair]
+        id: 9,
+        method: 'trades_unsubscribe',
+        params: [pair]
       })
     )
 
@@ -70,14 +68,14 @@ export default class WHITEBIT extends Exchange {
       size: parseFloat(trade.amount),
       side: trade.type
     }
-    return data;
+    return data
   }
 
   onMessage(event, api) {
     const json = JSON.parse(event.data)
 
     if (!json || json.method !== 'trades_update') {
-      return;
+      return
     }
 
     const market = json.params[0]

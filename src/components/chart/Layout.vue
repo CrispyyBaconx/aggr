@@ -57,7 +57,9 @@ const props = defineProps<{
 
 const store = useStore()
 
-const activePriceScales = ref<{ [id: string]: PriceScaleSettings & { indicators: string[] } }>({})
+const activePriceScales = ref<{
+  [id: string]: PriceScaleSettings & { indicators: string[] }
+}>({})
 const unsyncableMoveId = ref<string | null>(null)
 
 let _originalActivePriceScales: { [id: string]: PriceScaleSettings } = {}
@@ -95,7 +97,15 @@ function getActivePriceScales() {
   )
 }
 
-function updatePriceScaleScaleMargins(priceScaleId: string, event: { syncable: boolean; id: string; side: string; value: { top: number; bottom: number } }) {
+function updatePriceScaleScaleMargins(
+  priceScaleId: string,
+  event: {
+    syncable: boolean
+    id: string
+    side: string
+    value: { top: number; bottom: number }
+  }
+) {
   if (event.syncable && unsyncableMoveId.value !== event.id) {
     if (!syncMoveWithOthers(priceScaleId, event.side, event.value)) {
       unsyncableMoveId.value = event.id
@@ -110,7 +120,11 @@ function updatePriceScaleScaleMargins(priceScaleId: string, event: { syncable: b
   })
 }
 
-function syncMoveWithOthers(priceScaleId: string, side: string, scaleMargins: { top: number; bottom: number }): boolean {
+function syncMoveWithOthers(
+  priceScaleId: string,
+  side: string,
+  scaleMargins: { top: number; bottom: number }
+): boolean {
   const originalScaleMargins =
     activePriceScales.value[priceScaleId].scaleMargins
 

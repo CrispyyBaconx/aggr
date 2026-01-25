@@ -214,14 +214,18 @@ const periods: Record<number, string> = {
 const showPairs = computed(() => store.state[props.paneId].showPairs)
 const showVolume = computed(() => store.state[props.paneId].showVolume)
 const showPrice = computed(() => store.state[props.paneId].showPrice)
-const showVolumeDelta = computed(() => store.state[props.paneId].showVolumeDelta)
+const showVolumeDelta = computed(
+  () => store.state[props.paneId].showVolumeDelta
+)
 const period = computed(() => store.state[props.paneId].period)
 const showChange = computed(() => store.state[props.paneId].showChange)
 const animateSort = computed(() => store.state[props.paneId].animateSort)
 const sortType = computed(() => store.state[props.paneId].sortType)
 const sortOrder = computed(() => store.state[props.paneId].sortOrder)
 const shortSymbols = computed(() => store.state[props.paneId].shortSymbols)
-const volumeThreshold = computed(() => store.state[props.paneId].volumeThreshold)
+const volumeThreshold = computed(
+  () => store.state[props.paneId].volumeThreshold
+)
 const avgPeriods = computed(() => store.state[props.paneId].avgPeriods)
 
 function selectSortType(option: string) {

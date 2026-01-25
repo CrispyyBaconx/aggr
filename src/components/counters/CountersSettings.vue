@@ -12,7 +12,10 @@
             class="form-control"
             :checked="countersCount"
             @change="
-              $store.commit(paneId + '/TOGGLE_COUNT', ($event.target as HTMLInputElement).checked)
+              $store.commit(
+                paneId + '/TOGGLE_COUNT',
+                ($event.target as HTMLInputElement).checked
+              )
             "
           />
           <div on="count" off="volume"></div>
@@ -68,7 +71,9 @@ const countersCount = computed(() => store.state[props.paneId].count)
 
 const countersSteps = computed(() => store.state[props.paneId].steps)
 
-const liquidationsOnly = computed(() => store.state[props.paneId].liquidationsOnly)
+const liquidationsOnly = computed(
+  () => store.state[props.paneId].liquidationsOnly
+)
 
 const countersStepsStringified = computed(() => {
   const now = Date.now()

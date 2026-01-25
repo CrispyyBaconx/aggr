@@ -334,7 +334,9 @@ export default class ChartControl {
     if (components.contextMenu) {
       // Update existing context menu props
       for (const key in propsData) {
-        components.contextMenu.el.querySelector('[data-v-app]')?.__vue_app__?.unmount()
+        components.contextMenu.el
+          .querySelector('[data-v-app]')
+          ?.__vue_app__?.unmount()
       }
       // Recreate component with new props
       components.contextMenu.app.unmount()
@@ -609,7 +611,9 @@ export default class ChartControl {
 
       mountComponent(components.timeframeDropdown)
     } else {
-      if (components.timeframeDropdown.instance.modelValue === event.currentTarget) {
+      if (
+        components.timeframeDropdown.instance.modelValue === event.currentTarget
+      ) {
         components.timeframeDropdown.instance.modelValue = null
       } else {
         components.timeframeDropdown.instance.paneId = propsData.paneId

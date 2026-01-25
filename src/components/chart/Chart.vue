@@ -60,7 +60,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
+import {
+  ref,
+  reactive,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  getCurrentInstance
+} from 'vue'
 import { useStore } from 'vuex'
 import { usePane } from '@/composables/usePane'
 
@@ -119,7 +126,9 @@ const layouting = computed(() => {
 const overlayLeft = computed(() => axis.left)
 const overlayTop = computed(() => axis.top)
 
-const favoriteTimeframes = computed(() => store.state.settings.favoriteTimeframes)
+const favoriteTimeframes = computed(
+  () => store.state.settings.favoriteTimeframes
+)
 const timeframe = computed(() => store.state[props.paneId].timeframe)
 
 const isKnownTimeframe = computed(() => {
@@ -130,7 +139,7 @@ const showIndicators = computed(() => store.state[props.paneId].showIndicators)
 
 const showIndicatorsValue = computed({
   get: () => store.state[props.paneId].showIndicators,
-  set: (value) => store.commit(`${props.paneId}/TOGGLE_INDICATORS`, value)
+  set: value => store.commit(`${props.paneId}/TOGGLE_INDICATORS`, value)
 })
 
 const timeframeForHuman = computed(() => {

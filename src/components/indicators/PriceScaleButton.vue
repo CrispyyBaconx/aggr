@@ -36,16 +36,20 @@ function updateLabel() {
     priceScaleId === props.indicatorId ? name : priceScaleId
 }
 
-async function togglePriceScaleDropdown(indicatorId: string, anchor: HTMLElement) {
+async function togglePriceScaleDropdown(
+  indicatorId: string,
+  anchor: HTMLElement
+) {
   updateLabel()
-  
+
   if (!priceScaleDropdownInstance) {
-    const module = await import('@/components/indicators/PriceScaleDropdown.vue')
+    const module =
+      await import('@/components/indicators/PriceScaleDropdown.vue')
     const PriceScaleDropdown = module.default
-    
+
     const container = document.createElement('div')
     document.getElementById('app')?.appendChild(container)
-    
+
     const vnode = h(PriceScaleDropdown, {
       paneId: props.paneId,
       indicatorId: indicatorId,
@@ -64,21 +68,25 @@ async function togglePriceScaleDropdown(indicatorId: string, anchor: HTMLElement
         updateLabel()
       }
     })
-    
+
     render(vnode, container)
     priceScaleDropdownInstance = { vnode, container, value: anchor }
   } else if (priceScaleDropdownInstance.value) {
     // Close dropdown
-    const newVnode = h((await import('@/components/indicators/PriceScaleDropdown.vue')).default, {
-      paneId: props.paneId,
-      indicatorId: indicatorId,
-      modelValue: null
-    })
+    const newVnode = h(
+      (await import('@/components/indicators/PriceScaleDropdown.vue')).default,
+      {
+        paneId: props.paneId,
+        indicatorId: indicatorId,
+        modelValue: null
+      }
+    )
     render(newVnode, priceScaleDropdownInstance.container)
     priceScaleDropdownInstance.value = null
   } else {
     // Open dropdown with new anchor
-    const module = await import('@/components/indicators/PriceScaleDropdown.vue')
+    const module =
+      await import('@/components/indicators/PriceScaleDropdown.vue')
     const newVnode = h(module.default, {
       paneId: props.paneId,
       indicatorId: indicatorId,

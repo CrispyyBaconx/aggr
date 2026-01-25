@@ -524,11 +524,16 @@ export async function getBackendSupportedMarkets(): Promise<string[]> {
       })
     )
 
-    console.log(`[productsService] Fetched ${products.length} markets from backend`)
+    console.log(
+      `[productsService] Fetched ${products.length} markets from backend`
+    )
 
     return products
   } catch (error) {
-    console.warn('[productsService] Failed to fetch backend markets:', error.message)
+    console.warn(
+      '[productsService] Failed to fetch backend markets:',
+      error.message
+    )
     return []
   }
 }
@@ -606,7 +611,10 @@ export async function getApiSupportedMarkets() {
         `[productsService] API unavailable at ${getApiUrl('products')} - using fallback products`
       )
     } else {
-      console.warn('[productsService] Failed to fetch API products:', error.message)
+      console.warn(
+        '[productsService] Failed to fetch API products:',
+        error.message
+      )
     }
   }
 

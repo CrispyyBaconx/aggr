@@ -104,7 +104,9 @@ const emit = defineEmits<{
 
 const store = useStore()
 
-const isLegacy = computed(() => store.state.panes.panes[props.paneId].type === 'trades')
+const isLegacy = computed(
+  () => store.state.panes.panes[props.paneId].type === 'trades'
+)
 
 function formatAmountHelper(value: number) {
   return formatAmount(value)

@@ -150,7 +150,8 @@ function setupReloadTimer() {
   }
 
   const now = Date.now()
-  let delay = Math.ceil(now / (interval as number)) * (interval as number) - now - 20
+  let delay =
+    Math.ceil(now / (interval as number)) * (interval as number) - now - 20
 
   if (delay < 1000) {
     delay += interval as number
@@ -167,7 +168,7 @@ function setupReloadTimer() {
 
 async function reload(focus?: boolean) {
   if (!iframe.value) return
-  
+
   iframe.value.src += ''
 
   if (focus) {

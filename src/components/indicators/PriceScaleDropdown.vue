@@ -1,5 +1,8 @@
 <template>
-  <dropdown :modelValue="modelValue" @update:modelValue="$emit('update:modelValue', $event)">
+  <dropdown
+    :modelValue="modelValue"
+    @update:modelValue="$emit('update:modelValue', $event)"
+  >
     <div class="dropdown-divider" data-label="Scales"></div>
 
     <button

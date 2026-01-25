@@ -403,7 +403,8 @@ export default class TradesFeed {
     this.maxLevel = tradesThresholds.length - 1
 
     this.minimumTradeAmount = tradesThresholds[0].amount
-    this.significantTradeAmount = tradesThresholds[1]?.amount ?? tradesThresholds[0].amount
+    this.significantTradeAmount =
+      tradesThresholds[1]?.amount ?? tradesThresholds[0].amount
     if (tradesThresholds[tradesThresholds.length - 1].max) {
       this.maximumTradeAmount =
         tradesThresholds[tradesThresholds.length - 1].amount
@@ -412,7 +413,8 @@ export default class TradesFeed {
     }
 
     this.minimumLiquidationAmount = liquidationsThresholds[0].amount
-    this.significantLiquidationAmount = liquidationsThresholds[1]?.amount ?? liquidationsThresholds[0].amount
+    this.significantLiquidationAmount =
+      liquidationsThresholds[1]?.amount ?? liquidationsThresholds[0].amount
     if (liquidationsThresholds[liquidationsThresholds.length - 1].max) {
       this.maximumLiquidationAmount =
         liquidationsThresholds[liquidationsThresholds.length - 1].amount
@@ -483,11 +485,7 @@ export default class TradesFeed {
 
     const audioThreshold = paneState.audioThreshold
 
-    if (
-      !settings.useAudio ||
-      paneState.muted ||
-      paneState.audioVolume === 0
-    ) {
+    if (!settings.useAudio || paneState.muted || paneState.audioVolume === 0) {
       this.audioThreshold = Infinity
       return
     }
@@ -575,26 +573,23 @@ export default class TradesFeed {
       return
     }
 
-    this.paneMarkets = pane.markets.reduce(
-      (output, marketKey) => {
-        const [exchange] = marketKey.split(':')
+    this.paneMarkets = pane.markets.reduce((output, marketKey) => {
+      const [exchange] = marketKey.split(':')
 
-        if (!activeExchanges[exchange]) {
-          output[marketKey] = false
-          return output
-        }
-
-        const multiplier = paneState?.multipliers?.[marketKey]
-
-        if (typeof multiplier !== 'undefined') {
-          this.marketsMultipliers[marketKey] = multiplier
-        }
-
-        output[marketKey] = true
+      if (!activeExchanges[exchange]) {
+        output[marketKey] = false
         return output
-      },
-      {}
-    )
+      }
+
+      const multiplier = paneState?.multipliers?.[marketKey]
+
+      if (typeof multiplier !== 'undefined') {
+        this.marketsMultipliers[marketKey] = multiplier
+      }
+
+      output[marketKey] = true
+      return output
+    }, {})
   }
 
   setupTimeUpdateInterval() {

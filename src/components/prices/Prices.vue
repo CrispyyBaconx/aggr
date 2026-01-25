@@ -104,7 +104,8 @@ const filteredMarkets = ref<WatchlistMarket[]>([])
 const VITE_APP_BASE_PATH = import.meta.env.VITE_APP_BASE_PATH
 
 // cache sort function
-let sortFunction: ((a: WatchlistMarket, b: WatchlistMarket) => number) | null = null
+let sortFunction: ((a: WatchlistMarket, b: WatchlistMarket) => number) | null =
+  null
 
 // markets storage
 let markets: WatchlistMarket[] = []
@@ -127,14 +128,18 @@ const showPairs = computed(() => store.state[props.paneId].showPairs)
 const showChange = computed(() => store.state[props.paneId].showChange)
 const showPrice = computed(() => store.state[props.paneId].showPrice)
 const showVolume = computed(() => store.state[props.paneId].showVolume)
-const showVolumeDelta = computed(() => store.state[props.paneId].showVolumeDelta)
+const showVolumeDelta = computed(
+  () => store.state[props.paneId].showVolumeDelta
+)
 const animateSort = computed(() => store.state[props.paneId].animateSort)
 const sortType = computed(() => store.state[props.paneId].sortType)
 const sortOrder = computed(() => store.state[props.paneId].sortOrder)
 const period = computed(() => store.state[props.paneId].period)
 const shortSymbols = computed(() => store.state[props.paneId].shortSymbols)
 const avgPeriods = computed(() => store.state[props.paneId].avgPeriods)
-const volumeThreshold = computed(() => store.state[props.paneId].volumeThreshold)
+const volumeThreshold = computed(
+  () => store.state[props.paneId].volumeThreshold
+)
 
 const transitionGroupName = computed(() => {
   if (animateSort.value) {
@@ -144,37 +149,44 @@ const transitionGroupName = computed(() => {
   }
 })
 
-watch(() => pane.value.markets, (currentMarket, previousMarkets) => {
-  for (const id of previousMarkets) {
-    if (currentMarket.indexOf(id) === -1) {
-      removeMarketFromList(id)
+watch(
+  () => pane.value.markets,
+  (currentMarket, previousMarkets) => {
+    for (const id of previousMarkets) {
+      if (currentMarket.indexOf(id) === -1) {
+        removeMarketFromList(id)
+      }
     }
-  }
 
-  for (const id of currentMarket) {
-    if (previousMarkets.indexOf(id) === -1) {
-      const [exchange, pair] = parseMarket(id)
+    for (const id of currentMarket) {
+      if (previousMarkets.indexOf(id) === -1) {
+        const [exchange, pair] = parseMarket(id)
 
-      addMarketToList({
-        id,
-        exchange,
-        pair
-      })
+        addMarketToList({
+          id,
+          exchange,
+          pair
+        })
+      }
     }
+
+    showCryptosLogos.value = hasMultipleLocals()
   }
+)
 
-  showCryptosLogos.value = hasMultipleLocals()
-})
+watch(
+  period,
+  newPeriod => {
+    if (newPeriod > 0) {
+      periodReset()
+    } else {
+      clearPeriodReset()
+    }
+  },
+  { immediate: true }
+)
 
-watch(period, (newPeriod) => {
-  if (newPeriod > 0) {
-    periodReset()
-  } else {
-    clearPeriodReset()
-  }
-}, { immediate: true })
-
-watch(volumeThreshold, (value) => {
+watch(volumeThreshold, value => {
   toggleSort(true)
 
   if (!value) {
@@ -184,7 +196,7 @@ watch(volumeThreshold, (value) => {
   }
 })
 
-watch(shortSymbols, (value) => {
+watch(shortSymbols, value => {
   for (const market of markets) {
     if (value) {
       const product = getMarketProduct(market.exchange, market.pair)

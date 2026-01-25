@@ -16,17 +16,20 @@
 import { ref, computed, watch } from 'vue'
 import Loader from '@/components/framework/Loader.vue'
 
-const props = withDefaults(defineProps<{
-  loading?: boolean
-  type?: string
-  href?: string | null
-  target?: string | null
-}>(), {
-  loading: false,
-  type: 'button',
-  href: null,
-  target: null
-})
+const props = withDefaults(
+  defineProps<{
+    loading?: boolean
+    type?: string
+    href?: string | null
+    target?: string | null
+  }>(),
+  {
+    loading: false,
+    type: 'button',
+    href: null,
+    target: null
+  }
+)
 
 const emit = defineEmits<{
   click: [event: MouseEvent]
@@ -41,9 +44,12 @@ const tag = computed(() => {
   return 'button'
 })
 
-watch(() => props.loading, (value) => {
-  isLoading.value = value
-})
+watch(
+  () => props.loading,
+  value => {
+    isLoading.value = value
+  }
+)
 
 function onClick(event: MouseEvent) {
   if (!isLoading.value) {

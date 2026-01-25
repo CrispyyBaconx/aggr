@@ -40,7 +40,9 @@ const showMore = ref(false)
 
 const exchangesReady = computed(() => store.state.app.isExchangesReady)
 
-const paneMarkets = computed(() => store.state.panes.panes[props.paneId].markets)
+const paneMarkets = computed(
+  () => store.state.panes.panes[props.paneId].markets
+)
 
 const paneMarketStringified = computed(() => paneMarkets.value.join('\n'))
 
@@ -64,13 +66,19 @@ const pairs = computed(() => {
   }, [])
 })
 
-const tradesThresholds = computed<Threshold[]>(() => store.state[props.paneId].thresholds)
+const tradesThresholds = computed<Threshold[]>(
+  () => store.state[props.paneId].thresholds
+)
 
-const liquidationsThresholds = computed<Threshold[]>(() => store.state[props.paneId].liquidations)
+const liquidationsThresholds = computed<Threshold[]>(
+  () => store.state[props.paneId].liquidations
+)
 
 const showTrades = computed(() => store.state[props.paneId].showTrades)
 
-const showLiquidations = computed(() => store.state[props.paneId].showLiquidations)
+const showLiquidations = computed(
+  () => store.state[props.paneId].showLiquidations
+)
 
 const filterRecap = computed(() => {
   const minimumTradeAmount = tradesThresholds.value[0].amount

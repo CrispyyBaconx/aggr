@@ -36,7 +36,12 @@ export function usePreview() {
   }
 
   function onLoad() {
-    if (!previewImageElement.value || !previewCtx || !previewCanvasElement.value) return
+    if (
+      !previewImageElement.value ||
+      !previewCtx ||
+      !previewCanvasElement.value
+    )
+      return
 
     const { width, height } = previewImageElement.value
     const pxRatio = window.devicePixelRatio || 1
@@ -60,7 +65,11 @@ export function usePreview() {
     previewImageElement.value = null
   }
 
-  async function showPreview(json: { id: string; preview?: Blob; imagePath?: string | null }) {
+  async function showPreview(json: {
+    id: string
+    preview?: Blob
+    imagePath?: string | null
+  }) {
     if (isTouchSupported()) {
       return
     }

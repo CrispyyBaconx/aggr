@@ -97,7 +97,9 @@ const preferedSizingCurrency = computed(() => {
   return store.state.settings?.preferQuoteCurrencySize ? 'quote' : 'base'
 })
 
-const disableAnimations = computed(() => store.state.settings?.disableAnimations)
+const disableAnimations = computed(
+  () => store.state.settings?.disableAnimations
+)
 
 watch(
   () => store.state.panes?.marketsListeners,
@@ -273,7 +275,12 @@ async function handleDrop(event: DragEvent) {
   }
 }
 
-function refreshMainMarkets(markets: Record<string, { local: string; listeners: number; exchange: string; pair: string }>) {
+function refreshMainMarkets(
+  markets: Record<
+    string,
+    { local: string; listeners: number; exchange: string; pair: string }
+  >
+) {
   const marketsByNormalizedPair: Record<string, number> = {}
   for (const id in markets) {
     const pair = markets[id].local

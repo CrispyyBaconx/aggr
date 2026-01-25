@@ -42,19 +42,22 @@ onMounted(() => {
   setValue(props.modelValue)
 })
 
-watch(() => props.modelValue, () => {
-  const input = instance?.proxy?.$el as HTMLElement
-  const value = input?.innerText
+watch(
+  () => props.modelValue,
+  () => {
+    const input = instance?.proxy?.$el as HTMLElement
+    const value = input?.innerText
 
-  if (
-    +props.modelValue! !== +value ||
-    (isNaN(+props.modelValue!) && value !== props.modelValue)
-  ) {
-    if (input) {
-      input.innerText = String(props.modelValue ?? '')
+    if (
+      +props.modelValue! !== +value ||
+      (isNaN(+props.modelValue!) && value !== props.modelValue)
+    ) {
+      if (input) {
+        input.innerText = String(props.modelValue ?? '')
+      }
     }
   }
-})
+)
 
 function setValue(value: string | number | undefined) {
   if (typeof value === 'number' && (value < 1e-6 || value > 1e6)) {
@@ -138,11 +141,10 @@ function onInput() {
 
 function onKeyDown(event: KeyboardEvent) {
   const el = instance?.proxy?.$el as HTMLInputElement
-  
+
   if (props.disabled || event.which === 13) {
     event.preventDefault()
     el?.blur()
-
     ;(event.target as HTMLElement).innerText =
       String(props.modelValue ?? '') || el?.innerText || ''
 
@@ -186,9 +188,12 @@ function increment(direction: number) {
   const precision = countDecimals(numberStr)
   const step = 1 / Math.pow(10, precision)
   const change = step * (direction * -1)
-  const newNumber = Math.max(min, Math.min(max, number + change)).toFixed(precision)
+  const newNumber = Math.max(min, Math.min(max, number + change)).toFixed(
+    precision
+  )
 
-  text = text.slice(0, boundaries.start) + newNumber + text.slice(boundaries.end)
+  text =
+    text.slice(0, boundaries.start) + newNumber + text.slice(boundaries.end)
 
   if (el) {
     el.innerText = text
@@ -197,7 +202,10 @@ function increment(direction: number) {
   setCursorPosition(pos)
 }
 
-function findNumberBoundaries(text: string, pos: number): { start: number; end: number } | null {
+function findNumberBoundaries(
+  text: string,
+  pos: number
+): { start: number; end: number } | null {
   let start = pos
   let end = pos
 

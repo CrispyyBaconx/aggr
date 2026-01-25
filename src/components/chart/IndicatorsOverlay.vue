@@ -130,10 +130,7 @@ function onClickIndicator({
         id
       })
     case 'resize':
-      return store.commit(
-        props.paneId + '/TOGGLE_LAYOUTING',
-        id
-      )
+      return store.commit(props.paneId + '/TOGGLE_LAYOUTING', id)
   }
 
   return editIndicator(id)

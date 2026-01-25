@@ -11,9 +11,13 @@ const props = defineProps<{
 
 const imageObjectUrl = ref<string | null>(null)
 
-watch(() => props.modelValue, () => {
-  loadBlob()
-}, { immediate: true })
+watch(
+  () => props.modelValue,
+  () => {
+    loadBlob()
+  },
+  { immediate: true }
+)
 
 onBeforeUnmount(() => {
   clearBlob()

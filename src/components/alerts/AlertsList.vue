@@ -158,15 +158,18 @@ import aggregatorService from '@/services/aggregatorService'
 import { sleep } from '@/utils/helpers'
 import { formatMarketPrice } from '@/services/productsService'
 
-const props = withDefaults(defineProps<{
-  query?: string
-  persistSections?: boolean
-  withOptions?: boolean
-}>(), {
-  query: '',
-  persistSections: false,
-  withOptions: false
-})
+const props = withDefaults(
+  defineProps<{
+    query?: string
+    persistSections?: boolean
+    withOptions?: boolean
+  }>(),
+  {
+    query: '',
+    persistSections: false,
+    withOptions: false
+  }
+)
 
 const store = useStore()
 

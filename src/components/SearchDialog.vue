@@ -383,11 +383,7 @@
         <i class="icon-cog"></i>
       </btn>
       <a href="javascript:void(0);" class="btn -text" @click="hide">Cancel</a>
-      <btn
-        class="-large -green ml8"
-        @click="submit"
-        :loading="isLoading"
-      >
+      <btn class="-large -green ml8" @click="submit" :loading="isLoading">
         {{ submitLabel }}
       </btn>
     </template>
@@ -601,7 +597,7 @@ export default {
     },
     filteredProducts() {
       // force recalculate computed when cacheTimestamp changes
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
       const id = this.cacheTimestamp
 
       const hasHistorical = this.searchTypes.historical
@@ -1254,9 +1250,7 @@ export default {
           continue
         }
 
-        const product = index.find(
-          product => product.id === market
-        )
+        const product = index.find(product => product.id === market)
         selectedProducts[market] = product
 
         if (id) {

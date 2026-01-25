@@ -109,11 +109,17 @@ import TransitionHeight from '@/components/framework/TransitionHeight.vue'
 
 const store = useStore()
 
-const animationsEnabled = computed(() => !store.state.settings.disableAnimations)
+const animationsEnabled = computed(
+  () => !store.state.settings.disableAnimations
+)
 const autoHideHeaders = computed(() => store.state.settings.autoHideHeaders)
 const autoHideNames = computed(() => store.state.settings.autoHideNames)
 const locked = computed(() => store.state.panes.locked)
-const normalizeWatermarks = computed(() => store.state.settings.normalizeWatermarks)
+const normalizeWatermarks = computed(
+  () => store.state.settings.normalizeWatermarks
+)
 const timezoneOffset = computed(() => store.state.settings.timezoneOffset)
-const showThresholdsAsTable = computed(() => store.state.settings.showThresholdsAsTable)
+const showThresholdsAsTable = computed(
+  () => store.state.settings.showThresholdsAsTable
+)
 </script>

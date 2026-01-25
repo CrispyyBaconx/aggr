@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { joinRgba, mix, splitColorCode } from '@/utils/colors'
 import { IndicatorFunction } from './chart.d'
 

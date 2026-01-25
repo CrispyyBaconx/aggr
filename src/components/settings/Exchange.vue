@@ -49,7 +49,7 @@ const name = computed(() => props.id.replace(/[\W_]+/g, ' '))
 
 const settings = computed(() => store.state.exchanges[props.id])
 
-const markets = computed(() => 
+const markets = computed(() =>
   (Object as any)
     .values(store.state.panes.marketsListeners)
     .filter((a: any) => a.listeners > 0 && a.exchange === props.id)

@@ -324,7 +324,6 @@ export function hslToRgb([h, s, l]: number[]) {
   if (s == 0) {
     r = g = b = l // achromatic
   } else {
-    // eslint-disable-next-line no-inner-declarations
     function hue2rgb(p, q, t) {
       if (t < 0) t += 1
       if (t > 1) t -= 1

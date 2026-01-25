@@ -146,8 +146,9 @@ class AudioService {
 
   bindContext() {
     // this.context = new AudioContext()
-    this.context = new ((window as any).AudioContext ||
-      (window as any).webkitAudioContext)()
+    this.context = new (
+      (window as any).AudioContext || (window as any).webkitAudioContext
+    )()
 
     let checkInProgress = false
 
@@ -530,7 +531,6 @@ class AudioService {
     })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async buildAudioFunction(
     litteral,
     side,

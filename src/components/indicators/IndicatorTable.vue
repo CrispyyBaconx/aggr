@@ -109,18 +109,21 @@ import { ref, computed } from 'vue'
 import { ago } from '@/utils/helpers'
 import { usePreview } from '@/composables/usePreview'
 
-const props = withDefaults(defineProps<{
-  indicators: any[]
-  query?: string
-  showDropdown?: boolean
-  showAuthor?: boolean
-  showEnabled?: boolean
-}>(), {
-  query: '',
-  showDropdown: false,
-  showAuthor: false,
-  showEnabled: false
-})
+const props = withDefaults(
+  defineProps<{
+    indicators: any[]
+    query?: string
+    showDropdown?: boolean
+    showAuthor?: boolean
+    showEnabled?: boolean
+  }>(),
+  {
+    query: '',
+    showDropdown: false,
+    showAuthor: false,
+    showEnabled: false
+  }
+)
 
 defineEmits<{
   selected: [indicator: any]
@@ -175,8 +178,7 @@ const filteredIndicators = computed(() => {
   return props.indicators
     .filter(
       a =>
-        queryFilter.value.test(a.description) ||
-        queryFilter.value.test(a.name)
+        queryFilter.value.test(a.description) || queryFilter.value.test(a.name)
     )
     .sort(sortFn)
 })

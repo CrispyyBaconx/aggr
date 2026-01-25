@@ -27,7 +27,13 @@ defineEmits<{
   (e: 'input', value: number): void
 }>()
 
-const min = computed(() => typeof props.definition?.min === 'number' ? props.definition.min : null)
-const max = computed(() => typeof props.definition?.max === 'number' ? props.definition.max : null)
-const step = computed(() => typeof props.definition?.step === 'number' ? props.definition.step : null)
+const min = computed(() =>
+  typeof props.definition?.min === 'number' ? props.definition.min : null
+)
+const max = computed(() =>
+  typeof props.definition?.max === 'number' ? props.definition.max : null
+)
+const step = computed(() =>
+  typeof props.definition?.step === 'number' ? props.definition.step : null
+)
 </script>

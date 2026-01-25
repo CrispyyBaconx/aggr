@@ -162,7 +162,7 @@ const actions = {
     )
     document.documentElement.style.setProperty(
       '--theme-base-o50',
-      joinRgba([...themeBase.slice(0, 3), 0.50])
+      joinRgba([...themeBase.slice(0, 3), 0.5])
     )
     document.documentElement.style.setProperty(
       '--theme-background-75',

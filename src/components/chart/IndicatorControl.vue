@@ -103,10 +103,7 @@ function onClick(event: MouseEvent) {
 
 function toggleVisibility() {
   nextTick(() => {
-    store.dispatch(
-      props.paneId + '/toggleSerieVisibility',
-      props.indicatorId
-    )
+    store.dispatch(props.paneId + '/toggleSerieVisibility', props.indicatorId)
   })
 }
 </script>

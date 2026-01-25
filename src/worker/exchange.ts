@@ -112,7 +112,7 @@ class Exchange extends EventEmitter {
   /**
    * Get exchange ws url
    */
-  /* eslint-disable @typescript-eslint/no-unused-vars */
+
   getUrl(pair: string): Promise<string> {
     throw new Error('Not implemented')
   }

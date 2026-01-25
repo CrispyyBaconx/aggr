@@ -555,12 +555,15 @@ export function getClosestValue(array, value) {
   })
 }
 
-export function createComponent(componentModule: Component, props: any = {}): { app: App; el: HTMLElement; instance: any } {
+export function createComponent(
+  componentModule: Component,
+  props: any = {}
+): { app: App; el: HTMLElement; instance: any } {
   const container = document.createElement('div')
-  
+
   const app = createApp(componentModule, props)
   app.use(store)
-  
+
   // Register global plugins, components and directives
   app.use(VueTippy, {
     defaultProps: {
@@ -575,13 +578,16 @@ export function createComponent(componentModule: Component, props: any = {}): { 
   app.component('presets', Presets)
   app.directive('autofocus', autofocus)
   app.directive('draggable-market', draggableMarket)
-  
+
   const instance = app.mount(container)
-  
+
   return { app, el: container, instance }
 }
 
-export function mountComponent(result: { app: App; el: HTMLElement }, container?: HTMLElement): void {
+export function mountComponent(
+  result: { app: App; el: HTMLElement },
+  container?: HTMLElement
+): void {
   if (!container) {
     container = document.getElementById('app') || document.body
   }

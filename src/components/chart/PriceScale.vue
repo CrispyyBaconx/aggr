@@ -67,7 +67,14 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  update: [payload: { id: string; side: string; value: { top: number; bottom: number }; syncable: boolean }]
+  update: [
+    payload: {
+      id: string
+      side: string
+      value: { top: number; bottom: number }
+      syncable: boolean
+    }
+  ]
 }>()
 
 const store = useStore()
@@ -92,7 +99,8 @@ const modes = {
 
 function getSize() {
   roundedTop.value = top.value = props.priceScale.scaleMargins.top * 100
-  roundedBottom.value = bottom.value = props.priceScale.scaleMargins.bottom * 100
+  roundedBottom.value = bottom.value =
+    props.priceScale.scaleMargins.bottom * 100
 }
 
 function handleResize(event: MouseEvent | TouchEvent, side: 'top' | 'bottom') {
@@ -244,17 +252,23 @@ function start(side: 'top' | 'bottom' | 'both', origin: number) {
 getSize()
 
 // Watch for external changes
-watch(() => props.priceScale.scaleMargins.top, () => {
-  if (!currentMoveId.value) {
-    getSize()
+watch(
+  () => props.priceScale.scaleMargins.top,
+  () => {
+    if (!currentMoveId.value) {
+      getSize()
+    }
   }
-})
+)
 
-watch(() => props.priceScale.scaleMargins.bottom, () => {
-  if (!currentMoveId.value) {
-    getSize()
+watch(
+  () => props.priceScale.scaleMargins.bottom,
+  () => {
+    if (!currentMoveId.value) {
+      getSize()
+    }
   }
-})
+)
 
 onBeforeUnmount(() => {
   release()

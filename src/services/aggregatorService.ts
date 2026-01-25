@@ -117,7 +117,10 @@ class AggregatorService extends EventEmitter {
     // Listen for backend connection status
     this.on('backendStatus', (status: { connected: boolean }) => {
       this.backendConnected = status.connected
-      console.log('[aggregatorService] Backend status:', status.connected ? 'connected' : 'disconnected')
+      console.log(
+        '[aggregatorService] Backend status:',
+        status.connected ? 'connected' : 'disconnected'
+      )
 
       if (!status.connected && this.useBackendPrimary) {
         store.dispatch('app/showNotice', {
@@ -146,7 +149,9 @@ class AggregatorService extends EventEmitter {
 
       // Don't show connection issue dialog for backend exchange
       if (event.exchangeId === 'BACKEND') {
-        console.warn('[aggregatorService] Backend connection failed, falling back to direct exchanges')
+        console.warn(
+          '[aggregatorService] Backend connection failed, falling back to direct exchanges'
+        )
         return
       }
 
@@ -283,16 +288,22 @@ class AggregatorService extends EventEmitter {
         }
       }
 
-      console.log(`[aggregatorService] Fetched ${products.length} products from backend`)
+      console.log(
+        `[aggregatorService] Fetched ${products.length} products from backend`
+      )
 
       // Store historical markets for chart backfill
-      store.commit('app/SET_HISTORICAL_MARKETS', 
+      store.commit(
+        'app/SET_HISTORICAL_MARKETS',
         data.tickers.map((t: any) => `BACKEND:${t.symbol?.toLowerCase()}`)
       )
 
       return { products }
     } catch (err) {
-      console.error('[aggregatorService] Failed to fetch backend products:', err)
+      console.error(
+        '[aggregatorService] Failed to fetch backend products:',
+        err
+      )
       return { products: [] }
     }
   }
@@ -394,9 +405,7 @@ class AggregatorService extends EventEmitter {
         continue
       }
 
-      const localPair = stripStablePair(
-        marketsListeners[market].local
-      )
+      const localPair = stripStablePair(marketsListeners[market].local)
 
       if (this.normalizeDecimalsQueue.markets.indexOf(localPair) === -1) {
         continue

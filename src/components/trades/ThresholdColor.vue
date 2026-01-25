@@ -24,8 +24,8 @@ const props = defineProps<{
 
 const store = useStore()
 
-const thresholds = computed(() => 
-  (store.state[props.paneId] as TradesPaneState)[props.type]
+const thresholds = computed(
+  () => (store.state[props.paneId] as TradesPaneState)[props.type]
 )
 
 const name = computed(() => `${props.side}Color`)

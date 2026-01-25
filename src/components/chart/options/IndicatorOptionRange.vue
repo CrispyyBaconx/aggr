@@ -23,7 +23,12 @@
       :value="value"
       :gradient="gradient"
       @input="$emit('input', $event)"
-      @reset="$emit('input', (definition as any)?.default ?? (definition as any)?.value)"
+      @reset="
+        $emit(
+          'input',
+          (definition as any)?.default ?? (definition as any)?.value
+        )
+      "
     />
   </div>
 </template>
@@ -45,10 +50,22 @@ defineEmits<{
   (e: 'input', value: number): void
 }>()
 
-const min = computed(() => typeof (props.definition as any)?.min === 'number' ? (props.definition as any).min : 0)
-const max = computed(() => typeof (props.definition as any)?.max === 'number' ? (props.definition as any).max : 1)
+const min = computed(() =>
+  typeof (props.definition as any)?.min === 'number'
+    ? (props.definition as any).min
+    : 0
+)
+const max = computed(() =>
+  typeof (props.definition as any)?.max === 'number'
+    ? (props.definition as any).max
+    : 1
+)
 const log = computed(() => !!(props.definition as any)?.log)
-const step = computed(() => typeof (props.definition as any)?.step === 'number' ? (props.definition as any).step : 0.1)
+const step = computed(() =>
+  typeof (props.definition as any)?.step === 'number'
+    ? (props.definition as any).step
+    : 0.1
+)
 
 const decimals = computed(() => countDecimals(step.value))
 
@@ -61,7 +78,10 @@ const stepRoundedValue = computed(() => {
 })
 
 const gradient = computed(() => {
-  if (!(props.definition as any)?.gradient || !Array.isArray((props.definition as any).gradient)) {
+  if (
+    !(props.definition as any)?.gradient ||
+    !Array.isArray((props.definition as any).gradient)
+  ) {
     return null
   }
 

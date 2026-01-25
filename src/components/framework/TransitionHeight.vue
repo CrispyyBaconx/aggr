@@ -17,8 +17,6 @@
 </template>
 
 <script>
-/* eslint-disable no-param-reassign */
-
 export default {
   name: 'TransitionHeight',
   props: {

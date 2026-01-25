@@ -60,27 +60,30 @@ import { ref, onMounted, defineAsyncComponent } from 'vue'
 import Dialog from '@/components/framework/Dialog.vue'
 import { useDialog } from '@/composables/useDialog'
 
-const MarkdownEditor = defineAsyncComponent(() =>
-  import('@/components/framework/editor/MarkdownEditor.vue')
+const MarkdownEditor = defineAsyncComponent(
+  () => import('@/components/framework/editor/MarkdownEditor.vue')
 )
 
-const props = withDefaults(defineProps<{
-  markdown?: boolean
-  textarea?: boolean
-  question?: string
-  action: string
-  input?: string
-  submitLabel?: string
-  placeholder?: string | null
-  label?: string | null
-}>(), {
-  markdown: false,
-  textarea: false,
-  input: '',
-  submitLabel: 'Submit',
-  placeholder: null,
-  label: null
-})
+const props = withDefaults(
+  defineProps<{
+    markdown?: boolean
+    textarea?: boolean
+    question?: string
+    action: string
+    input?: string
+    submitLabel?: string
+    placeholder?: string | null
+    label?: string | null
+  }>(),
+  {
+    markdown: false,
+    textarea: false,
+    input: '',
+    submitLabel: 'Submit',
+    placeholder: null,
+    label: null
+  }
+)
 
 const { output, close } = useDialog()
 

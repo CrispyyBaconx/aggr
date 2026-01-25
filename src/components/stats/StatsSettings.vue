@@ -15,7 +15,12 @@
           class="form-control"
           :value="statsWindowStringified"
           placeholder="Window (minutes)"
-          @change="$store.commit(paneId + '/SET_WINDOW', ($event.target as HTMLInputElement).value)"
+          @change="
+            $store.commit(
+              paneId + '/SET_WINDOW',
+              ($event.target as HTMLInputElement).value
+            )
+          "
         />
       </div>
       <div class="form-group -tight">
@@ -30,7 +35,10 @@
             class="form-control"
             :checked="enableChart"
             @change="
-              $store.commit(paneId + '/TOGGLE_CHART', ($event.target as HTMLInputElement).checked)
+              $store.commit(
+                paneId + '/TOGGLE_CHART',
+                ($event.target as HTMLInputElement).checked
+              )
             "
           />
           <div></div>

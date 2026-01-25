@@ -18,11 +18,14 @@ import { useStore } from 'vuex'
 import DropdownButton from '@/components/framework/DropdownButton.vue'
 import { copyTextToClipboard } from '@/utils/helpers'
 
-withDefaults(defineProps<{
-  label?: string
-}>(), {
-  label: 'donate'
-})
+withDefaults(
+  defineProps<{
+    label?: string
+  }>(),
+  {
+    label: 'donate'
+  }
+)
 
 const store = useStore()
 
@@ -30,7 +33,8 @@ const donationMenu = [
   {
     label: 'with Bitcoin',
     icon: 'icon-bitcoin',
-    click: () => copyAddress('bc1q3f5ndx2zww3pw5c5vctw7t4wfgv05fdsc2graj', 'Bitcoin')
+    click: () =>
+      copyAddress('bc1q3f5ndx2zww3pw5c5vctw7t4wfgv05fdsc2graj', 'Bitcoin')
   },
   {
     label: 'Ethereum',

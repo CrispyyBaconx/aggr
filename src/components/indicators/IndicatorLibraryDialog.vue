@@ -216,9 +216,7 @@ async function reloadSelection(id?: string) {
     return
   }
 
-  setSelection(
-    await workspacesService.getIndicator(id || selection.value.id)
-  )
+  setSelection(await workspacesService.getIndicator(id || selection.value.id))
 }
 
 defineExpose({ close })

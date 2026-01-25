@@ -237,7 +237,12 @@
           step="1"
           class="form-control"
           :value="maxRows"
-          @change="$store.commit(paneId + '/SET_MAX_ROWS', ($event.target as HTMLInputElement).value)"
+          @change="
+            $store.commit(
+              paneId + '/SET_MAX_ROWS',
+              ($event.target as HTMLInputElement).value
+            )
+          "
         />
       </div>
 
@@ -418,47 +423,72 @@ const secondsAgoExample = ref('0s ago')
 let _secondsAgoExampleTimeout: number | undefined
 
 const HHMM = computed(() =>
-  new Date()
-    .toISOString()
-    .split('T')[1]
-    .split(':')
-    .slice(0, 2)
-    .join(':')
+  new Date().toISOString().split('T')[1].split(':').slice(0, 2).join(':')
 )
 
 const useAudio = computed(() => store.state.settings.useAudio)
 
 const markets = computed(() => store.state.panes.panes[props.paneId].markets)
 
-const maxRows = computed(() => (store.state[props.paneId] as TradesPaneState).maxRows)
+const maxRows = computed(
+  () => (store.state[props.paneId] as TradesPaneState).maxRows
+)
 
-const thresholds = computed(() => (store.state[props.paneId] as TradesPaneState).thresholds)
+const thresholds = computed(
+  () => (store.state[props.paneId] as TradesPaneState).thresholds
+)
 
-const liquidations = computed(() => (store.state[props.paneId] as TradesPaneState).liquidations)
+const liquidations = computed(
+  () => (store.state[props.paneId] as TradesPaneState).liquidations
+)
 
-const showLogos = computed(() => (store.state[props.paneId] as TradesPaneState).showLogos)
+const showLogos = computed(
+  () => (store.state[props.paneId] as TradesPaneState).showLogos
+)
 
-const monochromeLogos = computed(() => (store.state[props.paneId] as TradesPaneState).monochromeLogos)
+const monochromeLogos = computed(
+  () => (store.state[props.paneId] as TradesPaneState).monochromeLogos
+)
 
-const showTimeAgo = computed(() => (store.state[props.paneId] as TradesPaneState).showTimeAgo)
+const showTimeAgo = computed(
+  () => (store.state[props.paneId] as TradesPaneState).showTimeAgo
+)
 
-const showAvgPrice = computed(() => (store.state[props.paneId] as TradesPaneState).showAvgPrice)
+const showAvgPrice = computed(
+  () => (store.state[props.paneId] as TradesPaneState).showAvgPrice
+)
 
-const showPrices = computed(() => (store.state[props.paneId] as TradesPaneState).showPrices)
+const showPrices = computed(
+  () => (store.state[props.paneId] as TradesPaneState).showPrices
+)
 
-const showTrades = computed(() => (store.state[props.paneId] as TradesPaneState).showTrades)
+const showTrades = computed(
+  () => (store.state[props.paneId] as TradesPaneState).showTrades
+)
 
-const showLiquidations = computed(() => (store.state[props.paneId] as TradesPaneState).showLiquidations)
+const showLiquidations = computed(
+  () => (store.state[props.paneId] as TradesPaneState).showLiquidations
+)
 
-const showPairs = computed(() => (store.state[props.paneId] as TradesPaneState).showPairs)
+const showPairs = computed(
+  () => (store.state[props.paneId] as TradesPaneState).showPairs
+)
 
-const showHistograms = computed(() => (store.state[props.paneId] as TradesPaneState).showHistograms)
+const showHistograms = computed(
+  () => (store.state[props.paneId] as TradesPaneState).showHistograms
+)
 
-const audioThreshold = computed(() => (store.state[props.paneId] as TradesPaneState).audioThreshold)
+const audioThreshold = computed(
+  () => (store.state[props.paneId] as TradesPaneState).audioThreshold
+)
 
-const muted = computed(() => (store.state[props.paneId] as TradesPaneState).muted)
+const muted = computed(
+  () => (store.state[props.paneId] as TradesPaneState).muted
+)
 
-const audioPitch = computed(() => (store.state[props.paneId] as TradesPaneState).audioPitch || 1)
+const audioPitch = computed(
+  () => (store.state[props.paneId] as TradesPaneState).audioPitch || 1
+)
 
 const audioVolume = computed(() => {
   const volume = (store.state[props.paneId] as TradesPaneState).audioVolume
@@ -469,19 +499,22 @@ const audioVolume = computed(() => {
   return volume
 })
 
-const thresholdsMultipler = computed(() =>
-  (store.state[props.paneId] as TradesPaneState).thresholdsMultipler
+const thresholdsMultipler = computed(
+  () => (store.state[props.paneId] as TradesPaneState).thresholdsMultipler
 )
 
 const disableAnimations = computed(() => store.state.settings.disableAnimations)
 
-const isLegacy = computed(() => store.state.panes.panes[props.paneId].type === 'trades')
+const isLegacy = computed(
+  () => store.state.panes.panes[props.paneId].type === 'trades'
+)
 
-const displayGifWarning = computed(() =>
-  isLegacy.value &&
-  disableAnimations.value &&
-  (thresholds.value.filter((t: any) => !!t.buyGif && !!t.sellGif).length ||
-    liquidations.value.filter((t: any) => !!t.buyGif && !!t.sellGif).length)
+const displayGifWarning = computed(
+  () =>
+    isLegacy.value &&
+    disableAnimations.value &&
+    (thresholds.value.filter((t: any) => !!t.buyGif && !!t.sellGif).length ||
+      liquidations.value.filter((t: any) => !!t.buyGif && !!t.sellGif).length)
 )
 
 const multipliers = computed(() =>
@@ -500,8 +533,9 @@ const multipliers = computed(() =>
   })
 )
 
-const mutipliersCount = computed(() =>
-  multipliers.value.filter((market: any) => market.multiplier !== 1).length
+const mutipliersCount = computed(
+  () =>
+    multipliers.value.filter((market: any) => market.multiplier !== 1).length
 )
 
 const gradient = computed(() => [

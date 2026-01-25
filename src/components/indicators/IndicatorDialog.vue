@@ -329,7 +329,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick, defineAsyncComponent } from 'vue'
+import {
+  ref,
+  reactive,
+  computed,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  defineAsyncComponent
+} from 'vue'
 import { useStore } from 'vuex'
 import Dialog from '@/components/framework/Dialog.vue'
 import Tabs from '@/components/framework/Tabs.vue'
@@ -357,7 +366,9 @@ import { copyTextToClipboard, getEventCords } from '@/utils/helpers'
 import workspacesService from '@/services/workspacesService'
 import { Preset } from '@/types/types'
 
-const Editor = defineAsyncComponent(() => import('@/components/framework/editor/Editor.vue'))
+const Editor = defineAsyncComponent(
+  () => import('@/components/framework/editor/Editor.vue')
+)
 
 const ignoredOptionsKeys = [
   'crosshairMarkerVisible',
@@ -503,9 +514,13 @@ const lastPreset = computed({
   }
 })
 
-watch(script, (value) => {
-  code.value = value
-}, { immediate: true })
+watch(
+  script,
+  value => {
+    code.value = value
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
   restoreNavigation()
@@ -583,7 +598,7 @@ function restoreNavigation() {
     try {
       const json = JSON.parse(navigationState)
       for (const key in json) {
-        (navigation as any)[key] = json[key]
+        ;(navigation as any)[key] = json[key]
       }
     } catch (error) {
       console.error('Failed to parse navigation state', error)
@@ -644,10 +659,7 @@ function getPlotTypes() {
 
   plotTypes.value = (
     script.value.match(
-      new RegExp(
-        `(?:\\n|\\s|^)(?:plot)?(${availableTypes.join('|')})\\(`,
-        'g'
-      )
+      new RegExp(`(?:\\n|\\s|^)(?:plot)?(${availableTypes.join('|')})\\(`, 'g')
     ) || []
   )
     .map(a => {
@@ -656,8 +668,7 @@ function getPlotTypes() {
       return plotTypesMap[justType] || justType
     })
     .filter(
-      (t, index, self) =>
-        self.indexOf(t) === index && defaultPlotsOptions[t]
+      (t, index, self) => self.indexOf(t) === index && defaultPlotsOptions[t]
     )
 }
 
@@ -676,10 +687,7 @@ async function renameIndicator() {
 }
 
 async function saveIndicator() {
-  await store.dispatch(
-    props.paneId + '/saveIndicator',
-    props.indicatorId
-  )
+  await store.dispatch(props.paneId + '/saveIndicator', props.indicatorId)
   setTimeout(() => {
     getSavedPreview()
   }, 500)
@@ -712,8 +720,7 @@ async function getIndicatorPreset(originalPreset?: Preset) {
 
   if (payload) {
     if (
-      typeof Object.values(payload.selection).find(a => !!a) ===
-        'undefined' &&
+      typeof Object.values(payload.selection).find(a => !!a) === 'undefined' &&
       !payload.script
     ) {
       store.dispatch('app/showNotice', {
@@ -758,16 +765,14 @@ function getOptionsKeys() {
     []
   )
 
-  const allKeys = [
-    ...defaultOpts,
-    ...defaultSeriesOpts,
-    ...scriptOpts
-  ].filter((x, i, a) => {
-    if (ignoredOptionsKeys.indexOf(x) === -1 && a.indexOf(x) == i) {
-      return true
+  const allKeys = [...defaultOpts, ...defaultSeriesOpts, ...scriptOpts].filter(
+    (x, i, a) => {
+      if (ignoredOptionsKeys.indexOf(x) === -1 && a.indexOf(x) == i) {
+        return true
+      }
+      return false
     }
-    return false
-  })
+  )
 
   const colorKeys: string[] = []
   const nonColorScriptKeys: string[] = []
@@ -831,10 +836,7 @@ function applyIndicatorPreset(preset?: Preset & { name: string }) {
     getPlotTypes()
     getOptionsKeys()
 
-    store.commit(
-      props.paneId + '/FLAG_INDICATOR_AS_UNSAVED',
-      props.indicatorId
-    )
+    store.commit(props.paneId + '/FLAG_INDICATOR_AS_UNSAVED', props.indicatorId)
   })
 }
 

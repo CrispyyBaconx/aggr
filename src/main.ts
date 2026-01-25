@@ -26,7 +26,6 @@ app.use(VueTippy, {
   }
 })
 
-/* eslint-disable vue/multi-word-component-names */
 app.component('dropdown', DropdownComponent)
 app.component('editable', Editable)
 app.component('presets', Presets)

@@ -65,14 +65,17 @@ import Dialog from '@/components/framework/Dialog.vue'
 import EmojiPicker from '@/components/framework/EmojiPicker.vue'
 import { useDialog } from '@/composables/useDialog'
 
-const props = withDefaults(defineProps<{
-  price?: number
-  input?: string | null
-  edit?: boolean
-}>(), {
-  input: null,
-  edit: false
-})
+const props = withDefaults(
+  defineProps<{
+    price?: number
+    input?: string | null
+    edit?: boolean
+  }>(),
+  {
+    input: null,
+    edit: false
+  }
+)
 
 const { close } = useDialog()
 

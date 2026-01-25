@@ -208,7 +208,8 @@ const mutations = {
     state.isExchangesReady = true
   },
   EXCHANGE_UPDATED(state, exchangeId: string) {
-    state.activeExchanges[exchangeId] = !this.state.exchanges[exchangeId].disabled
+    state.activeExchanges[exchangeId] =
+      !this.state.exchanges[exchangeId].disabled
   },
   TOGGLE_LOADING(state, value) {
     state.isLoading = value ? true : false

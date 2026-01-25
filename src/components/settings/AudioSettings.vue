@@ -13,7 +13,10 @@
               class="form-control"
               :checked="useAudio"
               @change="
-                $store.commit('settings/TOGGLE_AUDIO', ($event.target as HTMLInputElement).checked)
+                $store.commit(
+                  'settings/TOGGLE_AUDIO',
+                  ($event.target as HTMLInputElement).checked
+                )
               "
             />
             <div></div>

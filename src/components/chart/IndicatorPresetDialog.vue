@@ -13,7 +13,9 @@
                 type="checkbox"
                 class="form-control"
                 v-model="form.colors"
-                @input="toggleType(true, ($event.target as HTMLInputElement).checked)"
+                @input="
+                  toggleType(true, ($event.target as HTMLInputElement).checked)
+                "
               />
               <div></div>
               <span>Colors</span>
@@ -30,7 +32,9 @@
                 type="checkbox"
                 class="form-control"
                 v-model="form.values"
-                @input="toggleType(false, ($event.target as HTMLInputElement).checked)"
+                @input="
+                  toggleType(false, ($event.target as HTMLInputElement).checked)
+                "
               />
               <div></div>
               <span>Options</span>
@@ -107,26 +111,32 @@ import Dialog from '@/components/framework/Dialog.vue'
 import { useDialog } from '@/composables/useDialog'
 import { getIndicatorOptionType } from './options'
 
-const props = withDefaults(defineProps<{
-  plotTypes: string[]
-  keys: string[]
-  originalKeys?: string[] | null
-}>(), {
-  originalKeys: null
-})
+const props = withDefaults(
+  defineProps<{
+    plotTypes: string[]
+    keys: string[]
+    originalKeys?: string[] | null
+  }>(),
+  {
+    originalKeys: null
+  }
+)
 
 const { close } = useDialog()
 
 const formRef = ref<HTMLFormElement | null>(null)
 
 const selection = reactive<Record<string, boolean>>(
-  props.keys.reduce((acc, key) => {
-    acc[key] =
-      props.originalKeys && props.originalKeys.indexOf(key) !== -1
-        ? true
-        : false
-    return acc
-  }, {} as Record<string, boolean>)
+  props.keys.reduce(
+    (acc, key) => {
+      acc[key] =
+        props.originalKeys && props.originalKeys.indexOf(key) !== -1
+          ? true
+          : false
+      return acc
+    },
+    {} as Record<string, boolean>
+  )
 )
 
 const form = reactive({

@@ -104,14 +104,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  defineAsyncComponent
+} from 'vue'
 import Btn from '@/components/framework/Btn.vue'
 import Dialog from '@/components/framework/Dialog.vue'
 import { useDialog } from '@/composables/useDialog'
 import { slugify, uniqueName } from '@/utils/helpers'
 
-const MarkdownEditor = defineAsyncComponent(() =>
-  import('@/components/framework/editor/MarkdownEditor.vue')
+const MarkdownEditor = defineAsyncComponent(
+  () => import('@/components/framework/editor/MarkdownEditor.vue')
 )
 
 interface ResourceItem {

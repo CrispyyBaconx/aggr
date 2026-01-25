@@ -2,7 +2,7 @@
   <dropdown-button
     :modelValue="sortType"
     :options="['none', 'price', 'volume', 'delta', 'change']"
-    @update:modelValue="selectSortType($event)"
+    @update:modelValue="selectSortType($event as string)"
   ></dropdown-button>
 </template>
 

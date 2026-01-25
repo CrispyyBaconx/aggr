@@ -52,23 +52,25 @@ async function togglePriceScaleDropdown(
     const container = document.createElement('div')
     document.getElementById('app')?.appendChild(container)
 
+    const onModelValueUpdate = async (v: any) => {
+      // Update the component props and re-render
+      const newVnode = h(PriceScaleDropdown, {
+        paneId: props.paneId,
+        indicatorId: indicatorId,
+        modelValue: v,
+        'onUpdate:modelValue': onModelValueUpdate
+      })
+      render(newVnode, container)
+      priceScaleDropdownInstance = { vnode: newVnode, container, value: v }
+      await nextTick()
+      updateLabel()
+    }
+
     const vnode = h(PriceScaleDropdown, {
       paneId: props.paneId,
       indicatorId: indicatorId,
       modelValue: anchor,
-      'onUpdate:modelValue': async (v: any) => {
-        // Update the component props and re-render
-        const newVnode = h(PriceScaleDropdown, {
-          paneId: props.paneId,
-          indicatorId: indicatorId,
-          modelValue: v,
-          'onUpdate:modelValue': arguments.callee
-        })
-        render(newVnode, container)
-        priceScaleDropdownInstance = { vnode: newVnode, container, value: v }
-        await nextTick()
-        updateLabel()
-      }
+      'onUpdate:modelValue': onModelValueUpdate
     })
 
     render(vnode, container)

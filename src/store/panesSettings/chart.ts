@@ -522,14 +522,17 @@ const mutations = {
       state.indicators[id].options = {} as SeriesOptions<keyof SeriesOptionsMap>
     }
 
-    state.indicators[id].options[key] = value
+    ;(state.indicators[id].options as unknown as Record<string, unknown>)[key] =
+      value
   },
   REMOVE_INDICATOR_OPTION(state, { id, key }) {
     if (!state.indicators[id]) {
       return
     }
 
-    delete state.indicators[id].options[key]
+    delete (state.indicators[id].options as unknown as Record<string, unknown>)[
+      key
+    ]
   },
   SET_INDICATOR_SCRIPT(state, payload) {
     if (typeof payload.value === 'undefined') {

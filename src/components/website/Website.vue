@@ -114,7 +114,7 @@ const style = computed(() => {
     transform: `scale(${zoom.value})`,
     width: size + '%',
     height: size + '%',
-    pointerEvents: interactive.value ? 'all' : 'none'
+    pointerEvents: (interactive.value ? 'all' : 'none') as 'all' | 'none'
   }
 })
 
@@ -135,14 +135,15 @@ function setupReloadTimer() {
     return
   }
 
-  let interval: number | string = reloadTimer.value.trim()
+  const intervalStr: string = reloadTimer.value.trim()
+  let interval: number
 
-  if (/[\d.]+s/.test(interval)) {
-    interval = parseFloat(interval) * 1000
-  } else if (/[\d.]+h/.test(interval)) {
-    interval = parseFloat(interval) * 1000 * 60 * 60
+  if (/[\d.]+s/.test(intervalStr)) {
+    interval = parseFloat(intervalStr) * 1000
+  } else if (/[\d.]+h/.test(intervalStr)) {
+    interval = parseFloat(intervalStr) * 1000 * 60 * 60
   } else {
-    interval = parseFloat(interval) * 1000 * 60
+    interval = parseFloat(intervalStr) * 1000 * 60
   }
 
   if (!interval) {

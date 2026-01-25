@@ -370,6 +370,8 @@ async function clearAlerts(group: MarketAlerts, button: any) {
     button.loading = false
   }
 }
+
+defineExpose({ getAlerts })
 </script>
 
 <style lang="scss" scoped>

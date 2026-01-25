@@ -14,7 +14,7 @@
       </div>
     </template>
     <div class="form-group mb16">
-      <label for> When buy </label>
+      <label> When buy </label>
       <div
         class="live-annotation"
         v-if="liveAnnotation && focusedSide === 'buy'"
@@ -80,7 +80,7 @@
       </p>
     </div>
     <div class="form-group mb16">
-      <label for> When sell </label>
+      <label> When sell </label>
       <div
         class="live-annotation"
         v-if="liveAnnotation && focusedSide === 'sell'"
@@ -205,7 +205,8 @@ export default {
     loopingSide: null,
     dropping: null,
     liveAnnotation: null,
-    uploadedSounds: []
+    uploadedSounds: [],
+    clickOutsideClose: true
   }),
   computed: {
     threshold: function () {
@@ -298,7 +299,7 @@ export default {
 
       return true
     },
-    async testCustom(side, event, litteral) {
+    async testCustom(side, event, litteral?) {
       if (this._loopingTimeout) {
         this.stopLoop()
       }

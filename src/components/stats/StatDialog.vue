@@ -53,7 +53,7 @@
       </div>
     </div>
     <div v-if="conditionnalColor" class="form-group mb8">
-      <label for
+      <label
         >Color condition
         <span
           class="icon-info"
@@ -101,7 +101,7 @@
       </div>
     </div>
     <div class="form-group">
-      <label for
+      <label
         >Value
         <span
           class="icon-info"

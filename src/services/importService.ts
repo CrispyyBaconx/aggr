@@ -157,7 +157,7 @@ class ImportService {
     }
 
     openLibrary =
-      dialogService.mountedComponents['indicator-library'] || openLibrary
+      !!dialogService.mountedComponents['indicator-library'] || openLibrary
 
     if (save || openLibrary) {
       indicator = await workspacesService.saveIndicator(indicator)

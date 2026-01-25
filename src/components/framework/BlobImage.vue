@@ -26,8 +26,9 @@ onBeforeUnmount(() => {
 function loadBlob() {
   clearBlob()
 
-  if (props.modelValue instanceof Blob || props.modelValue instanceof File) {
-    imageObjectUrl.value = URL.createObjectURL(props.modelValue)
+  const value = props.modelValue
+  if (value && value instanceof Blob) {
+    imageObjectUrl.value = URL.createObjectURL(value)
   }
 }
 

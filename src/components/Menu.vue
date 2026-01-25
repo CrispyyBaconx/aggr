@@ -2,7 +2,7 @@
   <div id="menu" class="menu" :class="{ '-open': open }">
     <button
       class="menu__button btn"
-      @click="menuDropdownRef?.toggle($event.currentTarget)"
+      @click="menuDropdownRef?.toggle($event.currentTarget as HTMLElement)"
     >
       <i class="icon-menu"></i>
     </button>
@@ -18,7 +18,9 @@
       <button
         type="button"
         class="dropdown-item"
-        @click.stop="panesDropdownRef?.toggle($event.currentTarget)"
+        @click.stop="
+          panesDropdownRef?.toggle($event.currentTarget as HTMLElement)
+        "
       >
         <i class="icon-dashboard -center mr8"></i>
         <span class="mr4">Pane</span>
@@ -174,7 +176,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import dialogService from '@/services/dialogService'
-import { PaneType } from '@/store/panes'
 import { isTouchSupported } from '../utils/touchevent'
 import Slider from './framework/picker/Slider.vue'
 import SettingsDialog from './settings/SettingsDialog.vue'
@@ -300,7 +301,7 @@ function toggleMenu() {
   }
 }
 
-function addPane(type: PaneType) {
+function addPane(type: string) {
   store.dispatch('panes/addPane', { type })
 }
 

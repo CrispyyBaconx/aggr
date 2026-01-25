@@ -6,9 +6,12 @@
     @input="onSelect"
   >
     <template v-slot:option="{ value }">
-      <i :class="value.icon" style="width: 16px; text-align: center"></i>
+      <i
+        :class="(value as { icon: string; label: string }).icon"
+        style="width: 16px; text-align: center"
+      ></i>
 
-      <span>{{ value.label }}</span>
+      <span>{{ (value as { icon: string; label: string }).label }}</span>
     </template>
   </dropdown-button>
 </template>

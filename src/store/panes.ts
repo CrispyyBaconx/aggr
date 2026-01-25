@@ -25,7 +25,7 @@ export enum PaneType {
   prices = 'prices',
   website = 'website',
   alerts = 'alerts',
-  'trades-list' = 'trades-lite'
+  'trades-lite' = 'trades-lite'
 }
 
 export type MarketsListeners = { [market: string]: ListenedProduct }

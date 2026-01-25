@@ -17,11 +17,12 @@ export interface DialogPosition {
   h?: number
 }
 
-interface MountedDialog {
+export interface MountedDialog {
   app: App
   el: HTMLElement
   close: () => void
   output?: any
+  [key: string]: any // Allow custom properties for specific dialogs
 }
 
 class DialogService {

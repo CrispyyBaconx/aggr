@@ -227,7 +227,7 @@ function takeScreenshot(event: MouseEvent) {
   chart?.takeScreenshot(event)
 }
 
-function selectTimeframe(event: MouseEvent, tf: string) {
+function selectTimeframe(event: MouseEvent, tf: string | number) {
   if (tf === timeframe.value) {
     toggleTimeframeDropdown(event)
     return

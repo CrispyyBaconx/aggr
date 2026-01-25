@@ -46,7 +46,7 @@
           :key="timeframe.value"
           type="button"
           class="dropdown-item dropdown-item--space-between timeframe-option"
-          @click="$store.dispatch(`${paneId}/setTimeframe`, timeframe.value)"
+          @click="setTimeframe(timeframe.value)"
         >
           <span>{{ timeframe.label }}</span>
 
@@ -160,6 +160,10 @@ export default {
     }
   },
   methods: {
+    setTimeframe(value) {
+      this.$store.dispatch(`${this.paneId}/setTimeframe`, value)
+    },
+
     toggleFavoriteTimeframe(timeframe) {
       this.$store.commit('settings/TOGGLE_FAVORITE_TIMEFRAME', timeframe)
     },

@@ -6,7 +6,7 @@
       :options="exchanges"
       :placeholder="(definition as any)?.placeholder"
       class="-outline form-control -arrow"
-      @update:modelValue="$emit('input', $event)"
+      @update:modelValue="$emit('input', $event as string)"
     ></dropdown-button>
   </div>
 </template>

@@ -1,6 +1,6 @@
 import { formatMarketPrice } from '@/services/productsService'
 import { createComponent, getEventCords, mountComponent } from '@/utils/helpers'
-import { Time } from 'lightweight-charts'
+import { LogicalRange, Time } from 'lightweight-charts'
 import ChartController, { IndicatorApi } from '../chart'
 
 export default class MeasurementEventHandler {
@@ -30,7 +30,7 @@ export default class MeasurementEventHandler {
   private width: number
   private onMoveHandler: (event: MouseEvent | TouchEvent) => void
   private onEndHandler: (event: MouseEvent | TouchEvent) => void
-  private onPanHandler: (event: MouseEvent | TouchEvent) => void
+  private onPanHandler: (logicalRange: LogicalRange | null) => void
 
   constructor(chart: ChartController, event: MouseEvent | TouchEvent) {
     this.chart = chart

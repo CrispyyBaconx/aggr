@@ -6,7 +6,7 @@
       :options="{ 0: 'Simple', 1: 'with steps' }"
       class="-outline form-control -arrow"
       :placeholder="(definition as any)?.placeholder || 'lineType'"
-      @update:modelValue="$emit('input', $event)"
+      @update:modelValue="$emit('input', $event as number)"
     ></dropdown-button>
   </label>
 </template>

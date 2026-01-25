@@ -1,7 +1,7 @@
 <template>
   <Dialog
     @mousedown.stop
-    @clickOutside="close"
+    @clickOutside="() => close(null)"
     class="color-picker-dialog"
     :resizable="false"
     :mask="false"

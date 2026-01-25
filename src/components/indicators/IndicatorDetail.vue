@@ -240,23 +240,26 @@ export default {
       }
 
       return !!Object.values(this.$store.state[this.paneId].indicators).find(
-        indicator => indicator.libraryId === this.indicator.id
+        (indicator: any) => indicator.libraryId === this.indicator.id
       )
     },
-    options() {
+    options(): Record<string, string | number | boolean> {
       if (!this.indicator.options) {
         return {}
       }
 
-      return Object.keys(this.indicator.options).reduce((acc, key) => {
-        const value = this.indicator.options[key]
-        if (!value || typeof value === 'object') {
-          return acc
-        }
+      return Object.keys(this.indicator.options).reduce(
+        (acc: Record<string, string | number | boolean>, key) => {
+          const value = this.indicator.options[key]
+          if (!value || typeof value === 'object') {
+            return acc
+          }
 
-        acc[key] = value
-        return acc
-      }, {})
+          acc[key] = value
+          return acc
+        },
+        {}
+      )
     },
     versions() {
       return this.indicator.versions || this.fetchedVersions || []
@@ -336,7 +339,7 @@ export default {
         this.isFetchingVersions = false
       }
     },
-    async installIndicator(sha) {
+    async installIndicator(sha?) {
       if (this.isInstalled) {
         return
       }
@@ -350,7 +353,7 @@ export default {
           sha
         )
 
-        await importService.importIndicator(indicator, false, true)
+        await importService.importIndicator(indicator, { addToChart: true })
       } catch (error) {
         console.error(error)
         this.$store.dispatch('app/showNotice', {

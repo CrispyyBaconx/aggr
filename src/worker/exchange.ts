@@ -43,7 +43,7 @@ class Exchange extends EventEmitter {
   /**
    * ping timers
    */
-  keepAliveIntervals: { [url: string]: number } = {}
+  keepAliveIntervals: { [url: string]: ReturnType<typeof setInterval> } = {}
 
   /**
    * active websocket apis
@@ -63,7 +63,9 @@ class Exchange extends EventEmitter {
   /**
    * Operations timeout delay by operationId
    */
-  scheduledOperations: { [operationId: string]: number } = {}
+  scheduledOperations: {
+    [operationId: string]: ReturnType<typeof setTimeout>
+  } = {}
 
   /**
    * Operation timeout delay by operationId
@@ -73,7 +75,9 @@ class Exchange extends EventEmitter {
   /**
    * Clear reconnection delay timeout by apiUrl
    */
-  clearReconnectionDelayTimeout: { [apiUrl: string]: number } = {}
+  clearReconnectionDelayTimeout: {
+    [apiUrl: string]: ReturnType<typeof setTimeout>
+  } = {}
 
   /*
     Number of messages received since start

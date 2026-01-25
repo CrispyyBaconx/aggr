@@ -26,7 +26,7 @@
           :options="modes"
           :model-value="priceScale.mode"
           placeholder="linear"
-          @update:model-value="updateMode($event)"
+          @update:model-value="updateMode($event as string | number)"
           button-class="badge -outline"
           class="chart-pricescale__mode -small ml8 text-bold"
         >

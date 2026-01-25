@@ -181,7 +181,7 @@ function createBucket(statBucket: any) {
     data[bucket.id] = {
       value: 0,
       name: bucket.name,
-      color: bucket.color
+      color: typeof bucket.color === 'function' ? bucket.color(0) : bucket.color
     }
   }
 }

@@ -53,7 +53,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useStore } from 'vuex'
 import Slider from '@/components/framework/picker/Slider.vue'
+
+const store = useStore()
 
 const props = defineProps<{
   paneId: string

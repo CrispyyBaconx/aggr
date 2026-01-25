@@ -942,7 +942,9 @@ async function revertChanges(op: 'reset' | 'revert') {
   } else if (op === 'revert') {
     applyIndicatorPreset({
       data: originalIndicator,
-      name: ''
+      name: '',
+      createdAt: 0,
+      updatedAt: 0
     })
   }
 

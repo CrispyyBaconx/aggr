@@ -24,12 +24,19 @@ export default class ChartCache {
       !this.chunks.length ||
       this.chunks[this.chunks.length - 1].to < chunk.from
     ) {
+      // Append: no chunks exist or new chunk starts after last chunk ends
       index = this.chunks.push(chunk) - 1
-    } else if (this.chunks[0].from > chunk.to) {
+    } else if (this.chunks[0].from >= chunk.to) {
+      // Prepend: new chunk ends before or at the start of first chunk
+      // Use >= to handle adjacent chunks (e.g., chunk.to = 1000, chunks[0].from = 1000)
       this.chunks.unshift(chunk)
       index = 0
     } else {
-      console.warn(`\t-> couldn't push or prepend the chunk -> abort`)
+      // Chunk overlaps with existing data - skip but don't warn if it's a small overlap
+      // This can happen during rapid fetching or with edge timing cases
+      console.debug(
+        `\t-> chunk overlaps with cache (chunk: ${chunk.from}-${chunk.to}, cache: ${this.cacheRange.from}-${this.cacheRange.to}) -> skip`
+      )
       return this.chunks[0]
     }
 

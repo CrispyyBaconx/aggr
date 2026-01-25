@@ -7,6 +7,7 @@
     "cors": "bun scripts/cors-server.mjs",
     "svg2font": "bun scripts/svg2font.js",
     "serve": "vite --host",
+    "dev": "vite --host",
     "prod": "vue-tsc --noEmit && vite build --dest ./temp && rimraf ./dist && mv ./temp ./dist",
     "build": "vite build",
     "typecheck": "vue-tsc --noEmit",

@@ -21,6 +21,11 @@ export default class Backend extends Exchange {
     new Map()
   private tickersFetched = false
 
+  // Primary exchange for price (others contribute volume only)
+  private primaryExchange = 'binance'
+  // Last known price from primary exchange per symbol: "BTCUSDT" -> price
+  private primaryPrices: Map<string, number> = new Map()
+
   protected endpoints = {
     PRODUCTS: [] // Products fetched from /api/tickers
   }
@@ -489,6 +494,24 @@ export default class Backend extends Exchange {
     const reportExchange = sub?.originalExchange || this.id
     const reportPair = sub?.originalPair || symbol
 
+    // Primary exchange price handling:
+    // - Primary exchange (binance) ticks update the reference price AND use their own price
+    // - Other exchanges use the primary price for OHLC but contribute their own volume
+    const isPrimaryExchange = exchange.toLowerCase() === this.primaryExchange
+    const symbolKey = symbol.toUpperCase()
+    let priceForOHLC = data.price
+
+    if (isPrimaryExchange) {
+      // Update primary price reference
+      this.primaryPrices.set(symbolKey, data.price)
+    } else {
+      // Use primary exchange price if available, otherwise use own price
+      const primaryPrice = this.primaryPrices.get(symbolKey)
+      if (primaryPrice !== undefined) {
+        priceForOHLC = primaryPrice
+      }
+    }
+
     // Handle liquidation
     if (data.is_liquidation) {
       this.emitLiquidations(api._id, [
@@ -496,7 +519,7 @@ export default class Backend extends Exchange {
           exchange: reportExchange,
           pair: reportPair,
           timestamp,
-          price: data.price,
+          price: priceForOHLC,
           size: data.quantity,
           side: data.side,
           liquidation: true
@@ -506,12 +529,13 @@ export default class Backend extends Exchange {
     }
 
     // Emit as individual trade
+    // Price uses primary exchange for consistent OHLC, volume uses actual trade size
     this.emitTrades(api._id, [
       {
         exchange: reportExchange,
         pair: reportPair,
         timestamp,
-        price: data.price,
+        price: priceForOHLC,
         size: data.quantity,
         side: data.side
       }

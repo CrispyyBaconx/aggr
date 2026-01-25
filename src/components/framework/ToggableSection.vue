@@ -5,7 +5,8 @@
       small && 'toggable-section--small',
       outline && 'toggable-section--outline',
       inset && 'toggable-section--inset',
-      disabled && 'toggable-section--disabled'
+      disabled && 'toggable-section--disabled',
+      value && 'toggable-section--expanded'
     ]"
   >
     <div class="toggable-section__wrapper">
@@ -219,7 +220,7 @@ export default {
     user-select: none;
     margin: -1rem;
     padding: 1rem;
-    color: var(--theme-color-base);
+    color: var(--theme-color-100);
     position: relative;
     cursor: pointer;
 
@@ -240,17 +241,16 @@ export default {
     .icon-up-thin {
       margin-left: 0.5rem;
       transition: transform 0.2s $ease-elastic;
+      transform: rotateZ(180deg);
     }
+  }
 
-    &:last-child {
-      color: var(--theme-color-100);
-
-      .toggable-section__control {
-        display: none;
-      }
+  &--expanded {
+    .toggable-section__header {
+      color: var(--theme-color-base);
 
       .icon-up-thin {
-        transform: rotateZ(180deg);
+        transform: rotateZ(0deg);
       }
     }
   }

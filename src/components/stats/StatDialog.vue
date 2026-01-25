@@ -95,8 +95,8 @@
         <editable
           class="form-control"
           placeholder="auto"
-          :value="precision"
-          @input="updateBucketPrecision"
+          :model-value="precision"
+          @update:model-value="updateBucketPrecision"
         ></editable>
       </div>
     </div>

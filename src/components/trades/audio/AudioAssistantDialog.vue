@@ -29,8 +29,8 @@
         <editable
           class="-center text-nowrap ml8"
           style="line-height: 1"
-          :value="frequency"
-          @input="frequency = $event"
+          :model-value="frequency"
+          @update:model-value="frequency = $event"
         ></editable>
       </div>
     </div>

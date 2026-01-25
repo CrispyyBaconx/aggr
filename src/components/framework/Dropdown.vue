@@ -372,7 +372,7 @@ export default {
 <style lang="scss">
 .dropdown {
   position: fixed;
-  z-index: 10;
+  z-index: 100;
   border-radius: 0.75em;
   background-color: var(--theme-background-150);
   box-shadow: rgba(0, 0, 0, 0.2) 0px 18px 50px -10px;

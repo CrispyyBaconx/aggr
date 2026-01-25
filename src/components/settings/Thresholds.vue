@@ -38,17 +38,18 @@
           <td class="table-input">
             <div class="thresholds-table__threshold">
               <i class="icon icon-currency"></i>
-              <editable
-                placeholder="Amount*"
-                class="w-100"
-                :value="formatAmountHelper(threshold.amount)"
-                @input="
-                  $store.commit(paneId + '/SET_THRESHOLD_AMOUNT', {
-                    id: threshold.id,
-                    value: $event
-                  })
-                "
-              />
+            <editable
+              placeholder="Amount*"
+              class="w-100"
+              :editable="true"
+              :model-value="formatAmountHelper(threshold.amount)"
+              @update:model-value="
+                $store.commit(paneId + '/SET_THRESHOLD_AMOUNT', {
+                  id: threshold.id,
+                  value: $event
+                })
+              "
+            />
               <small
                 class="text-danger"
                 v-if="index === thresholds.length - 1 && threshold.max"

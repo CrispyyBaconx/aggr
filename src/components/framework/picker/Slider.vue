@@ -13,18 +13,17 @@
         :style="`width: ${handle.position}%`"
       ></div>
       <tippy :distance="24" follow-cursor>
-        <template v-slot:trigger>
-          <div
-            class="slider__handle"
-            @mousedown="select"
-            @touchstart="select"
-            :style="`left: ${handle.position}%; background-color: ${handle.color};`"
-          />
+        <div
+          class="slider__handle"
+          @mousedown="select"
+          @touchstart="select"
+          :style="handleStyle"
+        />
+        <template #content>
+          <slot name="tooltip" :value="handle.value">
+            {{ +handle.value.toFixed(2) }}
+          </slot>
         </template>
-
-        <slot name="tooltip" :value="handle.value">
-          {{ +handle.value.toFixed(2) }}
-        </slot>
       </tippy>
     </div>
   </div>
@@ -70,6 +69,10 @@ export default {
       }
       // Otherwise, show completion only when there's no gradient
       return !this.gradient
+    },
+    handleStyle() {
+      // Always just position - let CSS handle the white color
+      return `left: ${this.handle.position}%;`
     }
   },
   watch: {
@@ -116,11 +119,66 @@ export default {
     initGradient(gradient) {
       if (gradient.length > 1) {
         this.fill.style.backgroundImage = `linear-gradient(90deg, ${gradient})`
+        this.updateHandleColor()
         return
       }
       this.fill.style.backgroundImage = ''
       this.fill.style.backgroundColor = gradient[0]
       this.handle.color = gradient[0]
+    },
+    updateHandleColor() {
+      if (!this.gradient || this.gradient.length < 2) return
+      const position = this.handle.position / 100
+      const newColor = this.getColorAtPosition(position)
+      this.handle.color = newColor
+    },
+    getColorAtPosition(position) {
+      const colors = this.gradient
+      if (!colors || colors.length === 0) return '#fff'
+      if (colors.length === 1) return colors[0]
+      
+      const segmentSize = 1 / (colors.length - 1)
+      const segmentIndex = Math.min(Math.floor(position / segmentSize), colors.length - 2)
+      const segmentPosition = (position - segmentIndex * segmentSize) / segmentSize
+      
+      const startColor = this.parseColor(colors[segmentIndex])
+      const endColor = this.parseColor(colors[segmentIndex + 1])
+      
+      const r = Math.round(startColor.r + (endColor.r - startColor.r) * segmentPosition)
+      const g = Math.round(startColor.g + (endColor.g - startColor.g) * segmentPosition)
+      const b = Math.round(startColor.b + (endColor.b - startColor.b) * segmentPosition)
+      // Force full opacity for handle visibility (gradient colors may have low alpha)
+      return `rgb(${r}, ${g}, ${b})`
+    },
+    parseColor(colorStr) {
+      const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
+      if (rgbaMatch) {
+        return {
+          r: parseInt(rgbaMatch[1]),
+          g: parseInt(rgbaMatch[2]),
+          b: parseInt(rgbaMatch[3]),
+          a: rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : 1
+        }
+      }
+      const hexMatch = colorStr.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i)
+      if (hexMatch) {
+        return {
+          r: parseInt(hexMatch[1], 16),
+          g: parseInt(hexMatch[2], 16),
+          b: parseInt(hexMatch[3], 16),
+          a: 1
+        }
+      }
+      const shortHexMatch = colorStr.match(/^#?([a-f\d])([a-f\d])([a-f\d])$/i)
+      if (shortHexMatch) {
+        return {
+          r: parseInt(shortHexMatch[1] + shortHexMatch[1], 16),
+          g: parseInt(shortHexMatch[2] + shortHexMatch[2], 16),
+          b: parseInt(shortHexMatch[3] + shortHexMatch[3], 16),
+          a: 1
+        }
+      }
+      return { r: 255, g: 255, b: 255, a: 1 }
     },
     handleResize() {
       this.updateSize()
@@ -224,6 +282,10 @@ export default {
           ((Math.log(value + 1) - Math.log(this.min + 1)) / scale) * 100
       }
 
+      if (this.gradient && this.gradient.length > 1) {
+        this.updateHandleColor()
+      }
+
       if (!silent) {
         this.$emit('input', value)
       }
@@ -312,7 +374,7 @@ export default {
   top: 0;
   left: 0;
   will-change: transform;
-  color: black;
+  color: white;
   margin: -0.25rem -0.5rem;
   width: 1rem;
   height: 1rem;

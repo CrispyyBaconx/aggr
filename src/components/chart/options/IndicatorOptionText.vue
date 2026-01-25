@@ -3,9 +3,9 @@
     <label>{{ label }}<slot name="description" /></label>
     <editable
       class="form-control"
-      :value="value"
+      :model-value="value"
       :placeholder="(definition as any)?.placeholder"
-      @input="$emit('input', $event)"
+      @update:model-value="$emit('input', $event)"
     ></editable>
   </div>
 </template>

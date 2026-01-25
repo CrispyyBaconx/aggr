@@ -306,8 +306,8 @@
             ></dropdown-button>
             <editable
               class="form-control mlauto"
-              :value="precision"
-              @input="setPriceFormat(priceFormat, $event)"
+              :model-value="precision"
+              @update:model-value="setPriceFormat(priceFormat, $event)"
             ></editable>
           </div>
         </ToggableSection>

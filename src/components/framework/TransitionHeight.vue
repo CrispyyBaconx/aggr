@@ -1,11 +1,9 @@
 <template>
-  <component
-    :is="type"
+  <Transition
+    v-if="single"
     class="transition-height"
     :class="[active && 'transition-height--active']"
     :name="name"
-    :tag="tag"
-    :duration="duration"
     @before-enter="beforeEnter"
     @enter="enter"
     @after-enter="afterEnter"
@@ -13,12 +11,32 @@
     @leave="leave"
   >
     <slot />
-  </component>
+  </Transition>
+  <TransitionGroup
+    v-else
+    class="transition-height"
+    :class="[active && 'transition-height--active']"
+    :name="name"
+    :tag="tag"
+    @before-enter="beforeEnter"
+    @enter="enter"
+    @after-enter="afterEnter"
+    @before-leave="beforeLeave"
+    @leave="leave"
+  >
+    <slot />
+  </TransitionGroup>
 </template>
 
 <script>
+import { Transition, TransitionGroup } from 'vue'
+
 export default {
   name: 'TransitionHeight',
+  components: {
+    Transition,
+    TransitionGroup
+  },
   props: {
     single: {
       type: Boolean,
@@ -59,13 +77,6 @@ export default {
     transitionTimeout: null
   }),
   computed: {
-    type() {
-      if (this.single) {
-        return 'transition'
-      }
-
-      return 'transition-group'
-    },
     active() {
       if (!this.duration || this.transitionTimeout) {
         return true
@@ -95,9 +106,7 @@ export default {
       }
     },
 
-    async enter(element) {
-      await this.scheduleComplete()
-
+    enter(element, done) {
       const height = this.getElementHeight(element)
 
       if (this.stepper) {
@@ -112,7 +121,8 @@ export default {
 
         setTimeout(() => {
           element.style.height = height
-        }, 100)
+          setTimeout(done, 250)
+        }, 10)
       }
     },
 
@@ -137,10 +147,11 @@ export default {
       element.style.height = `${element.clientHeight}px`
     },
 
-    leave(element) {
+    leave(element, done) {
       setTimeout(() => {
         element.style.height = '0px'
-      })
+        setTimeout(done, 250)
+      }, 10)
     },
 
     async scheduleComplete() {

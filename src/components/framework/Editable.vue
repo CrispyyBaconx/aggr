@@ -44,16 +44,13 @@ onMounted(() => {
 
 watch(
   () => props.modelValue,
-  () => {
+  (newVal) => {
     const input = instance?.proxy?.$el as HTMLElement
     const value = input?.innerText
 
-    if (
-      +props.modelValue! !== +value ||
-      (isNaN(+props.modelValue!) && value !== props.modelValue)
-    ) {
+    if (+newVal! !== +value || (isNaN(+newVal!) && value !== newVal)) {
       if (input) {
-        input.innerText = String(props.modelValue ?? '')
+        input.innerText = String(newVal ?? '')
       }
     }
   }

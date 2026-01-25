@@ -96,8 +96,8 @@
         <editable
           placeholder="Enter amount"
           class="form-control pl16 w-100"
-          :value="formatAmountHelper(volumeThreshold)"
-          @input="$store.commit(paneId + '/SET_VOLUME_THRESHOLD', $event)"
+          :model-value="formatAmountHelper(volumeThreshold)"
+          @update:model-value="$store.commit(paneId + '/SET_VOLUME_THRESHOLD', $event)"
         />
       </div>
       <div class="form-group mb8">

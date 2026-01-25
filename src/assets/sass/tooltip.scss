@@ -1,3 +1,43 @@
+// vue-tippy v6 uses .tippy-box instead of .tippy-tooltip
+.tippy-box {
+  max-width: 180px;
+  filter: drop-shadow(-1rem -1rem 3rem var(--theme-background-base));
+  color: white;
+  background-color: rgba(black, 0.75);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+
+  &[data-theme~='left'] {
+    text-align: left;
+  }
+
+  &[data-theme~='transparent'] {
+    background-color: transparent;
+
+    > .tippy-arrow {
+      display: none;
+    }
+  }
+
+  &[data-theme~='auto'] {
+    max-width: none;
+    background-color: transparent;
+
+    > .tippy-arrow {
+      display: none;
+    }
+  }
+
+  > .tippy-content {
+    padding: 0;
+  }
+
+  > .tippy-arrow {
+    color: rgba(black, 0.75);
+  }
+}
+
+// Legacy support for tippy v5 (if any remaining)
 .tippy-tooltip {
   max-width: 180px;
   filter: drop-shadow(-1rem -1rem 3rem var(--theme-background-base));

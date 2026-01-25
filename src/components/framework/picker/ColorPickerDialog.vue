@@ -67,8 +67,8 @@
       </button>
       <editable
         class="form-control hide-scrollbar"
-        :value="displayColor"
-        @input="setColorFromProp($event)"
+        :model-value="displayColor"
+        @update:model-value="setColorFromProp($event)"
       ></editable>
       <button
         class="btn -text -small"

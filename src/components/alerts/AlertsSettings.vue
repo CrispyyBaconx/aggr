@@ -30,8 +30,8 @@
       <div class="form-group">
         <label>Line width</label>
         <editable
-          :value="alertsLineWidth"
-          @input="$store.commit('settings/SET_ALERTS_LINEWIDTH', $event)"
+          :model-value="alertsLineWidth"
+          @update:model-value="$store.commit('settings/SET_ALERTS_LINEWIDTH', $event)"
           class="form-control -center w-100"
           title="Line width (ex: 2)"
           v-tippy

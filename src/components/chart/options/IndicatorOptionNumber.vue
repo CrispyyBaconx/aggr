@@ -3,11 +3,11 @@
     <label>{{ label }}</label>
     <editable
       class="form-control"
-      :value="value"
+      :model-value="value"
       :min="min"
       :max="max"
       :step="step"
-      @input="$emit('input', $event)"
+      @update:model-value="$emit('input', $event)"
     ></editable>
   </div>
 </template>

@@ -5,11 +5,11 @@
       <editable
         tag="code"
         class="indicator-option-range__value -filled"
-        :value="stepRoundedValue"
+        :model-value="stepRoundedValue"
         :min="min"
         :max="max"
         :step="step"
-        @input="$emit('input', +$event || 0)"
+        @update:model-value="$emit('input', +$event || 0)"
       ></editable>
       <slot name="description" />
     </label>

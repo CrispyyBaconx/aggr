@@ -10,6 +10,13 @@ import {
   mountComponent,
   sleep
 } from '@/utils/helpers'
+import { createApp, h, ref } from 'vue'
+import VueTippy from 'vue-tippy'
+import DropdownComponent from '@/components/framework/Dropdown.vue'
+import Editable from '@/components/framework/Editable.vue'
+import Presets from '@/components/framework/Presets.vue'
+import autofocus from '@/directives/autofocusDirective'
+import draggableMarket from '@/directives/draggableMarketDirective'
 import { isTouchSupported } from '@/utils/touchevent'
 import {
   IPriceLine,
@@ -595,29 +602,68 @@ export default class ChartControl {
   }
 
   async toggleTimeframeDropdown(event) {
-    const propsData = {
-      modelValue: event.currentTarget,
-      paneId: this.chart.paneId,
-      'onUpdate:modelValue': (value: any) => {
-        if (components.timeframeDropdown) {
-          components.timeframeDropdown.instance.modelValue = value
-        }
-      }
-    }
+    const triggerElement = event.currentTarget
 
     if (!components.timeframeDropdown) {
+      // Create reactive refs for props that need to be updated
+      const modelValueRef = ref<HTMLElement | null>(triggerElement)
+      const paneIdRef = ref(this.chart.paneId)
+
       const module = await import(`@/components/chart/TimeframeDropdown.vue`)
-      components.timeframeDropdown = createComponent(module.default, propsData)
+      const TimeframeDropdown = module.default
+
+      // Create a wrapper component that passes reactive refs
+      const WrappedComponent = {
+        setup() {
+          return () =>
+            h(TimeframeDropdown, {
+              modelValue: modelValueRef.value,
+              paneId: paneIdRef.value,
+              'onUpdate:modelValue': (value: HTMLElement | null) => {
+                modelValueRef.value = value
+              }
+            })
+        }
+      }
+
+      const container = document.createElement('div')
+      const app = createApp(WrappedComponent)
+      app.use(store)
+
+      app.use(VueTippy, {
+        defaultProps: {
+          allowHTML: true,
+          animation: false,
+          hideOnClick: false,
+          placement: 'bottom'
+        }
+      })
+      app.component('dropdown', DropdownComponent)
+      app.component('editable', Editable)
+      app.component('presets', Presets)
+      app.directive('autofocus', autofocus)
+      app.directive('draggable-market', draggableMarket)
+
+      app.mount(container)
+
+      components.timeframeDropdown = {
+        app,
+        el: container,
+        modelValueRef,
+        paneIdRef
+      }
 
       mountComponent(components.timeframeDropdown)
     } else {
-      if (
-        components.timeframeDropdown.instance.modelValue === event.currentTarget
-      ) {
-        components.timeframeDropdown.instance.modelValue = null
+      const { modelValueRef, paneIdRef } = components.timeframeDropdown
+
+      if (modelValueRef.value === triggerElement) {
+        // Toggle off if clicking the same element
+        modelValueRef.value = null
       } else {
-        components.timeframeDropdown.instance.paneId = propsData.paneId
-        components.timeframeDropdown.instance.modelValue = propsData.modelValue
+        // Update to new trigger element
+        paneIdRef.value = this.chart.paneId
+        modelValueRef.value = triggerElement
       }
     }
   }

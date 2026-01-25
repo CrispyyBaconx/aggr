@@ -44,7 +44,7 @@ onMounted(() => {
 
 watch(
   () => props.modelValue,
-  (newVal) => {
+  newVal => {
     const input = instance?.proxy?.$el as HTMLElement
     const value = input?.innerText
 

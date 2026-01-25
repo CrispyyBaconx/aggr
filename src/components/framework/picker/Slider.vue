@@ -136,22 +136,34 @@ export default {
       const colors = this.gradient
       if (!colors || colors.length === 0) return '#fff'
       if (colors.length === 1) return colors[0]
-      
+
       const segmentSize = 1 / (colors.length - 1)
-      const segmentIndex = Math.min(Math.floor(position / segmentSize), colors.length - 2)
-      const segmentPosition = (position - segmentIndex * segmentSize) / segmentSize
-      
+      const segmentIndex = Math.min(
+        Math.floor(position / segmentSize),
+        colors.length - 2
+      )
+      const segmentPosition =
+        (position - segmentIndex * segmentSize) / segmentSize
+
       const startColor = this.parseColor(colors[segmentIndex])
       const endColor = this.parseColor(colors[segmentIndex + 1])
-      
-      const r = Math.round(startColor.r + (endColor.r - startColor.r) * segmentPosition)
-      const g = Math.round(startColor.g + (endColor.g - startColor.g) * segmentPosition)
-      const b = Math.round(startColor.b + (endColor.b - startColor.b) * segmentPosition)
+
+      const r = Math.round(
+        startColor.r + (endColor.r - startColor.r) * segmentPosition
+      )
+      const g = Math.round(
+        startColor.g + (endColor.g - startColor.g) * segmentPosition
+      )
+      const b = Math.round(
+        startColor.b + (endColor.b - startColor.b) * segmentPosition
+      )
       // Force full opacity for handle visibility (gradient colors may have low alpha)
       return `rgb(${r}, ${g}, ${b})`
     },
     parseColor(colorStr) {
-      const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
+      const rgbaMatch = colorStr.match(
+        /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/
+      )
       if (rgbaMatch) {
         return {
           r: parseInt(rgbaMatch[1]),
@@ -160,7 +172,9 @@ export default {
           a: rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : 1
         }
       }
-      const hexMatch = colorStr.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i)
+      const hexMatch = colorStr.match(
+        /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i
+      )
       if (hexMatch) {
         return {
           r: parseInt(hexMatch[1], 16),
@@ -340,6 +354,7 @@ export default {
   border: 0;
   text-align: center;
   font-size: 12px;
+  appearance: textfield;
   -webkit-appearance: none;
   -moz-appearance: textfield;
 

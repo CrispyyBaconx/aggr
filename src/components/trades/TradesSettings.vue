@@ -165,7 +165,9 @@
               class="-center text-nowrap ml8"
               style="line-height: 1"
               :model-value="'× ' + audioVolume"
-              @update:model-value="$store.commit(paneId + '/SET_AUDIO_VOLUME', $event)"
+              @update:model-value="
+                $store.commit(paneId + '/SET_AUDIO_VOLUME', $event)
+              "
             ></editable>
           </div>
           <label class="mt16 d-block text-color-base">Transpose</label>
@@ -188,7 +190,9 @@
               class="-center text-nowrap ml8"
               style="line-height: 1"
               :model-value="'× ' + audioPitch"
-              @update:model-value="$store.commit(paneId + '/SET_AUDIO_PITCH', $event)"
+              @update:model-value="
+                $store.commit(paneId + '/SET_AUDIO_PITCH', $event)
+              "
             ></editable>
           </div>
         </div>
@@ -206,7 +210,9 @@
           class="form-control"
           :model-value="audioThreshold"
           placeholder="10%"
-          @update:model-value="$store.commit(paneId + '/SET_AUDIO_THRESHOLD', $event)"
+          @update:model-value="
+            $store.commit(paneId + '/SET_AUDIO_THRESHOLD', $event)
+          "
         />
       </div>
 

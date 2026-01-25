@@ -97,7 +97,9 @@
           placeholder="Enter amount"
           class="form-control pl16 w-100"
           :model-value="formatAmountHelper(volumeThreshold)"
-          @update:model-value="$store.commit(paneId + '/SET_VOLUME_THRESHOLD', $event)"
+          @update:model-value="
+            $store.commit(paneId + '/SET_VOLUME_THRESHOLD', $event)
+          "
         />
       </div>
       <div class="form-group mb8">

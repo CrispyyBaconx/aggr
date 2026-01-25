@@ -31,7 +31,12 @@
           type="checkbox"
           class="form-control"
           :checked="currentEditorOptions.wordWrap === 'on'"
-          @change="$emit('cmd', ['toggleWordWrap', !($event.target as HTMLInputElement).checked])"
+          @change="
+            $emit('cmd', [
+              'toggleWordWrap',
+              !($event.target as HTMLInputElement).checked
+            ])
+          "
         />
         <div></div>
         <span>Word Wrap</span>

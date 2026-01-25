@@ -61,7 +61,7 @@ export default {
   emits: ['update:modelValue'],
   props: {
     modelValue: {
-      type: HTMLButtonElement,
+      type: HTMLElement,
       default: null
     },
     paneId: {

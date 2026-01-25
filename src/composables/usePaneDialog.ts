@@ -9,7 +9,7 @@ import { Preset } from '@/types/types'
 
 export interface UsePaneDialogOptions {
   paneId: string
-  close: () => Promise<void>
+  close: (data?: unknown) => void
 }
 
 export function usePaneDialog(options: UsePaneDialogOptions) {

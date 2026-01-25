@@ -6,7 +6,7 @@
     <div
       class="market-multiplier__id"
       @dblclick="
-        $store.commit(paneId + '/SET_THRESHOLD_MULTIPLIER', {
+        store.commit(paneId + '/SET_THRESHOLD_MULTIPLIER', {
           identifier: market.identifier,
           multiplier: null
         })
@@ -31,13 +31,13 @@
         :editable="false"
         log
         @input="
-          $store.commit(paneId + '/SET_THRESHOLD_MULTIPLIER', {
+          store.commit(paneId + '/SET_THRESHOLD_MULTIPLIER', {
             identifier: market.identifier,
             multiplier: $event
           })
         "
         @reset="
-          $store.commit(paneId + '/SET_THRESHOLD_MULTIPLIER', {
+          store.commit(paneId + '/SET_THRESHOLD_MULTIPLIER', {
             identifier: market.identifier,
             multiplier: 1
           })

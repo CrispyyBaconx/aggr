@@ -12,7 +12,7 @@
             class="form-control"
             :checked="countersCount"
             @change="
-              $store.commit(
+              store.commit(
                 paneId + '/TOGGLE_COUNT',
                 ($event.target as HTMLInputElement).checked
               )
@@ -38,7 +38,7 @@
       <label
         class="checkbox-control -rip checkbox-control-input"
         @change="
-          $store.commit(
+          store.commit(
             paneId + '/TOGGLE_LIQUIDATIONS_ONLY',
             ($event.target as HTMLInputElement).checked
           )

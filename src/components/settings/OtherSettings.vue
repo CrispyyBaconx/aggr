@@ -6,7 +6,7 @@
           type="checkbox"
           class="form-control"
           :checked="autoHideHeaders"
-          @change="$store.commit('settings/TOGGLE_AUTO_HIDE_HEADERS')"
+          @change="store.commit('settings/TOGGLE_AUTO_HIDE_HEADERS')"
         />
         <div></div>
         <span>Floating headers</span>
@@ -19,7 +19,7 @@
             type="checkbox"
             class="form-control"
             :checked="autoHideNames"
-            @change="$store.commit('settings/TOGGLE_AUTO_HIDE_NAMES')"
+            @change="store.commit('settings/TOGGLE_AUTO_HIDE_NAMES')"
           />
           <div></div>
           <span>Auto hide names</span>
@@ -32,7 +32,7 @@
           type="checkbox"
           class="form-control"
           :checked="animationsEnabled"
-          @change="$store.commit('settings/TOGGLE_ANIMATIONS')"
+          @change="store.commit('settings/TOGGLE_ANIMATIONS')"
         />
         <div></div>
         <span>
@@ -50,7 +50,7 @@
           type="checkbox"
           class="form-control"
           :checked="locked"
-          @change="$store.commit('panes/TOGGLE_LAYOUT')"
+          @change="store.commit('panes/TOGGLE_LAYOUT')"
         />
         <div></div>
         <span>
@@ -64,7 +64,7 @@
           type="checkbox"
           class="form-control"
           :checked="normalizeWatermarks"
-          @change="$store.commit('settings/TOGGLE_NORMAMIZE_WATERMARKS')"
+          @change="store.commit('settings/TOGGLE_NORMAMIZE_WATERMARKS')"
         />
         <div></div>
         <span>Simple watermarks</span>
@@ -77,7 +77,7 @@
           class="form-control"
           :checked="!!timezoneOffset"
           @change="
-            $store.commit(
+            store.commit(
               'settings/SET_TIMEZONE_OFFSET',
               !timezoneOffset ? new Date().getTimezoneOffset() * 60000 * -1 : 0
             )
@@ -93,7 +93,7 @@
           type="checkbox"
           class="form-control"
           :checked="!showThresholdsAsTable"
-          @change="$store.commit('settings/TOGGLE_THRESHOLDS_TABLE')"
+          @change="store.commit('settings/TOGGLE_THRESHOLDS_TABLE')"
         />
         <div></div>
         <span>Use slider for thresholds</span>

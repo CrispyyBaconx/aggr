@@ -9,6 +9,7 @@
     "serve": "vite --host",
     "prod": "vue-tsc --noEmit && vite build --dest ./temp && rimraf ./dist && mv ./temp ./dist",
     "build": "vite build",
+    "typecheck": "vue-tsc --noEmit",
     "lint": "eslint src --cache",
     "lint:fix": "eslint src --fix --cache",
     "clean": "rm -rf node_modules && bun pm cache rm",

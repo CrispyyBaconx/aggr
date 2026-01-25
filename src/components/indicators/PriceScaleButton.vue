@@ -2,7 +2,9 @@
   <button
     type="button"
     class="dropdown-item dropdown-item--narrow"
-    @click.stop="togglePriceScaleDropdown(indicatorId, $event.currentTarget)"
+    @click.stop="
+      togglePriceScaleDropdown(indicatorId, $event.currentTarget as HTMLElement)
+    "
   >
     <span class="dropdown-item__emoji"> 📊 </span>
     <span class="d-flex -column">

@@ -44,7 +44,7 @@
                 :editable="true"
                 :model-value="formatAmountHelper(threshold.amount)"
                 @update:model-value="
-                  $store.commit(paneId + '/SET_THRESHOLD_AMOUNT', {
+                  store.commit(paneId + '/SET_THRESHOLD_AMOUNT', {
                     id: threshold.id,
                     value: $event
                   })
@@ -64,7 +64,7 @@
               label="Buy color"
               :value="threshold.buyColor"
               @input="
-                $store.commit(paneId + '/SET_THRESHOLD_COLOR', {
+                store.commit(paneId + '/SET_THRESHOLD_COLOR', {
                   id: threshold.id,
                   side: 'buyColor',
                   value: $event
@@ -77,7 +77,7 @@
               label="Sell color"
               :value="threshold.sellColor"
               @input="
-                $store.commit(paneId + '/SET_THRESHOLD_COLOR', {
+                store.commit(paneId + '/SET_THRESHOLD_COLOR', {
                   id: threshold.id,
                   side: 'sellColor',
                   value: $event
@@ -137,7 +137,7 @@
         class="btn -nowrap -text -start"
         v-tippy
         title="Add a threshold"
-        @click="$store.commit(paneId + '/ADD_THRESHOLD', type)"
+        @click="store.commit(paneId + '/ADD_THRESHOLD', type)"
       >
         <i class="icon-plus"></i>
       </button>

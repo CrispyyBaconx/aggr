@@ -9,7 +9,7 @@
         class="mb8 mt16"
         :modelValue="showPairs"
         label="Show Symbols"
-        @change="$store.commit(paneId + '/TOGGLE_PAIRS')"
+        @change="store.commit(paneId + '/TOGGLE_PAIRS')"
         small
       >
         <div class="form-group">
@@ -18,7 +18,7 @@
               type="checkbox"
               class="form-control"
               :checked="shortSymbols"
-              @change="$store.commit(paneId + '/TOGGLE_SHORT_SYMBOLS')"
+              @change="store.commit(paneId + '/TOGGLE_SHORT_SYMBOLS')"
             />
             <div></div>
             <span>
@@ -35,7 +35,7 @@
             type="checkbox"
             class="form-control"
             :checked="showVolume"
-            @change="$store.commit(paneId + '/TOGGLE_VOLUME')"
+            @change="store.commit(paneId + '/TOGGLE_VOLUME')"
           />
           <div></div>
           <span>Show volume</span>
@@ -48,7 +48,7 @@
             type="checkbox"
             class="form-control"
             :checked="showVolumeDelta"
-            @change="$store.commit(paneId + '/TOGGLE_VOLUME_DELTA')"
+            @change="store.commit(paneId + '/TOGGLE_VOLUME_DELTA')"
           />
           <div></div>
           <span>Show volume Δ</span>
@@ -61,7 +61,7 @@
             type="checkbox"
             class="form-control"
             :checked="showPrice"
-            @change="$store.commit(paneId + '/TOGGLE_PRICE')"
+            @change="store.commit(paneId + '/TOGGLE_PRICE')"
           />
           <div></div>
           <span>Show price</span>
@@ -74,7 +74,7 @@
             type="checkbox"
             class="form-control"
             :checked="showChange"
-            @change="$store.commit(paneId + '/TOGGLE_CHANGE')"
+            @change="store.commit(paneId + '/TOGGLE_CHANGE')"
           />
           <div></div>
           <span>Show price change</span>
@@ -98,7 +98,7 @@
           class="form-control pl16 w-100"
           :model-value="formatAmountHelper(volumeThreshold)"
           @update:model-value="
-            $store.commit(paneId + '/SET_VOLUME_THRESHOLD', $event)
+            store.commit(paneId + '/SET_VOLUME_THRESHOLD', $event)
           "
         />
       </div>
@@ -118,7 +118,7 @@
               type="checkbox"
               class="form-control"
               :checked="sortOrder === 1"
-              @change="$store.commit(paneId + '/TOGGLE_SORT_ORDER')"
+              @change="store.commit(paneId + '/TOGGLE_SORT_ORDER')"
             />
             <div v-tippy title="Switch order"></div>
           </label>
@@ -130,7 +130,7 @@
             type="checkbox"
             class="form-control"
             :checked="animateSort"
-            @change="$store.commit(paneId + '/TOGGLE_SORT_ANIMATION')"
+            @change="store.commit(paneId + '/TOGGLE_SORT_ANIMATION')"
           />
           <div></div>
           <span>Sort animation</span>
@@ -162,7 +162,7 @@
           :options="periods"
           class="-outline form-control -arrow w-100 -cases"
           placeholder="No period"
-          @input="$store.commit(paneId + '/SET_PERIOD', $event)"
+          @input="store.commit(paneId + '/SET_PERIOD', $event)"
         ></dropdown-button>
       </div>
       <div class="form-group mb8">
@@ -171,7 +171,7 @@
             type="checkbox"
             class="form-control"
             :checked="avgPeriods"
-            @change="$store.commit(paneId + '/TOGGLE_AVG_PERIODS')"
+            @change="store.commit(paneId + '/TOGGLE_AVG_PERIODS')"
           />
           <div></div>
           <span>

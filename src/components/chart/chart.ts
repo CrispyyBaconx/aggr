@@ -11,6 +11,9 @@ import {
   TimeRange
 } from './chart.d'
 
+// Re-export types for consumers of this module
+export type { IndicatorApi } from './chart.d'
+
 import { MAX_BARS_PER_CHUNKS } from '@/utils/constants'
 import {
   getHms,

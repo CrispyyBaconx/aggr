@@ -13,7 +13,7 @@
               class="form-control"
               :checked="useAudio"
               @change="
-                $store.commit(
+                store.commit(
                   'settings/TOGGLE_AUDIO',
                   ($event.target as HTMLInputElement).checked
                 )
@@ -29,8 +29,8 @@
             :step="0.01"
             :label="true"
             :value="audioVolume"
-            @input="$store.dispatch('settings/setAudioVolume', $event)"
-            @reset="$store.dispatch('settings/setAudioVolume', 1)"
+            @input="store.dispatch('settings/setAudioVolume', $event)"
+            @reset="store.dispatch('settings/setAudioVolume', 1)"
             log
           ></slider>
         </div>
@@ -46,9 +46,9 @@
             <input
               type="checkbox"
               class="form-control"
-              :checked="$store.state.settings.audioFilters[filter]"
+              :checked="store.state.settings.audioFilters[filter]"
               @change="
-                $store.commit('settings/SET_AUDIO_FILTER', {
+                store.commit('settings/SET_AUDIO_FILTER', {
                   id: filter,
                   value: ($event.target as HTMLInputElement).checked
                 })

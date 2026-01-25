@@ -16,7 +16,7 @@
           :value="statsWindowStringified"
           placeholder="Window (minutes)"
           @change="
-            $store.commit(
+            store.commit(
               paneId + '/SET_WINDOW',
               ($event.target as HTMLInputElement).value
             )
@@ -35,7 +35,7 @@
             class="form-control"
             :checked="enableChart"
             @change="
-              $store.commit(
+              store.commit(
                 paneId + '/TOGGLE_CHART',
                 ($event.target as HTMLInputElement).checked
               )
@@ -54,7 +54,7 @@
         class="-nowrap -text"
         v-tippy
         title="Add a stat"
-        @click="$store.dispatch(paneId + '/createBucket')"
+        @click="store.dispatch(paneId + '/createBucket')"
       >
         Add
         <i class="icon-plus ml4 -lower"></i>
@@ -73,7 +73,7 @@
             class="form-control"
             :checked="bucket.enabled"
             @change="
-              $store.dispatch(paneId + '/updateBucket', {
+              store.dispatch(paneId + '/updateBucket', {
                 id: bucket.id,
                 prop: 'enabled',
                 value: ($event.target as HTMLInputElement).checked

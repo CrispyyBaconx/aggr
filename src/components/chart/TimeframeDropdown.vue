@@ -87,7 +87,7 @@ export default {
       required: true
     },
     modelValue: {
-      type: HTMLButtonElement,
+      type: HTMLElement,
       default: null
     }
   },

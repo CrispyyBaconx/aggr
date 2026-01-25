@@ -10,8 +10,12 @@ export interface Notice {
   id?: string
   title?: string
   timeout?: number
-  button: NoticeButton
+  button?: NoticeButton
   _timeoutId?: number
+  type?: string
+  icon?: string
+  html?: boolean
+  action?: () => boolean | void
 }
 
 interface NoticeButton {

@@ -22,7 +22,7 @@
             4: 'SparseDotted'
           }"
           placeholder="lineStyle"
-          @input="$store.commit('settings/SET_ALERTS_LINESTYLE', $event)"
+          @input="store.commit('settings/SET_ALERTS_LINESTYLE', $event)"
           title="Line style (ex: dashed)"
           v-tippy
         ></dropdown-button>
@@ -32,7 +32,7 @@
         <editable
           :model-value="alertsLineWidth"
           @update:model-value="
-            $store.commit('settings/SET_ALERTS_LINEWIDTH', $event)
+            store.commit('settings/SET_ALERTS_LINEWIDTH', $event)
           "
           class="form-control -center w-100"
           title="Line width (ex: 2)"
@@ -44,7 +44,7 @@
         <color-picker-control
           :value="alertsColor"
           label="Alert color"
-          @input="$store.commit('settings/SET_ALERTS_COLOR', $event)"
+          @input="store.commit('settings/SET_ALERTS_COLOR', $event)"
         ></color-picker-control>
       </div>
     </div>
@@ -54,7 +54,7 @@
         <label><i class="icon-click mr4"></i> Control</label>
         <label
           class="checkbox-control d-flex -aggr -auto -auto"
-          @change="$store.commit('settings/TOGGLE_ALERTS_CLICK')"
+          @change="store.commit('settings/TOGGLE_ALERTS_CLICK')"
           title="Place alerts faster ⚡️"
           v-tippy
         >

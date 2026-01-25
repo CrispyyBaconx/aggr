@@ -11,7 +11,7 @@
             placeholder="Giphy keyword"
             :value="threshold.buyGif"
             @change="
-              $store.commit(paneId + '/SET_THRESHOLD_GIF', {
+              store.commit(paneId + '/SET_THRESHOLD_GIF', {
                 id: threshold.id,
                 side: 'buy',
                 value: ($event.target as HTMLInputElement).value
@@ -27,7 +27,7 @@
             placeholder="Giphy keyword"
             :value="threshold.sellGif"
             @change="
-              $store.commit(paneId + '/SET_THRESHOLD_GIF', {
+              store.commit(paneId + '/SET_THRESHOLD_GIF', {
                 id: threshold.id,
                 side: 'sell',
                 value: ($event.target as HTMLInputElement).value
@@ -50,7 +50,7 @@
             label="Buy color"
             :value="threshold.buyColor"
             @input="
-              $store.commit(paneId + '/SET_THRESHOLD_COLOR', {
+              store.commit(paneId + '/SET_THRESHOLD_COLOR', {
                 id: threshold.id,
                 side: 'buyColor',
                 value: $event
@@ -68,7 +68,7 @@
             label="Sell color"
             :value="threshold.sellColor"
             @input="
-              $store.commit(paneId + '/SET_THRESHOLD_COLOR', {
+              store.commit(paneId + '/SET_THRESHOLD_COLOR', {
                 id: threshold.id,
                 side: 'sellColor',
                 value: $event

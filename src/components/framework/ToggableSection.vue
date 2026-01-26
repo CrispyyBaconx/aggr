@@ -31,25 +31,24 @@
         </div>
         <i class="icon-up-thin"></i>
       </div>
-      <transition-height single auto-width>
-        <div v-if="value" class="toggable-section__content" key="section">
+      <div
+        class="toggable-section__content-wrapper"
+        :class="[value && 'toggable-section__content-wrapper--open']"
+      >
+        <div class="toggable-section__content">
           <div class="toggable-section__spacer" />
           <slot />
         </div>
-      </transition-height>
+      </div>
     </div>
   </section>
 </template>
 
 <script lang="ts">
 import { randomString } from '../../utils/helpers'
-import TransitionHeight from './TransitionHeight.vue'
 
 export default {
   name: 'ToggableSection',
-  components: {
-    TransitionHeight
-  },
   emits: ['update:model'],
   props: {
     model: {
@@ -259,8 +258,20 @@ export default {
     margin-top: 0.5rem;
   }
 
+  &__content-wrapper {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &--open {
+      grid-template-rows: 1fr;
+    }
+  }
+
   &__content {
     position: relative;
+    overflow: hidden;
+    min-height: 0;
   }
 
   &__control {

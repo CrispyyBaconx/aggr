@@ -58,6 +58,19 @@ const IndicatorOptionColor = defineAsyncComponent(
   () => import('@/components/chart/options/IndicatorOptionColor.vue')
 )
 
+// Component map for dynamic :is binding (Vue 3 requires component objects, not strings)
+const componentMap: Record<string, any> = {
+  IndicatorOptionNumber,
+  IndicatorOptionText,
+  IndicatorOptionList,
+  IndicatorOptionLineStyle,
+  IndicatorOptionLineType,
+  IndicatorOptionExchange,
+  IndicatorOptionRange,
+  IndicatorOptionCheckbox,
+  IndicatorOptionColor
+}
+
 const props = defineProps<{
   indicatorId: string
   paneId: string
@@ -90,19 +103,20 @@ const definition = computed(
 const label = computed(() => definition.value.label || props.name)
 
 const componentName = computed(() => {
+  let name: string
+
   if (!type.value) {
-    return 'IndicatorOptionText'
+    name = 'IndicatorOptionText'
+  } else if (props.name === 'lineType') {
+    name = 'IndicatorOptionLineType'
+  } else if (props.name === 'lineStyle') {
+    name = 'IndicatorOptionLineStyle'
+  } else {
+    name = `IndicatorOption${type.value[0].toUpperCase()}${type.value.toLowerCase().slice(1)}`
   }
 
-  if (props.name === 'lineType') {
-    return 'IndicatorOptionLineType'
-  }
-
-  if (props.name === 'lineStyle') {
-    return 'IndicatorOptionLineStyle'
-  }
-
-  return `IndicatorOption${type.value[0].toUpperCase()}${type.value.toLowerCase().slice(1)}`
+  // Return actual component object for Vue 3 dynamic :is binding
+  return componentMap[name] || IndicatorOptionText
 })
 
 watch(

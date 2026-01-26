@@ -22,13 +22,18 @@ import {
 const props = withDefaults(
   defineProps<{
     modelValue?: string
+    value?: string
     editorOptions?: IndicatorEditorOptions
   }>(),
   {
     modelValue: '',
+    value: '',
     editorOptions: () => ({})
   }
 )
+
+// Support both :value (Vue 2 style) and v-model/modelValue (Vue 3 style)
+const currentValue = () => props.modelValue || props.value || ''
 
 const emit = defineEmits<{
   blur: [value: string]
@@ -61,7 +66,7 @@ watch(
 )
 
 watch(
-  () => props.modelValue,
+  () => currentValue(),
   value => {
     if (!preventOverride && editorInstance) {
       editorInstance.setValue(value)
@@ -129,7 +134,7 @@ async function createEditor() {
   if (!el) return
 
   editorInstance = monaco.create(el, {
-    value: props.modelValue,
+    value: currentValue(),
     language: 'javascript',
     tabSize: 2,
     insertSpaces: true,

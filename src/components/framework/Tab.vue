@@ -10,9 +10,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, inject } from 'vue'
 
-defineProps<{
+const props = defineProps<{
   name: string
 }>()
 
@@ -21,6 +21,12 @@ const emit = defineEmits<{
 }>()
 
 const selected = ref(false)
+
+// Inject the selectTab function from parent Tabs component
+const tabsSelectTab = inject<
+  | ((tab: { name: string; select: () => void; deselect: () => void }) => void)
+  | null
+>('tabsSelectTab', null)
 
 function select() {
   selected.value = true
@@ -31,7 +37,13 @@ function deselect() {
 }
 
 function onClick() {
-  emit('select', { name: '', select, deselect })
+  // Call parent's selectTab via inject if available
+  if (tabsSelectTab) {
+    tabsSelectTab({ name: props.name, select, deselect })
+  }
+
+  // Also emit for backwards compatibility
+  emit('select', { name: props.name, select, deselect })
 }
 
 defineExpose({

@@ -8,7 +8,11 @@
     >
       <i class="icon-search"></i>
     </button>
-    <div v-else class="quick-search__input-wrapper">
+    <div
+      v-else
+      class="quick-search__input-wrapper"
+      :class="{ '-closing': isClosing }"
+    >
       <input
         ref="inputRef"
         type="text"
@@ -72,6 +76,7 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
 const query = ref('')
 const isExpanded = ref(false)
+const isClosing = ref(false)
 const isLoading = ref(false)
 const activeIndex = ref(0)
 
@@ -160,9 +165,13 @@ async function expand() {
 }
 
 function collapse() {
-  isExpanded.value = false
-  query.value = ''
-  activeIndex.value = 0
+  isClosing.value = true
+  setTimeout(() => {
+    isExpanded.value = false
+    isClosing.value = false
+    query.value = ''
+    activeIndex.value = 0
+  }, 150)
 }
 
 function onInput(event: Event) {
@@ -260,6 +269,12 @@ function selectResult(result: { localPair: string; markets: string[] }) {
     border-radius: 1.25rem;
     padding: 0 0.5rem;
     gap: 0.25rem;
+    overflow: hidden;
+    animation: quick-search-expand 0.15s ease-out forwards;
+
+    &.-closing {
+      animation: quick-search-expand 0.15s ease-in reverse forwards;
+    }
   }
 
   &__input {
@@ -270,15 +285,19 @@ function selectResult(result: { localPair: string; markets: string[] }) {
     outline: none;
     color: var(--theme-color-100);
     font-size: 0.875rem;
-    padding: 0 0.5rem;
+    padding: 0 0.5rem 0 0.75rem;
 
     &::placeholder {
       color: var(--theme-color-o50);
+      font-weight: 300;
+      letter-spacing: 0.025em;
+      opacity: 0.7;
     }
   }
 
   &__close {
     padding: 0.25rem;
+    margin-left: -0.25rem;
     opacity: 0.5;
 
     &:hover {
@@ -334,6 +353,17 @@ function selectResult(result: { localPair: string; markets: string[] }) {
     text-align: center;
     color: var(--theme-color-o50);
     font-size: 0.875rem;
+  }
+}
+
+@keyframes quick-search-expand {
+  from {
+    width: 2.5rem;
+    opacity: 0.5;
+  }
+  to {
+    width: 180px;
+    opacity: 1;
   }
 }
 </style>

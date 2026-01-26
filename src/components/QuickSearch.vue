@@ -2,11 +2,11 @@
   <div class="quick-search" :class="{ '-expanded': isExpanded }">
     <button
       v-if="!isExpanded"
-      class="quick-search__button btn"
+      class="quick-search__button"
       @click="expand"
       title="Quick instrument switch"
     >
-      <i class="icon-switch"></i>
+      <i class="icon-search"></i>
     </button>
     <div v-else class="quick-search__input-wrapper">
       <input
@@ -229,23 +229,26 @@ function selectResult(result: { localPair: string; markets: string[] }) {
 .quick-search {
   position: fixed;
   bottom: 1.5rem;
-  right: 4.5rem;
+  right: 5rem;
   z-index: 10;
 
   &__button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 2.5rem;
     height: 2.5rem;
     border-radius: 50%;
-    justify-content: center;
-    background-color: var(--theme-background-100);
+    background-color: #3a3a3a;
     color: var(--theme-color-100);
     z-index: 1;
     position: relative;
-    border: 1px solid var(--theme-background-200);
+    border: 1px solid #4a4a4a;
+    cursor: pointer;
 
     &:hover {
-      background-color: var(--theme-background-150);
-      border-color: var(--theme-background-300);
+      background-color: #4a4a4a;
+      border-color: #5a5a5a;
     }
   }
 

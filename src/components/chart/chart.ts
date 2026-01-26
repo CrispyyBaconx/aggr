@@ -2433,10 +2433,8 @@ export default class Chart {
       return
     }
 
-    if (
-      store.state.app.apiSupportedTimeframes.indexOf(timeframe.toString()) ===
-      -1
-    ) {
+    // Check if this timeframe can be fetched (directly or via aggregation from 1s bars)
+    if (!historicalService.isTimeframeFetchable(timeframe)) {
       return
     }
 

@@ -201,6 +201,19 @@ class HistoricalService extends EventEmitter {
   }
 
   /**
+   * Check if a timeframe can be fetched (directly or via aggregation)
+   * Returns true if backend is configured (can aggregate from 1s) or if using legacy API with a supported timeframe
+   */
+  isTimeframeFetchable(timeframe: number): boolean {
+    // With backend, any timeframe can be built by aggregating from 1s bars
+    if (this.backendUrl) {
+      return true
+    }
+    // Without backend, only directly supported timeframes work
+    return SUPPORTED_RESOLUTIONS.includes(timeframe)
+  }
+
+  /**
    * Build backend API URL for /api/bars endpoint
    * Uses ticker mapping to convert aggr market format to backend format
    */

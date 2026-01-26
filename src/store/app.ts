@@ -241,18 +241,32 @@ const mutations = {
     if (value && value.trim()) {
       state.apiSupportedTimeframes = value.split(',')
     } else if (import.meta.env.VITE_APP_BACKEND_URL) {
-      // If backend is configured, support all standard timeframes
+      // If backend is configured, support all timeframes that can be built from 1s bars
+      // This includes all second-based timeframes and standard minute/hour/day timeframes
+      // since we can aggregate 1s bars into any timeframe
       state.apiSupportedTimeframes = [
-        '1',
-        '5',
-        '15',
-        '60',
-        '300',
-        '900',
-        '1800',
-        '3600',
-        '14400',
-        '86400'
+        // Directly supported by backend
+        '1', // 1s
+        '60', // 1m
+        '300', // 5m
+        '900', // 15m
+        '1800', // 30m
+        '3600', // 1h
+        '14400', // 4h
+        '86400', // 1d
+        // Aggregatable from 1s bars
+        '3', // 3s
+        '5', // 5s
+        '10', // 10s
+        '15', // 15s
+        '30', // 30s
+        '180', // 3m
+        '600', // 10m
+        '1260', // 21m
+        '7200', // 2h
+        '21600', // 6h
+        '28800', // 8h
+        '43200' // 12h
       ]
     } else {
       state.apiSupportedTimeframes = []

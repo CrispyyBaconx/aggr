@@ -5,6 +5,7 @@ import prices from './prices'
 import counters from './counters'
 import website from './website'
 import alerts from './alerts'
+import screener from './screener'
 
 export default {
   chart,
@@ -14,5 +15,6 @@ export default {
   counters,
   website,
   alerts,
+  screener,
   'trades-lite': trades
 }

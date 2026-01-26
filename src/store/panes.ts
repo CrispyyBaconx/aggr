@@ -14,7 +14,8 @@ import dialogService from '@/services/dialogService'
 
 enum StaticPaneType {
   website = 'website',
-  alerts = 'alerts'
+  alerts = 'alerts',
+  screener = 'screener'
 }
 
 export enum PaneType {
@@ -25,6 +26,7 @@ export enum PaneType {
   prices = 'prices',
   website = 'website',
   alerts = 'alerts',
+  screener = 'screener',
   'trades-lite' = 'trades-lite'
 }
 

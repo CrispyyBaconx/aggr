@@ -239,6 +239,20 @@ class BackendWsService extends EventEmitter {
   }
 
   /**
+   * Subscribe to tickers summary (all tickers with multi-timeframe metrics)
+   */
+  subscribeTickersSummary(): void {
+    this.subscribe('tickers.summary')
+  }
+
+  /**
+   * Unsubscribe from tickers summary
+   */
+  unsubscribeTickersSummary(): void {
+    this.unsubscribe('tickers.summary')
+  }
+
+  /**
    * Send a command to the backend
    */
   private sendCommand(cmd: string, pattern?: string): void {

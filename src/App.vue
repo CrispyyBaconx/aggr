@@ -13,6 +13,7 @@
     <Loader v-if="isLoading" />
     <Notices />
     <div class="app__wrapper">
+      <QuickSearch />
       <Menu />
 
       <div class="app__layout">
@@ -42,6 +43,7 @@ import aggregatorService from './services/aggregatorService'
 import Loader from '@/components/framework/Loader.vue'
 import Notices from '@/components/framework/Notices.vue'
 import Menu from '@/components/Menu.vue'
+import QuickSearch from '@/components/QuickSearch.vue'
 
 import Panes from '@/components/panes/Panes.vue'
 

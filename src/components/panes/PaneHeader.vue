@@ -90,6 +90,18 @@
         <i class="icon-search"></i>
         <span>Sources</span>
       </button>
+      <div v-if="showSearch" class="dropdown-item" @click.stop>
+        <label class="checkbox-control -small">
+          <input
+            type="checkbox"
+            class="form-control"
+            :checked="lockedSources"
+            @change="store.commit('panes/TOGGLE_PANE_LOCKED_SOURCES', paneId)"
+          />
+          <div></div>
+          <span>Lock sources</span>
+        </label>
+      </div>
       <div v-if="isInFrame" class="dropdown-item" @click.stop>
         <label class="checkbox-control -small">
           <input
@@ -176,6 +188,10 @@ const type = computed(() => store.state.panes.panes[props.paneId].type)
 
 const syncedWithParent = computed(() => {
   return store.state.panes.syncedWithParentFrame.indexOf(props.paneId) !== -1
+})
+
+const lockedSources = computed(() => {
+  return store.state.panes.panes[props.paneId].lockedSources === true
 })
 
 const name = computed(() => {

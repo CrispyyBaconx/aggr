@@ -8,7 +8,12 @@ import { ModulesState } from '.'
 import panesSettings from './panesSettings'
 import defaultPanes from './defaultPanes.json'
 import { ListenedProduct } from './app'
-import { getMarketProduct, parseMarket } from '../services/productsService'
+import {
+  getMarketProduct,
+  parseMarket,
+  indexedProducts,
+  ensureIndexedProducts
+} from '../services/productsService'
 import { GridItem, GridSpace, findOrCreateSpace } from '@/utils/grid'
 import dialogService from '@/services/dialogService'
 
@@ -39,6 +44,7 @@ export interface Pane {
   zoom?: number
   markets?: string[]
   settings?: any
+  lockedSources?: boolean
 }
 
 export interface PanesState {
@@ -323,6 +329,134 @@ const actions = {
 
     return dispatch('refreshMarketsListeners', { id, markets })
   },
+  async switchInstrument({ dispatch, state }, localPair: string) {
+    // Ensure products are indexed
+    await ensureIndexedProducts()
+
+    const upperLocalPair = localPair.toUpperCase()
+
+    // Build a lookup of all available markets by exchange and local pair
+    const marketsByExchangeAndPair: {
+      [exchange: string]: { [local: string]: string }
+    } = {}
+
+    for (const exchangeId in indexedProducts) {
+      if (!indexedProducts[exchangeId]) continue
+
+      for (const product of indexedProducts[exchangeId]) {
+        const normalizedExchange = product.exchange.replace(/_.*/, '')
+        if (!marketsByExchangeAndPair[normalizedExchange]) {
+          marketsByExchangeAndPair[normalizedExchange] = {}
+        }
+        // Store by local pair (e.g., BTCUSDT)
+        const productLocal = product.local || product.base + product.quote
+        if (productLocal.toUpperCase() === upperLocalPair) {
+          const key = productLocal.toUpperCase()
+          marketsByExchangeAndPair[normalizedExchange][key] = product.id
+        }
+      }
+    }
+
+    // Also map with subaccounts (BINANCE_FUTURES -> BINANCE)
+    for (const exchangeId in indexedProducts) {
+      if (!indexedProducts[exchangeId]) continue
+
+      const normalizedExchange = exchangeId.replace(/_.*/, '')
+      if (normalizedExchange !== exchangeId) {
+        // This is a subaccount exchange like BINANCE_FUTURES
+        for (const product of indexedProducts[exchangeId]) {
+          const productLocal = product.local || product.base + product.quote
+          if (productLocal.toUpperCase() === upperLocalPair) {
+            if (!marketsByExchangeAndPair[exchangeId]) {
+              marketsByExchangeAndPair[exchangeId] = {}
+            }
+            const key = productLocal.toUpperCase()
+            marketsByExchangeAndPair[exchangeId][key] = product.id
+          }
+        }
+      }
+    }
+
+    let switchedCount = 0
+
+    // Iterate through all panes and switch unlocked ones
+    for (const paneId in state.panes) {
+      const pane = state.panes[paneId]
+
+      // Skip locked panes
+      if (pane.lockedSources) {
+        continue
+      }
+
+      // Skip static pane types (website, alerts, screener)
+      if (pane.type in StaticPaneType) {
+        continue
+      }
+
+      // Skip panes with no markets
+      if (!pane.markets || !pane.markets.length) {
+        continue
+      }
+
+      // Map current exchanges to new instrument
+      const newMarkets: string[] = []
+      const seenExchanges = new Set<string>()
+
+      for (const market of pane.markets) {
+        const [exchange] = parseMarket(market)
+
+        // Skip if we already have this exchange
+        if (seenExchanges.has(exchange)) {
+          continue
+        }
+
+        // Try to find the new instrument on this exchange
+        let newMarket: string | null = null
+
+        // First try exact exchange match (e.g., BINANCE_FUTURES)
+        const exactLookup = marketsByExchangeAndPair[exchange]
+        if (exactLookup?.[upperLocalPair]) {
+          newMarket = exactLookup[upperLocalPair]
+        }
+
+        // If not found, try normalized exchange (e.g., BINANCE)
+        if (!newMarket) {
+          const normalizedExchange = exchange.replace(/_.*/, '')
+          const normalizedLookup = marketsByExchangeAndPair[normalizedExchange]
+          if (normalizedLookup?.[upperLocalPair]) {
+            newMarket = normalizedLookup[upperLocalPair]
+          }
+        }
+
+        if (newMarket) {
+          newMarkets.push(newMarket)
+          seenExchanges.add(exchange)
+        }
+      }
+
+      // Update pane markets if we found any
+      if (newMarkets.length) {
+        await dispatch('refreshMarketsListeners', {
+          id: paneId,
+          markets: newMarkets
+        })
+        switchedCount++
+      }
+    }
+
+    if (switchedCount > 0) {
+      this.dispatch('app/showNotice', {
+        title: `Switched to ${localPair} on ${switchedCount} pane${
+          switchedCount > 1 ? 's' : ''
+        }`
+      })
+    } else {
+      this.dispatch('app/showNotice', {
+        title: `No panes were switched (all locked or no matching markets)`,
+        type: 'error'
+      })
+    }
+  },
   duplicatePane({ state, rootState, dispatch }, id: string) {
     if (!state.panes[id] || !rootState[id]) {
       this.dispatch('app/showNotice', {
@@ -488,6 +622,11 @@ const mutations = {
   SET_PANE_ZOOM: (state, { id, zoom }: { id: string; zoom: number }) => {
     if (state.panes[id]) {
       state.panes[id].zoom = zoom
+    }
+  },
+  TOGGLE_PANE_LOCKED_SOURCES: (state, id: string) => {
+    if (state.panes[id]) {
+      state.panes[id].lockedSources = !state.panes[id].lockedSources
     }
   },
   TOGGLE_SYNC_WITH_PARENT_FRAME: (state, paneId) => {

@@ -171,7 +171,7 @@ function collapse() {
     isClosing.value = false
     query.value = ''
     activeIndex.value = 0
-  }, 150)
+  }, 200)
 }
 
 function onInput(event: Event) {
@@ -273,7 +273,7 @@ function selectResult(result: { localPair: string; markets: string[] }) {
     animation: quick-search-expand 0.15s ease-out forwards;
 
     &.-closing {
-      animation: quick-search-expand 0.15s ease-in reverse forwards;
+      animation: quick-search-collapse 0.2s ease-out forwards;
     }
   }
 
@@ -364,6 +364,17 @@ function selectResult(result: { localPair: string; markets: string[] }) {
   to {
     width: 180px;
     opacity: 1;
+  }
+}
+
+@keyframes quick-search-collapse {
+  from {
+    width: 180px;
+    opacity: 1;
+  }
+  to {
+    width: 2.5rem;
+    opacity: 0;
   }
 }
 </style>

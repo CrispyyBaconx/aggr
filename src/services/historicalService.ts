@@ -31,6 +31,8 @@ interface BackendBarsResponse {
   v: number[] // volume
   d: number[] // delta (buy_volume - sell_volume)
   oi: number[] // open interest
+  liq_long?: number[] // long liquidations (lbuy)
+  liq_short?: number[] // short liquidations (lsell)
 }
 
 // Supported resolutions by backend /api/bars
@@ -444,6 +446,10 @@ class HistoricalService extends EventEmitter {
             vsell = vsell * close
           }
 
+          // Parse liquidation values from backend response
+          const lbuy = json.liq_long?.[i] || 0
+          const lsell = json.liq_short?.[i] || 0
+
           const bar: Bar = {
             time: json.t[i], // Keep in seconds - chart expects seconds
             open: json.o[i],
@@ -454,8 +460,8 @@ class HistoricalService extends EventEmitter {
             vsell,
             cbuy: 0,
             csell: 0,
-            lbuy: 0,
-            lsell: 0,
+            lbuy,
+            lsell,
             exchange,
             pair
           }

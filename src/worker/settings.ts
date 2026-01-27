@@ -6,9 +6,7 @@ export default {
   preferQuoteCurrencySize: null,
   wsProxyUrl: null,
   buckets: {},
-  // Backend API configuration
+  // Backend API configuration (for historical data)
   backendUrl: null,
-  backendWsUrl: null,
-  backendApiKey: null,
-  useBackendPrimary: true
+  backendApiKey: null
 } as AggregatorSettings

@@ -320,10 +320,8 @@ export function getMarketProduct(exchangeId, symbol, noStable?: boolean) {
     exchangeId === 'BINANCE_FUTURES' ||
     exchangeId === 'DYDX' ||
     exchangeId === 'HYPERLIQUID' ||
-    exchangeId === 'ASTER' ||
-    exchangeId === 'BACKEND'
+    exchangeId === 'ASTER'
   ) {
-    // BACKEND exchange defaults to perp since it primarily tracks futures
     type = 'perp'
   } else if (exchangeId === 'COINBASE' && COINBASE_INTX_REGEX.test(symbol)) {
     type = 'perp'

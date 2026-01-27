@@ -26,11 +26,9 @@ export interface AggregatorSettings {
   preferQuoteCurrencySize?: boolean
   wsProxyUrl?: string
   buckets?: { [bucketId: string]: string[] }
-  // Backend API configuration
+  // Backend API configuration (for historical data)
   backendUrl?: string
-  backendWsUrl?: string
   backendApiKey?: string
-  useBackendPrimary?: boolean
 }
 
 export interface Market {

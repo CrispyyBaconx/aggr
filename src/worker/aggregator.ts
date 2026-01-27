@@ -613,23 +613,13 @@ class Aggregator {
 
   /**
    * Connect to a set of markets
+   * Connects directly to exchange websockets for real-time tick data
    * @param {string[]} markets
    * @returns {Promise<any>} promises of connections
    * @memberof Server
    */
   async connect(markets: string[], trackingId?: string) {
     console.log(`[aggregator] connect`, markets)
-
-    // Check if we should use backend as primary
-    const backendExchange = getExchangeById('BACKEND') as any
-    const useBackend =
-      backendExchange &&
-      settings.backendWsUrl &&
-      settings.useBackendPrimary !== false
-
-    if (useBackend) {
-      console.log(`[aggregator] using BACKEND as primary data source`)
-    }
 
     const marketsByExchange = markets.reduce((output, market) => {
       const [exchangeId, pair] = parseMarket(market)
@@ -638,18 +628,12 @@ class Aggregator {
         return {}
       }
 
-      // Route through backend if configured as primary
-      const targetExchange = useBackend ? 'BACKEND' : exchangeId
-
-      if (!output[targetExchange]) {
-        output[targetExchange] = []
+      if (!output[exchangeId]) {
+        output[exchangeId] = []
       }
 
-      // Store original market info for backend routing
-      const marketInfo = useBackend ? { market, exchangeId, pair } : market
-
-      if (output[targetExchange].indexOf(market) === -1) {
-        output[targetExchange].push(marketInfo)
+      if (output[exchangeId].indexOf(market) === -1) {
+        output[exchangeId].push(market)
       }
 
       return output
@@ -687,72 +671,11 @@ class Aggregator {
 
         promises.push(
           (async () => {
-            for (const marketInfo of marketsByExchange[exchangeId]) {
+            for (const market of marketsByExchange[exchangeId]) {
               try {
-                if (
-                  useBackend &&
-                  exchangeId === 'BACKEND' &&
-                  typeof marketInfo === 'object'
-                ) {
-                  // Route through backend with original exchange info
-                  const success = await backendExchange.linkProxied(
-                    marketInfo.market
-                  )
-
-                  // If backend doesn't have this ticker, fall back to direct connection
-                  if (!success) {
-                    const directExchange = getExchangeById(
-                      marketInfo.exchangeId
-                    )
-                    if (directExchange) {
-                      try {
-                        // Fetch products first if needed
-                        if (directExchange.requiresProducts) {
-                          await directExchange.getProducts()
-                        }
-                        await directExchange.link(marketInfo.market)
-                      } catch {
-                        // Direct connection also unavailable - silently skip
-                      }
-                    }
-                  } else {
-                    // Manually register connection with ORIGINAL exchange ID
-                    // (Backend's 'subscribed' event would use BACKEND as exchange)
-                    this.onSubscribed(
-                      marketInfo.exchangeId,
-                      marketInfo.pair.toLowerCase(),
-                      settings.backendWsUrl
-                    )
-                  }
-                } else {
-                  const market =
-                    typeof marketInfo === 'object'
-                      ? marketInfo.market
-                      : marketInfo
-                  await exchange.link(market)
-                }
+                await exchange.link(market)
               } catch (error) {
-                // Fallback to direct exchange connection on backend failure
-                if (
-                  useBackend &&
-                  exchangeId === 'BACKEND' &&
-                  typeof marketInfo === 'object'
-                ) {
-                  const directExchange = getExchangeById(marketInfo.exchangeId)
-                  if (directExchange) {
-                    try {
-                      // Fetch products first if needed
-                      if (directExchange.requiresProducts) {
-                        await directExchange.getProducts()
-                      }
-                      await directExchange.link(marketInfo.market)
-                    } catch {
-                      // Direct connection also unavailable - silently skip
-                    }
-                  }
-                } else {
-                  console.warn('[aggregator] Connection error:', error)
-                }
+                console.warn('[aggregator] Connection error:', error)
               }
             }
           })()

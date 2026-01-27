@@ -643,13 +643,21 @@ export async function ensureIndexedProducts(filter?: {
   for (const exchangeId of store.getters['exchanges/getExchanges']) {
     if (
       (filter && !filter[exchangeId]) ||
-      store.state.exchanges[exchangeId].disabled === true ||
+      store.state.exchanges[exchangeId]?.disabled === true ||
       indexedProducts[exchangeId]
     ) {
       continue
     }
 
-    await indexProducts(exchangeId, await getExchangeSymbols(exchangeId))
+    let symbols
+    try {
+      symbols = await getExchangeSymbols(exchangeId)
+    } catch (err) {
+      console.warn(`[products] Failed to get symbols for ${exchangeId}:`, err)
+      continue
+    }
+
+    await indexProducts(exchangeId, symbols)
 
     indexChanged = true
   }

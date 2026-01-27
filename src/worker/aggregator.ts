@@ -783,8 +783,19 @@ class Aggregator {
     { exchangeId, forceFetch }: { exchangeId: string; forceFetch?: boolean },
     trackingId
   ) {
-    const productsData =
-      await getExchangeById(exchangeId).getProducts(forceFetch)
+    const exchange = getExchangeById(exchangeId)
+
+    if (!exchange) {
+      console.warn(`[aggregator] Exchange ${exchangeId} not found in worker`)
+      this.ctx.postMessage({
+        op: 'fetchExchangeProducts',
+        data: null,
+        trackingId: trackingId
+      })
+      return
+    }
+
+    const productsData = await exchange.getProducts(forceFetch)
 
     this.ctx.postMessage({
       op: 'fetchExchangeProducts',

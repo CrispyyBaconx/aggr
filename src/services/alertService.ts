@@ -113,6 +113,11 @@ class AlertService {
    * Update alerts triggered status using pending notifications
    */
   async syncTriggeredAlerts() {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker) {
+      this._promiseOfSync = Promise.resolve()
+      return
+    }
+
     this._promiseOfSync = new Promise<void>(resolve => {
       // recover recent triggers
       navigator.serviceWorker.ready.then(async registration => {

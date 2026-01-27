@@ -262,13 +262,13 @@ function selectResult(result: { localPair: string; markets: string[] }) {
   }
 
   &__input-wrapper {
+    position: relative;
     display: flex;
     align-items: center;
     background-color: var(--theme-background-100);
     border: 1px solid var(--theme-background-300);
     border-radius: 1.25rem;
-    padding: 0 0.5rem;
-    gap: 0.25rem;
+    width: 180px;
     overflow: hidden;
     animation: quick-search-expand 0.15s ease-out forwards;
 
@@ -278,14 +278,15 @@ function selectResult(result: { localPair: string; markets: string[] }) {
   }
 
   &__input {
-    width: 140px;
+    flex: 1;
+    min-width: 0;
     height: 2.25rem;
     background: transparent;
     border: none;
     outline: none;
     color: var(--theme-color-100);
     font-size: 0.875rem;
-    padding: 0 0.5rem 0 0.75rem;
+    padding: 0 2rem 0 0.75rem;
 
     &::placeholder {
       color: var(--theme-color-o50);
@@ -296,9 +297,13 @@ function selectResult(result: { localPair: string; markets: string[] }) {
   }
 
   &__close {
+    position: absolute;
+    right: 0.25rem;
+    top: 50%;
+    transform: translateY(-50%);
     padding: 0.25rem;
-    margin-left: -0.25rem;
     opacity: 0.5;
+    flex-shrink: 0;
 
     &:hover {
       opacity: 1;

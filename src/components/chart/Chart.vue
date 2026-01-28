@@ -236,6 +236,7 @@ function selectTimeframe(event: MouseEvent, tf: string | number) {
 }
 
 defineExpose({
+  paneId: props.paneId,
   onResize: () => {
     if (!chart) return
     chart.refreshChartDimensions()

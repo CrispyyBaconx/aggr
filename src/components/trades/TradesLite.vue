@@ -30,7 +30,11 @@
       <button
         v-if="availableExchanges.length > 1"
         class="btn -text"
-        :title="exchangeFilter ? `Showing only ${exchangeFilter}` : 'Showing all exchanges'"
+        :title="
+          exchangeFilter
+            ? `Showing only ${exchangeFilter}`
+            : 'Showing all exchanges'
+        "
         v-tippy
         @click="
           exchangeDropdownTrigger = exchangeDropdownTrigger

@@ -411,7 +411,7 @@ const actions = {
         }
 
         // Detect if original market is a perpetual/futures
-        const isOriginalPerp = 
+        const isOriginalPerp =
           exchange.includes('_FUTURES') ||
           exchange.includes('_SWAP') ||
           pair.includes('-SWAP') ||
@@ -440,7 +440,7 @@ const actions = {
         // Verify the new market matches the same type (spot/perp)
         if (newMarket) {
           const [newExchange, newPair] = parseMarket(newMarket)
-          const isNewPerp = 
+          const isNewPerp =
             newExchange.includes('_FUTURES') ||
             newExchange.includes('_SWAP') ||
             newPair.includes('-SWAP') ||

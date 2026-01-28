@@ -87,7 +87,7 @@ const MAX_RESULTS = 10
 // Get all products flattened from all exchanges
 const allProducts = computed(() => {
   // Access productsTrigger to make this computed reactive to manual triggers
-  productsTrigger.value
+  void productsTrigger.value
   const products: any[] = []
   for (const exchangeId in indexedProducts) {
     if (indexedProducts[exchangeId]) {
@@ -161,7 +161,7 @@ async function expand() {
 
   // Ensure products are indexed
   await ensureIndexedProducts()
-  
+
   // Trigger re-computation of allProducts since indexedProducts is not reactive
   productsTrigger.value++
 

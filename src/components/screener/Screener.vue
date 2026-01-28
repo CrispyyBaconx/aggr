@@ -79,7 +79,10 @@
             <td class="screener-col-ticks">
               {{ formatNumber(ticker.trades) }}
             </td>
-            <td class="screener-col-price" :class="getPriceFlashClass(ticker.id)">
+            <td
+              class="screener-col-price"
+              :class="getPriceFlashClass(ticker.id)"
+            >
               {{ formatPrice(ticker.price) }}
             </td>
             <td
@@ -116,7 +119,6 @@
         <p>No tickers match your filters</p>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -209,7 +211,6 @@ const searchQuery = ref('')
 const previousPrices = reactive<Map<string, number>>(new Map())
 const priceFlashes = reactive<Map<string, 'up' | 'down' | null>>(new Map())
 
-
 // Computed store state
 const sortBy = computed(() => store.state[props.paneId]?.sortBy || 'volume')
 const sortOrder = computed(() => store.state[props.paneId]?.sortOrder || -1)
@@ -264,7 +265,9 @@ const displayedTickers = computed<AggregatedTicker[]>(() => {
 
       // Exchange filter
       if (exchangeFilter.value.length > 0) {
-        if (!exchangeFilter.value.some(f => f.toUpperCase() === ticker.exchange)) {
+        if (
+          !exchangeFilter.value.some(f => f.toUpperCase() === ticker.exchange)
+        ) {
           return false
         }
       }
@@ -274,10 +277,10 @@ const displayedTickers = computed<AggregatedTicker[]>(() => {
 
   // Group by baseAsset (aggregate across exchanges)
   const aggregatedMap = new Map<string, AggregatedTicker>()
-  
+
   for (const source of tickerSources) {
     const baseAsset = source.baseAsset
-    
+
     if (!aggregatedMap.has(baseAsset)) {
       aggregatedMap.set(baseAsset, {
         id: baseAsset,
@@ -293,28 +296,28 @@ const displayedTickers = computed<AggregatedTicker[]>(() => {
         sources: []
       })
     }
-    
+
     const agg = aggregatedMap.get(baseAsset)!
     agg.sources.push(source)
     agg.exchanges.push(source.exchange)
-    
+
     // Sum values
     agg.volume += source.volume
     agg.vdelta += source.vdelta
     agg.openInterestUsd += source.openInterestUsd
     agg.trades += source.trades
   }
-  
+
   // Calculate weighted averages and set price from highest OI source
   for (const agg of aggregatedMap.values()) {
     // Sort sources by OI (highest first)
     agg.sources.sort((a, b) => b.openInterestUsd - a.openInterestUsd)
-    
+
     // Use price from highest OI exchange
     if (agg.sources.length > 0) {
       agg.price = agg.sources[0].price
     }
-    
+
     // Weighted average for change percent and funding (weight by OI)
     const totalOi = agg.openInterestUsd
     if (totalOi > 0) {
@@ -332,14 +335,14 @@ const displayedTickers = computed<AggregatedTicker[]>(() => {
       agg.changePercent = agg.sources[0].changePercent
       agg.fundingRate = agg.sources[0].fundingRate
     }
-    
+
     // Dedupe exchanges list
     agg.exchanges = [...new Set(agg.exchanges)]
   }
 
   // Convert to array and sort
   let filtered = Array.from(aggregatedMap.values())
-  
+
   const by = sortBy.value as ScreenerSortBy
   const order = sortOrder.value
 
@@ -470,10 +473,11 @@ function getPriceFlashClass(tickerId: string): string {
 
 function updatePriceFlash(baseAsset: string, currentPrice: number) {
   const prevPrice = previousPrices.get(baseAsset)
-  
+
   if (prevPrice !== undefined && prevPrice !== currentPrice) {
-    const direction = currentPrice > prevPrice ? 1 : currentPrice < prevPrice ? -1 : 0
-    
+    const direction =
+      currentPrice > prevPrice ? 1 : currentPrice < prevPrice ? -1 : 0
+
     // Trigger flash effect
     if (direction !== 0) {
       priceFlashes.set(baseAsset, direction > 0 ? 'up' : 'down')
@@ -482,7 +486,7 @@ function updatePriceFlash(baseAsset: string, currentPrice: number) {
       }, 300)
     }
   }
-  
+
   previousPrices.set(baseAsset, currentPrice)
 }
 
@@ -490,22 +494,22 @@ function handleTickersUpdate(data: { tickers: BackendTicker[] }) {
   if (data && data.tickers) {
     // Group by baseAsset and track price changes from highest OI source
     const assetPrices = new Map<string, { price: number; oi: number }>()
-    
+
     for (const ticker of data.tickers) {
       const baseAsset = ticker.baseAsset || ticker.symbol.replace(/USDT?$/, '')
       const oi = ticker.openInterestUsd || 0
       const current = assetPrices.get(baseAsset)
-      
+
       if (!current || oi > current.oi) {
         assetPrices.set(baseAsset, { price: ticker.price, oi })
       }
     }
-    
+
     // Update flash state for each aggregated asset
     for (const [baseAsset, { price }] of assetPrices) {
       updatePriceFlash(baseAsset, price)
     }
-    
+
     tickers.value = data.tickers
   }
 }
@@ -567,7 +571,7 @@ onBeforeUnmount(() => {
     border: 1px solid var(--theme-background-200);
     border-radius: 3px;
     color: var(--theme-color-base);
-    
+
     &:focus {
       outline: none;
       border-color: var(--theme-color-o20);
@@ -637,21 +641,23 @@ onBeforeUnmount(() => {
 
     &:hover {
       background: var(--theme-background-100);
-      
+
       .screener-symbol-text {
         color: var(--theme-color-base);
       }
     }
 
     &.-positive {
-      background: linear-gradient(90deg, 
-        rgba(var(--theme-buy-rgb), 0.08) 0%, 
-        transparent 50%);
-      
+      background: linear-gradient(
+        90deg,
+        rgba(var(--theme-buy-rgb), 0.08) 0%,
+        transparent 50%
+      );
+
       .screener-col-symbol {
         border-left: 3px solid var(--theme-buy-base);
       }
-      
+
       .screener-col-change {
         background: rgba(var(--theme-buy-rgb), 0.15);
         border-radius: 2px;
@@ -659,14 +665,16 @@ onBeforeUnmount(() => {
     }
 
     &.-negative {
-      background: linear-gradient(90deg, 
-        rgba(var(--theme-sell-rgb), 0.08) 0%, 
-        transparent 50%);
-      
+      background: linear-gradient(
+        90deg,
+        rgba(var(--theme-sell-rgb), 0.08) 0%,
+        transparent 50%
+      );
+
       .screener-col-symbol {
         border-left: 3px solid var(--theme-sell-base);
       }
-      
+
       .screener-col-change {
         background: rgba(var(--theme-sell-rgb), 0.15);
         border-radius: 2px;
@@ -697,11 +705,11 @@ onBeforeUnmount(() => {
   .screener-col-price {
     font-weight: 600;
     color: var(--theme-color-base);
-    
+
     &.-flash-up {
       animation: flash-up 0.3s $ease-out-expo;
     }
-    
+
     &.-flash-down {
       animation: flash-down 0.3s $ease-out-expo;
     }
@@ -770,10 +778,9 @@ onBeforeUnmount(() => {
   font-size: 0.875rem;
   flex-direction: column;
   gap: 0.5rem;
-  
+
   p {
     opacity: 0.6;
   }
 }
-
 </style>

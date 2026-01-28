@@ -107,6 +107,16 @@
           </div>
           <i class="icon-plus" />
         </button>
+        <button
+          class="dropdown-item dropdown-item--space-between"
+          @click="addPane('screener')"
+        >
+          <div>
+            <div>Screener</div>
+            <div class="dropdown-item__subtitle">Market scanner</div>
+          </div>
+          <i class="icon-plus" />
+        </button>
       </dropdown>
 
       <dropdown

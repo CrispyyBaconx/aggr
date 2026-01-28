@@ -79,6 +79,9 @@ const paneComponents = {
   ),
   alerts: markRaw(
     defineAsyncComponent(() => import('@/components/alerts/Alerts.vue'))
+  ),
+  screener: markRaw(
+    defineAsyncComponent(() => import('@/components/screener/Screener.vue'))
   )
 }
 

@@ -35,9 +35,8 @@ interface BackendBarsResponse {
   liq_short?: number[] // short liquidations (lsell)
 }
 
-// Supported resolutions by backend /api/bars
-// From API docs: 1s, 1m, 5m, 15m, 30m, 1h, 4h, 1d
-const SUPPORTED_RESOLUTIONS = [1, 60, 300, 900, 1800, 3600, 14400, 86400]
+// Legacy supported resolutions (used only for legacy API fallback)
+const LEGACY_SUPPORTED_RESOLUTIONS = [1, 60, 300, 900, 1800, 3600, 14400, 86400]
 
 class HistoricalService extends EventEmitter {
   url: string
@@ -181,42 +180,23 @@ class HistoricalService extends EventEmitter {
   }
 
   /**
-   * Find the best resolution to fetch from backend for a given timeframe
-   * Returns { fetchResolution, needsAggregation }
+   * Check if a timeframe is supported by the legacy API
    */
-  getBestResolution(timeframe: number): {
-    fetchResolution: number
-    needsAggregation: boolean
-  } {
-    // If the exact resolution is supported, use it
-    if (SUPPORTED_RESOLUTIONS.includes(timeframe)) {
-      return { fetchResolution: timeframe, needsAggregation: false }
-    }
-
-    // Find the largest supported resolution that divides evenly into the requested timeframe
-    // or use 1s if nothing divides evenly
-    for (let i = SUPPORTED_RESOLUTIONS.length - 1; i >= 0; i--) {
-      const res = SUPPORTED_RESOLUTIONS[i]
-      if (res < timeframe && timeframe % res === 0) {
-        return { fetchResolution: res, needsAggregation: true }
-      }
-    }
-
-    // Default to 1s and aggregate
-    return { fetchResolution: 1, needsAggregation: true }
+  isLegacySupportedResolution(timeframe: number): boolean {
+    return LEGACY_SUPPORTED_RESOLUTIONS.includes(timeframe)
   }
 
   /**
    * Check if a timeframe can be fetched (directly or via aggregation)
-   * Returns true if backend is configured (can aggregate from 1s) or if using legacy API with a supported timeframe
+   * Returns true if backend is configured (supports any timeframe) or if using legacy API with a supported timeframe
    */
   isTimeframeFetchable(timeframe: number): boolean {
-    // With backend, any timeframe can be built by aggregating from 1s bars
+    // Backend supports any timeframe - it handles aggregation server-side
     if (this.backendUrl) {
       return true
     }
     // Without backend, only directly supported timeframes work
-    return SUPPORTED_RESOLUTIONS.includes(timeframe)
+    return LEGACY_SUPPORTED_RESOLUTIONS.includes(timeframe)
   }
 
   /**
@@ -380,6 +360,7 @@ class HistoricalService extends EventEmitter {
 
   /**
    * Fetch historical data from backend /api/bars endpoint
+   * Backend supports any timeframe natively - it handles aggregation server-side
    */
   async fetchFromBackend(
     from: number,
@@ -390,14 +371,8 @@ class HistoricalService extends EventEmitter {
     // Ensure we have backend tickers for proper market mapping
     await this.fetchBackendTickers()
 
-    const { fetchResolution, needsAggregation } =
-      this.getBestResolution(timeframe)
-
     console.debug(
-      `[historicalService] Fetching ${this.timeframeToResolution(fetchResolution)} bars` +
-        (needsAggregation
-          ? ` (will aggregate to ${this.timeframeToResolution(timeframe)})`
-          : '')
+      `[historicalService] Fetching ${this.timeframeToResolution(timeframe)} bars from backend`
     )
 
     const allBars: Bar[] = []
@@ -406,7 +381,8 @@ class HistoricalService extends EventEmitter {
 
     // Fetch data for each market in parallel
     const fetchPromises = markets.map(async market => {
-      const url = this.getBackendApiUrl(from, to, fetchResolution, market)
+      // Request the exact timeframe - backend handles any resolution natively
+      const url = this.getBackendApiUrl(from, to, timeframe, market)
       const [exchange, pair] = parseMarket(market)
 
       try {
@@ -476,11 +452,6 @@ class HistoricalService extends EventEmitter {
           }
 
           bars.push(bar)
-        }
-
-        // Aggregate if needed
-        if (needsAggregation && bars.length > 0) {
-          return this.aggregateBars(bars, timeframe)
         }
 
         return bars

@@ -53,7 +53,11 @@ class HistoricalService extends EventEmitter {
     super()
 
     this.url = getApiUrl('historical')
-    this.backendUrl = import.meta.env.VITE_APP_BACKEND_URL || ''
+    // Remove trailing slash to prevent double slashes in URLs
+    this.backendUrl = (import.meta.env.VITE_APP_BACKEND_URL || '').replace(
+      /\/$/,
+      ''
+    )
   }
 
   /**
@@ -496,7 +500,10 @@ class HistoricalService extends EventEmitter {
     allBars.sort((a, b) => a.time - b.time)
 
     if (allBars.length === 0) {
-      throw new Error('No more data')
+      // Create a custom error to distinguish "no data" from network failures
+      const error = new Error('No more data')
+      error.name = 'NoDataError'
+      throw error
     }
 
     return {
@@ -538,7 +545,11 @@ class HistoricalService extends EventEmitter {
         markets
       )
         .catch(err => {
-          // Fallback to legacy API on backend failure
+          // Only fallback to legacy API for actual network/connection failures
+          // Don't fallback for "NoDataError" - if backend says no data, legacy won't have it either
+          if (err.name === 'NoDataError') {
+            throw err
+          }
           console.warn(
             '[historicalService] Backend fetch failed, trying legacy API:',
             err

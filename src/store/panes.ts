@@ -330,9 +330,6 @@ const actions = {
     return dispatch('refreshMarketsListeners', { id, markets })
   },
   async switchInstrument({ dispatch, state }, localPair: string) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'panes.ts:332',message:'switchInstrument called',data:{localPair},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     // Ensure products are indexed
     await ensureIndexedProducts()
 
@@ -406,12 +403,21 @@ const actions = {
       const seenExchanges = new Set<string>()
 
       for (const market of pane.markets) {
-        const [exchange] = parseMarket(market)
+        const [exchange, pair] = parseMarket(market)
 
         // Skip if we already have this exchange
         if (seenExchanges.has(exchange)) {
           continue
         }
+
+        // Detect if original market is a perpetual/futures
+        const isOriginalPerp = 
+          exchange.includes('_FUTURES') ||
+          exchange.includes('_SWAP') ||
+          pair.includes('-SWAP') ||
+          pair.includes('-PERP') ||
+          pair.includes('_PERP') ||
+          ['BITMEX', 'DERIBIT', 'DYDX'].includes(exchange)
 
         // Try to find the new instrument on this exchange
         let newMarket: string | null = null
@@ -431,15 +437,28 @@ const actions = {
           }
         }
 
+        // Verify the new market matches the same type (spot/perp)
+        if (newMarket) {
+          const [newExchange, newPair] = parseMarket(newMarket)
+          const isNewPerp = 
+            newExchange.includes('_FUTURES') ||
+            newExchange.includes('_SWAP') ||
+            newPair.includes('-SWAP') ||
+            newPair.includes('-PERP') ||
+            newPair.includes('_PERP') ||
+            ['BITMEX', 'DERIBIT', 'DYDX'].includes(newExchange)
+
+          // Only match if both are the same type (both spot or both perp)
+          if (isOriginalPerp !== isNewPerp) {
+            newMarket = null
+          }
+        }
+
         if (newMarket) {
           newMarkets.push(newMarket)
           seenExchanges.add(exchange)
         }
       }
-
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'panes.ts:437',message:'pane market mapping result',data:{paneId,paneType:pane.type,oldMarkets:pane.markets,newMarkets,newMarketsFound:newMarkets.length>0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
-      // #endregion
 
       // Always update pane markets - even if empty (to clear the pane when ticker unavailable)
       await dispatch('refreshMarketsListeners', {

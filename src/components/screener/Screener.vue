@@ -35,6 +35,10 @@
               Symbol
               <i v-if="sortBy === 'symbol'" :class="sortIcon"></i>
             </th>
+            <th class="screener-col-ticks" @click="setSortBy('ticks')">
+              Ticks 15m
+              <i v-if="sortBy === 'ticks'" :class="sortIcon"></i>
+            </th>
             <th class="screener-col-price" @click="setSortBy('price')">
               Price
               <i v-if="sortBy === 'price'" :class="sortIcon"></i>
@@ -67,16 +71,17 @@
             :key="ticker.id"
             class="screener-row"
             :class="getRowClass(ticker)"
-            @click="selectTicker(ticker)"
+            @click="handleTickerClick($event, ticker)"
           >
             <td class="screener-col-symbol">
-              <span
-                class="screener-exchange-icon"
-                :class="'icon-' + ticker.exchange"
-              ></span>
               <span class="screener-symbol-text">{{ ticker.baseAsset }}</span>
             </td>
-            <td class="screener-col-price">{{ formatPrice(ticker.price) }}</td>
+            <td class="screener-col-ticks">
+              {{ formatNumber(ticker.trades) }}
+            </td>
+            <td class="screener-col-price" :class="getPriceFlashClass(ticker.id)">
+              {{ formatPrice(ticker.price) }}
+            </td>
             <td
               class="screener-col-change"
               :class="ticker.changePercent >= 0 ? '-up' : '-down'"
@@ -111,11 +116,12 @@
         <p>No tickers match your filters</p>
       </div>
     </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, reactive } from 'vue'
 import { useStore } from 'vuex'
 import PaneHeader from '../panes/PaneHeader.vue'
 import backendWsService from '@/services/backendWsService'
@@ -162,17 +168,30 @@ interface TimeframeMetrics {
   volatility?: number
 }
 
-interface DisplayTicker {
-  id: string
-  symbol: string
+interface TickerSource {
   exchange: string
-  baseAsset: string
+  symbol: string
   price: number
-  changePercent: number
   volume: number
   vdelta: number
   openInterestUsd: number
   fundingRate: number
+  trades: number
+  changePercent: number
+}
+
+interface AggregatedTicker {
+  id: string
+  baseAsset: string
+  price: number // Weighted average or highest OI exchange price
+  changePercent: number // Weighted average
+  volume: number // Sum
+  vdelta: number // Sum
+  openInterestUsd: number // Sum
+  fundingRate: number // Weighted average
+  trades: number // Sum
+  exchanges: string[] // List of exchanges
+  sources: TickerSource[] // Individual exchange data
 }
 
 const props = defineProps<{
@@ -185,6 +204,11 @@ const { el } = usePane(props.paneId)
 const tickers = ref<BackendTicker[]>([])
 const isConnected = ref(false)
 const searchQuery = ref('')
+
+// Track price changes for flash effect
+const previousPrices = reactive<Map<string, number>>(new Map())
+const priceFlashes = reactive<Map<string, 'up' | 'down' | null>>(new Map())
+
 
 // Computed store state
 const sortBy = computed(() => store.state[props.paneId]?.sortBy || 'volume')
@@ -200,34 +224,39 @@ const sortIcon = computed(() => {
   return sortOrder.value > 0 ? 'icon-up-thin' : 'icon-down-thin'
 })
 
-const displayedTickers = computed<DisplayTicker[]>(() => {
+const displayedTickers = computed<AggregatedTicker[]>(() => {
   const tf = timeframe.value as ScreenerTimeframe
   const tfKey = `tf${tf}` as keyof BackendTicker
 
-  let filtered = tickers.value
+  // First, build individual ticker sources
+  const tickerSources: TickerSource[] = tickers.value
     .map(ticker => {
       const metrics = ticker[tfKey] as TimeframeMetrics | undefined
+      // Always use 15m timeframe for tick count
+      const metrics15m = ticker.tf15m as TimeframeMetrics | undefined
+      // Keep exchange uppercase for icon matching
+      const exchange = ticker.exchange.toUpperCase()
       return {
-        id: `${ticker.exchange}:${ticker.symbol}`,
+        exchange,
         symbol: ticker.symbol,
-        exchange: ticker.exchange.toLowerCase(),
         baseAsset: ticker.baseAsset || ticker.symbol.replace(/USDT?$/, ''),
         price: ticker.price || 0,
         changePercent: metrics?.changePercent || 0,
         volume: metrics?.volume || 0,
         vdelta: metrics?.vdelta || 0,
         openInterestUsd: ticker.openInterestUsd || 0,
-        fundingRate: ticker.fundingRate || 0
+        fundingRate: ticker.fundingRate || 0,
+        trades: metrics15m?.trades || 0
       }
     })
     .filter(ticker => {
       // Search filter
       if (searchQuery.value) {
-        const query = searchQuery.value.toLowerCase()
+        const query = searchQuery.value.toUpperCase()
         if (
-          !ticker.symbol.toLowerCase().includes(query) &&
-          !ticker.baseAsset.toLowerCase().includes(query) &&
-          !ticker.exchange.toLowerCase().includes(query)
+          !ticker.symbol.toUpperCase().includes(query) &&
+          !ticker.baseAsset.toUpperCase().includes(query) &&
+          !ticker.exchange.includes(query)
         ) {
           return false
         }
@@ -235,7 +264,7 @@ const displayedTickers = computed<DisplayTicker[]>(() => {
 
       // Exchange filter
       if (exchangeFilter.value.length > 0) {
-        if (!exchangeFilter.value.includes(ticker.exchange)) {
+        if (!exchangeFilter.value.some(f => f.toUpperCase() === ticker.exchange)) {
           return false
         }
       }
@@ -243,7 +272,74 @@ const displayedTickers = computed<DisplayTicker[]>(() => {
       return true
     })
 
-  // Sort
+  // Group by baseAsset (aggregate across exchanges)
+  const aggregatedMap = new Map<string, AggregatedTicker>()
+  
+  for (const source of tickerSources) {
+    const baseAsset = source.baseAsset
+    
+    if (!aggregatedMap.has(baseAsset)) {
+      aggregatedMap.set(baseAsset, {
+        id: baseAsset,
+        baseAsset,
+        price: 0,
+        changePercent: 0,
+        volume: 0,
+        vdelta: 0,
+        openInterestUsd: 0,
+        fundingRate: 0,
+        trades: 0,
+        exchanges: [],
+        sources: []
+      })
+    }
+    
+    const agg = aggregatedMap.get(baseAsset)!
+    agg.sources.push(source)
+    agg.exchanges.push(source.exchange)
+    
+    // Sum values
+    agg.volume += source.volume
+    agg.vdelta += source.vdelta
+    agg.openInterestUsd += source.openInterestUsd
+    agg.trades += source.trades
+  }
+  
+  // Calculate weighted averages and set price from highest OI source
+  for (const agg of aggregatedMap.values()) {
+    // Sort sources by OI (highest first)
+    agg.sources.sort((a, b) => b.openInterestUsd - a.openInterestUsd)
+    
+    // Use price from highest OI exchange
+    if (agg.sources.length > 0) {
+      agg.price = agg.sources[0].price
+    }
+    
+    // Weighted average for change percent and funding (weight by OI)
+    const totalOi = agg.openInterestUsd
+    if (totalOi > 0) {
+      let weightedChange = 0
+      let weightedFunding = 0
+      for (const src of agg.sources) {
+        const weight = src.openInterestUsd / totalOi
+        weightedChange += src.changePercent * weight
+        weightedFunding += src.fundingRate * weight
+      }
+      agg.changePercent = weightedChange
+      agg.fundingRate = weightedFunding
+    } else if (agg.sources.length > 0) {
+      // Fallback to simple average if no OI
+      agg.changePercent = agg.sources[0].changePercent
+      agg.fundingRate = agg.sources[0].fundingRate
+    }
+    
+    // Dedupe exchanges list
+    agg.exchanges = [...new Set(agg.exchanges)]
+  }
+
+  // Convert to array and sort
+  let filtered = Array.from(aggregatedMap.values())
+  
   const by = sortBy.value as ScreenerSortBy
   const order = sortOrder.value
 
@@ -251,7 +347,7 @@ const displayedTickers = computed<DisplayTicker[]>(() => {
     let comparison = 0
     switch (by) {
       case 'symbol':
-        comparison = a.symbol.localeCompare(b.symbol)
+        comparison = a.baseAsset.localeCompare(b.baseAsset)
         break
       case 'price':
         comparison = a.price - b.price
@@ -271,6 +367,9 @@ const displayedTickers = computed<DisplayTicker[]>(() => {
       case 'funding':
         comparison = a.fundingRate - b.fundingRate
         break
+      case 'ticks':
+        comparison = a.trades - b.trades
+        break
     }
     return comparison * order
   })
@@ -282,7 +381,7 @@ function onSearchInput(event: Event) {
   searchQuery.value = (event.target as HTMLInputElement).value
 }
 
-function setSortBy(column: ScreenerSortBy) {
+function setSortBy(column: ScreenerSortBy | 'ticks') {
   if (sortBy.value === column) {
     store.commit(`${props.paneId}/TOGGLE_SORT_ORDER`)
   } else {
@@ -294,8 +393,16 @@ function setTimeframe(tf: string) {
   store.commit(`${props.paneId}/SET_TIMEFRAME`, tf)
 }
 
-function selectTicker(ticker: DisplayTicker) {
-  const market = `${ticker.exchange.toUpperCase()}:${ticker.symbol.toUpperCase()}`
+function handleTickerClick(event: MouseEvent, ticker: AggregatedTicker) {
+  // Always use the highest OI exchange (sources are already sorted by OI)
+  if (ticker.sources.length > 0) {
+    selectExchangeSource(ticker.sources[0])
+  }
+}
+
+function selectExchangeSource(source: TickerSource) {
+  // Exchange is already uppercase, symbol should be uppercase too
+  const market = `${source.exchange}:${source.symbol.toUpperCase()}`
   store.dispatch('panes/setMarketsForAll', [market])
 }
 
@@ -340,15 +447,65 @@ function formatFunding(rate: number): string {
   return `${(rate * 100).toFixed(4)}%`
 }
 
-function getRowClass(ticker: DisplayTicker) {
+function formatNumber(num: number): string {
+  if (!num) return '-'
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`
+  if (num >= 1e3) return `${(num / 1e3).toFixed(1)}K`
+  return num.toLocaleString()
+}
+
+function getRowClass(ticker: AggregatedTicker) {
   return {
     '-positive': ticker.changePercent > 0,
     '-negative': ticker.changePercent < 0
   }
 }
 
+function getPriceFlashClass(tickerId: string): string {
+  const flash = priceFlashes.get(tickerId)
+  if (flash === 'up') return '-flash-up'
+  if (flash === 'down') return '-flash-down'
+  return ''
+}
+
+function updatePriceFlash(baseAsset: string, currentPrice: number) {
+  const prevPrice = previousPrices.get(baseAsset)
+  
+  if (prevPrice !== undefined && prevPrice !== currentPrice) {
+    const direction = currentPrice > prevPrice ? 1 : currentPrice < prevPrice ? -1 : 0
+    
+    // Trigger flash effect
+    if (direction !== 0) {
+      priceFlashes.set(baseAsset, direction > 0 ? 'up' : 'down')
+      setTimeout(() => {
+        priceFlashes.set(baseAsset, null)
+      }, 300)
+    }
+  }
+  
+  previousPrices.set(baseAsset, currentPrice)
+}
+
 function handleTickersUpdate(data: { tickers: BackendTicker[] }) {
   if (data && data.tickers) {
+    // Group by baseAsset and track price changes from highest OI source
+    const assetPrices = new Map<string, { price: number; oi: number }>()
+    
+    for (const ticker of data.tickers) {
+      const baseAsset = ticker.baseAsset || ticker.symbol.replace(/USDT?$/, '')
+      const oi = ticker.openInterestUsd || 0
+      const current = assetPrices.get(baseAsset)
+      
+      if (!current || oi > current.oi) {
+        assetPrices.set(baseAsset, { price: ticker.price, oi })
+      }
+    }
+    
+    // Update flash state for each aggregated asset
+    for (const [baseAsset, { price }] of assetPrices) {
+      updatePriceFlash(baseAsset, price)
+    }
+    
     tickers.value = data.tickers
   }
 }
@@ -391,6 +548,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background: var(--theme-background-base);
+  position: relative;
 }
 
 .screener-controls {
@@ -404,12 +563,26 @@ onBeforeUnmount(() => {
     min-width: 0;
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
+    background: var(--theme-background-150);
+    border: 1px solid var(--theme-background-200);
+    border-radius: 3px;
+    color: var(--theme-color-base);
+    
+    &:focus {
+      outline: none;
+      border-color: var(--theme-color-o20);
+    }
   }
 
   select {
-    padding: 0.25rem;
+    padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
     min-width: 3.5rem;
+    background: var(--theme-background-150);
+    border: 1px solid var(--theme-background-200);
+    border-radius: 3px;
+    color: var(--theme-color-base);
+    cursor: pointer;
   }
 }
 
@@ -422,77 +595,141 @@ onBeforeUnmount(() => {
 .screener-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-family: $font-monospace;
 
   thead {
     position: sticky;
     top: 0;
-    background: var(--theme-background-100);
+    background: var(--theme-background-150);
     z-index: 1;
+    backdrop-filter: blur(8px);
 
     th {
-      padding: 0.375rem 0.5rem;
+      padding: 0.5rem 0.375rem;
       text-align: right;
       font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
       user-select: none;
-      color: var(--theme-color-200);
+      color: var(--theme-color-100);
+      text-transform: uppercase;
+      font-size: 0.5625rem;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--theme-background-200);
 
       &:hover {
         color: var(--theme-color-base);
+        background: var(--theme-background-200);
       }
 
       i {
         margin-left: 0.25rem;
-        font-size: 0.625rem;
+        font-size: 0.5rem;
       }
     }
   }
 
   tbody tr {
     cursor: pointer;
-    transition: background-color 0.1s;
+    transition: all 0.15s $ease-out-expo;
+    position: relative;
 
     &:hover {
       background: var(--theme-background-100);
+      
+      .screener-symbol-text {
+        color: var(--theme-color-base);
+      }
     }
 
     &.-positive {
+      background: linear-gradient(90deg, 
+        rgba(var(--theme-buy-rgb), 0.08) 0%, 
+        transparent 50%);
+      
       .screener-col-symbol {
-        border-left: 2px solid var(--theme-buy-base);
+        border-left: 3px solid var(--theme-buy-base);
+      }
+      
+      .screener-col-change {
+        background: rgba(var(--theme-buy-rgb), 0.15);
+        border-radius: 2px;
       }
     }
 
     &.-negative {
+      background: linear-gradient(90deg, 
+        rgba(var(--theme-sell-rgb), 0.08) 0%, 
+        transparent 50%);
+      
       .screener-col-symbol {
-        border-left: 2px solid var(--theme-sell-base);
+        border-left: 3px solid var(--theme-sell-base);
+      }
+      
+      .screener-col-change {
+        background: rgba(var(--theme-sell-rgb), 0.15);
+        border-radius: 2px;
       }
     }
   }
 
   td {
-    padding: 0.375rem 0.5rem;
+    padding: 0.375rem;
     text-align: right;
     white-space: nowrap;
     border-bottom: 1px solid var(--theme-background-100);
+    transition: background-color 0.3s $ease-out-expo;
   }
 
   .screener-col-symbol {
     text-align: left;
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
+    padding-left: 0.5rem;
   }
 
-  .screener-exchange-icon {
-    font-size: 0.875rem;
-    opacity: 0.6;
+  .screener-col-ticks {
+    padding: 0.25rem 0.375rem;
+    text-align: right;
+    color: var(--theme-color-100);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .screener-col-price {
+    font-weight: 600;
+    color: var(--theme-color-base);
+    
+    &.-flash-up {
+      animation: flash-up 0.3s $ease-out-expo;
+    }
+    
+    &.-flash-down {
+      animation: flash-down 0.3s $ease-out-expo;
+    }
+  }
+
+  .screener-col-change {
+    font-weight: 600;
+    padding: 0.25rem 0.375rem;
+  }
+
+  .screener-col-volume,
+  .screener-col-oi {
+    color: var(--theme-color-100);
+  }
+
+  .screener-col-vdelta {
+    font-weight: 500;
+  }
+
+  .screener-col-funding {
+    font-size: 0.625rem;
+    opacity: 0.8;
   }
 
   .screener-symbol-text {
-    font-weight: 500;
+    font-weight: 600;
+    color: var(--theme-color-100);
+    transition: color 0.15s;
   }
 
   .-up {
@@ -504,6 +741,25 @@ onBeforeUnmount(() => {
   }
 }
 
+// Flash animations
+@keyframes flash-up {
+  0% {
+    background: rgba(var(--theme-buy-rgb), 0.4);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+@keyframes flash-down {
+  0% {
+    background: rgba(var(--theme-sell-rgb), 0.4);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
 .screener-empty {
   display: flex;
   align-items: center;
@@ -512,19 +768,12 @@ onBeforeUnmount(() => {
   min-height: 100px;
   color: var(--theme-color-200);
   font-size: 0.875rem;
-}
-
-@each $exchange, $icon in $exchange-list {
-  .screener-exchange-icon.icon-#{$exchange} {
-    &::before {
-      content: '';
-    }
-    background-image: url('../../assets/exchanges/#{$exchange}.svg');
-    background-size: contain;
-    background-repeat: no-repeat;
-    width: 1rem;
-    height: 1rem;
-    display: inline-block;
+  flex-direction: column;
+  gap: 0.5rem;
+  
+  p {
+    opacity: 0.6;
   }
 }
+
 </style>

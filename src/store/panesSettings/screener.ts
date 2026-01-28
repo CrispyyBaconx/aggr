@@ -9,6 +9,7 @@ export type ScreenerSortBy =
   | 'oi'
   | 'funding'
   | 'vdelta'
+  | 'ticks'
 
 export interface ScreenerPaneState {
   _id?: string

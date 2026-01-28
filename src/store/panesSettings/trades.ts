@@ -40,6 +40,7 @@ export interface TradesPaneState {
   multipliers: { [identifier: string]: number }
   thresholdsMultipler: number
   showAvgPrice: boolean
+  exchangeFilter: string | null
 }
 
 const getters = {
@@ -76,7 +77,8 @@ const state = {
   showPrices: true,
   showHistograms: true,
   thresholdsMultipler: 1,
-  showAvgPrice: true
+  showAvgPrice: true,
+  exchangeFilter: null
 } as TradesPaneState
 
 const actions = {
@@ -351,6 +353,9 @@ const mutations = {
   },
   SORT_THRESHOLDS(state, type: string) {
     state[type].sort((a: Threshold, b: Threshold) => a.amount - b.amount)
+  },
+  SET_EXCHANGE_FILTER(state, exchange: string | null) {
+    state.exchangeFilter = exchange
   }
 } as MutationTree<TradesPaneState>
 

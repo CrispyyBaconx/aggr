@@ -567,6 +567,7 @@ export default class TradesFeed {
     const pane = store.state.panes?.panes?.[this.paneId]
     const paneState = store.state[this.paneId]
     const activeExchanges = store.state.app?.activeExchanges || {}
+    const exchangeFilter = paneState?.exchangeFilter
 
     if (!pane?.markets) {
       this.paneMarkets = {}
@@ -577,6 +578,12 @@ export default class TradesFeed {
       const [exchange] = marketKey.split(':')
 
       if (!activeExchanges[exchange]) {
+        output[marketKey] = false
+        return output
+      }
+
+      // Apply exchange filter if set
+      if (exchangeFilter && exchange !== exchangeFilter) {
         output[marketKey] = false
         return output
       }

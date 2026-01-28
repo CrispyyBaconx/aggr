@@ -23,6 +23,40 @@
         </button>
       </template>
       <hr />
+      <dropdown v-model="exchangeDropdownTrigger">
+        <button
+          type="button"
+          class="dropdown-item"
+          :class="{ '-active': !exchangeFilter }"
+          @click="setExchangeFilter(null)"
+        >
+          All
+        </button>
+        <button
+          v-for="exchange in availableExchanges"
+          :key="exchange"
+          type="button"
+          class="dropdown-item"
+          :class="{ '-active': exchangeFilter === exchange }"
+          @click="setExchangeFilter(exchange)"
+        >
+          {{ exchange }}
+        </button>
+      </dropdown>
+      <button
+        v-if="availableExchanges.length > 1"
+        class="btn -text"
+        :title="exchangeFilter ? `Showing only ${exchangeFilter}` : 'Showing all exchanges'"
+        v-tippy
+        @click="
+          exchangeDropdownTrigger = exchangeDropdownTrigger
+            ? null
+            : ($event.currentTarget as HTMLElement)
+        "
+      >
+        {{ exchangeFilter || 'All' }}
+      </button>
+      <hr v-if="availableExchanges.length > 1" />
       <dropdown v-model="sliderDropdownTrigger" interactive no-scroll>
         <slider
           style="width: 100px"
@@ -114,11 +148,27 @@ const tradesContainer = ref<HTMLElement | null>(null)
 const paneHeader = ref<InstanceType<typeof PaneHeader> | null>(null)
 const showPlaceholder = ref(true)
 const sliderDropdownTrigger = ref<HTMLElement | null>(null)
+const exchangeDropdownTrigger = ref<HTMLElement | null>(null)
 
 let feed: TradesFeed | null = null
 let _onStoreMutation: (() => void) | null = null
 
 const market = computed(() => pane.value.markets[0])
+
+const availableExchanges = computed(() => {
+  const exchanges = new Set<string>()
+  for (const marketKey of pane.value.markets) {
+    const [exchange] = marketKey.split(':')
+    if (store.state.app.activeExchanges[exchange]) {
+      exchanges.add(exchange)
+    }
+  }
+  return Array.from(exchanges).sort()
+})
+
+const exchangeFilter = computed(
+  () => store.state[props.paneId].exchangeFilter as string | null
+)
 
 const showLogos = computed(() => store.state[props.paneId].showLogos)
 
@@ -143,6 +193,15 @@ const gradient = computed(() => [
 
 function formatAmountValue(v: number) {
   return formatAmount(v)
+}
+
+function setExchangeFilter(exchange: string | null) {
+  store.commit(props.paneId + '/SET_EXCHANGE_FILTER', exchange)
+  exchangeDropdownTrigger.value = null
+  if (feed) {
+    feed.cachePaneMarkets()
+    refreshList()
+  }
 }
 
 function onTrades(trades: Trade[]) {
@@ -218,6 +277,10 @@ _onStoreMutation = store.subscribe(mutation => {
       break
     case props.paneId + '/SET_MAX_ROWS':
       feed.setMaxCount(mutation.payload)
+      break
+    case props.paneId + '/SET_EXCHANGE_FILTER':
+      feed.cachePaneMarkets()
+      refreshList()
       break
     case 'panes/SET_PANE_MARKETS':
     case props.paneId + '/SET_THRESHOLD_MULTIPLIER':

@@ -7,6 +7,40 @@
       @zoom="onResize"
     >
       <hr />
+      <dropdown v-model="exchangeDropdownTrigger">
+        <button
+          type="button"
+          class="dropdown-item"
+          :class="{ '-active': !exchangeFilter }"
+          @click="setExchangeFilter(null)"
+        >
+          All
+        </button>
+        <button
+          v-for="exchange in availableExchanges"
+          :key="exchange"
+          type="button"
+          class="dropdown-item"
+          :class="{ '-active': exchangeFilter === exchange }"
+          @click="setExchangeFilter(exchange)"
+        >
+          {{ exchange }}
+        </button>
+      </dropdown>
+      <button
+        v-if="availableExchanges.length > 1"
+        class="btn -text"
+        :title="exchangeFilter ? `Showing only ${exchangeFilter}` : 'Showing all exchanges'"
+        v-tippy
+        @click="
+          exchangeDropdownTrigger = exchangeDropdownTrigger
+            ? null
+            : ($event.currentTarget as HTMLElement)
+        "
+      >
+        {{ exchangeFilter || 'All' }}
+      </button>
+      <hr v-if="availableExchanges.length > 1" />
       <dropdown
         v-if="market"
         v-model="sliderDropdownTrigger"
@@ -150,6 +184,7 @@ const { el, pane } = usePane(props.paneId, onResize)
 const canvas = ref<HTMLCanvasElement | null>(null)
 const paneHeader = ref<InstanceType<typeof PaneHeader> | null>(null)
 const sliderDropdownTrigger = ref<HTMLElement | null>(null)
+const exchangeDropdownTrigger = ref<HTMLElement | null>(null)
 const paused = ref(0)
 
 let ctx: CanvasRenderingContext2D | null = null
@@ -207,6 +242,21 @@ let _onStoreMutation: (() => void) | null = null
 
 const market = computed(() => pane.value.markets[0])
 
+const availableExchanges = computed(() => {
+  const exchanges = new Set<string>()
+  for (const marketKey of pane.value.markets) {
+    const [exchange] = marketKey.split(':')
+    if (store.state.app.activeExchanges[exchange]) {
+      exchanges.add(exchange)
+    }
+  }
+  return Array.from(exchanges).sort()
+})
+
+const exchangeFilter = computed(
+  () => store.state[props.paneId].exchangeFilter as string | null
+)
+
 const thresholdsMultipler = computed(
   () => store.state[props.paneId].thresholdsMultipler
 )
@@ -222,6 +272,13 @@ const gradient = computed(() => [
 
 function formatAmountValue(v: number) {
   return formatAmount(v)
+}
+
+function setExchangeFilter(exchange: string | null) {
+  store.commit(props.paneId + '/SET_EXCHANGE_FILTER', exchange)
+  exchangeDropdownTrigger.value = null
+  prepareMarkets()
+  renderHistory()
 }
 
 function getThresholdsByType(type: TradeType | number): Threshold[] {
@@ -351,11 +408,19 @@ async function prepareTypeFilter(checkRequirements?: boolean) {
 }
 
 function prepareMarkets() {
+  const currentExchangeFilter = store.state[props.paneId].exchangeFilter
+
   paneMarkets = store.state.panes.panes[props.paneId].markets.reduce(
     (output: { [key: string]: boolean }, marketKey: string) => {
       const [exchange] = marketKey.split(':')
 
       if (!store.state.app.activeExchanges[exchange]) {
+        output[marketKey] = false
+        return output
+      }
+
+      // Apply exchange filter if set
+      if (currentExchangeFilter && exchange !== currentExchangeFilter) {
         output[marketKey] = false
         return output
       }
@@ -1095,6 +1160,10 @@ _onStoreMutation = store.subscribe(mutation => {
         prepareMarkets()
         renderHistory()
       }
+      break
+    case props.paneId + '/SET_EXCHANGE_FILTER':
+      prepareMarkets()
+      renderHistory()
       break
     case 'app/EXCHANGE_UPDATED':
     case props.paneId + '/SET_MAX_ROWS':

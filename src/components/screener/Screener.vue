@@ -27,7 +27,11 @@
       </div>
     </pane-header>
 
-    <div class="screener-table-wrapper hide-scrollbar">
+    <div
+      class="screener-table-wrapper hide-scrollbar"
+      ref="scrollContainer"
+      @scroll="onScroll"
+    >
       <table class="screener-table">
         <thead>
           <tr>
@@ -65,53 +69,64 @@
             </th>
           </tr>
         </thead>
-        <tbody>
-          <tr
-            v-for="ticker in displayedTickers"
-            :key="ticker.id"
-            class="screener-row"
-            :class="getRowClass(ticker)"
-            @click="handleTickerClick($event, ticker)"
-          >
-            <td class="screener-col-symbol">
-              <span class="screener-symbol-text">{{ ticker.baseAsset }}</span>
-            </td>
-            <td class="screener-col-ticks">
-              {{ formatNumber(ticker.trades) }}
-            </td>
-            <td
-              class="screener-col-price"
-              :class="getPriceFlashClass(ticker.id)"
-            >
-              {{ formatPrice(ticker.price) }}
-            </td>
-            <td
-              class="screener-col-change"
-              :class="ticker.changePercent >= 0 ? '-up' : '-down'"
-            >
-              {{ formatChange(ticker.changePercent) }}
-            </td>
-            <td class="screener-col-volume">
-              {{ formatVolume(ticker.volume) }}
-            </td>
-            <td
-              class="screener-col-vdelta"
-              :class="ticker.vdelta >= 0 ? '-up' : '-down'"
-            >
-              {{ formatVolume(ticker.vdelta) }}
-            </td>
-            <td class="screener-col-oi">
-              {{ formatVolume(ticker.openInterestUsd) }}
-            </td>
-            <td
-              class="screener-col-funding"
-              :class="ticker.fundingRate >= 0 ? '-up' : '-down'"
-            >
-              {{ formatFunding(ticker.fundingRate) }}
-            </td>
-          </tr>
-        </tbody>
       </table>
+      <!-- Virtual scroll container -->
+      <div
+        class="screener-virtual-container"
+        :style="{ height: `${totalHeight}px` }"
+      >
+        <table
+          class="screener-table screener-virtual-table"
+          :style="{ transform: `translateY(${offsetY}px)` }"
+        >
+          <tbody>
+            <tr
+              v-for="ticker in visibleTickers"
+              :key="ticker.id"
+              class="screener-row"
+              :class="getRowClass(ticker)"
+              @click="handleTickerClick($event, ticker)"
+            >
+              <td class="screener-col-symbol">
+                <span class="screener-symbol-text">{{ ticker.baseAsset }}</span>
+              </td>
+              <td class="screener-col-ticks">
+                {{ formatNumber(ticker.trades) }}
+              </td>
+              <td
+                class="screener-col-price"
+                :class="getPriceFlashClass(ticker.id)"
+              >
+                {{ formatPrice(ticker.price) }}
+              </td>
+              <td
+                class="screener-col-change"
+                :class="ticker.changePercent >= 0 ? '-up' : '-down'"
+              >
+                {{ formatChange(ticker.changePercent) }}
+              </td>
+              <td class="screener-col-volume">
+                {{ formatVolume(ticker.volume) }}
+              </td>
+              <td
+                class="screener-col-vdelta"
+                :class="ticker.vdelta >= 0 ? '-up' : '-down'"
+              >
+                {{ formatVolume(ticker.vdelta) }}
+              </td>
+              <td class="screener-col-oi">
+                {{ formatVolume(ticker.openInterestUsd) }}
+              </td>
+              <td
+                class="screener-col-funding"
+                :class="ticker.fundingRate >= 0 ? '-up' : '-down'"
+              >
+                {{ formatFunding(ticker.fundingRate) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div v-if="!isConnected" class="screener-empty">
         <p>Connecting to backend...</p>
       </div>
@@ -123,7 +138,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, reactive } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  reactive,
+  watch,
+  nextTick
+} from 'vue'
 import { useStore } from 'vuex'
 import PaneHeader from '../panes/PaneHeader.vue'
 import backendWsService from '@/services/backendWsService'
@@ -132,6 +155,10 @@ import type {
   ScreenerTimeframe,
   ScreenerSortBy
 } from '@/store/panesSettings/screener'
+
+// Virtual scroll constants
+const ROW_HEIGHT = 26 // Fixed row height in pixels
+const BUFFER_ROWS = 5 // Extra rows to render above/below viewport
 
 interface BackendTicker {
   symbol: string
@@ -207,6 +234,11 @@ const tickers = ref<BackendTicker[]>([])
 const isConnected = ref(false)
 const searchQuery = ref('')
 
+// Virtual scroll state
+const scrollContainer = ref<HTMLElement | null>(null)
+const scrollTop = ref(0)
+const containerHeight = ref(400)
+
 // Track price changes for flash effect
 const previousPrices = reactive<Map<string, number>>(new Map())
 const priceFlashes = reactive<Map<string, 'up' | 'down' | null>>(new Map())
@@ -215,8 +247,6 @@ const priceFlashes = reactive<Map<string, 'up' | 'down' | null>>(new Map())
 const sortBy = computed(() => store.state[props.paneId]?.sortBy || 'volume')
 const sortOrder = computed(() => store.state[props.paneId]?.sortOrder || -1)
 const timeframe = computed(() => store.state[props.paneId]?.timeframe || '1h')
-const showSpots = computed(() => store.state[props.paneId]?.showSpots ?? false)
-const showPerps = computed(() => store.state[props.paneId]?.showPerps ?? true)
 const exchangeFilter = computed(
   () => store.state[props.paneId]?.exchangeFilter || []
 )
@@ -380,6 +410,38 @@ const displayedTickers = computed<AggregatedTicker[]>(() => {
   return filtered
 })
 
+// Virtual scroll computations
+const totalHeight = computed(() => displayedTickers.value.length * ROW_HEIGHT)
+
+const startIndex = computed(() => {
+  const start = Math.floor(scrollTop.value / ROW_HEIGHT) - BUFFER_ROWS
+  return Math.max(0, start)
+})
+
+const endIndex = computed(() => {
+  const visibleCount = Math.ceil(containerHeight.value / ROW_HEIGHT)
+  const end = startIndex.value + visibleCount + BUFFER_ROWS * 2
+  return Math.min(displayedTickers.value.length, end)
+})
+
+const offsetY = computed(() => startIndex.value * ROW_HEIGHT)
+
+const visibleTickers = computed(() => {
+  return displayedTickers.value.slice(startIndex.value, endIndex.value)
+})
+
+function onScroll() {
+  if (scrollContainer.value) {
+    scrollTop.value = scrollContainer.value.scrollTop
+  }
+}
+
+function updateContainerHeight() {
+  if (scrollContainer.value) {
+    containerHeight.value = scrollContainer.value.clientHeight
+  }
+}
+
 function onSearchInput(event: Event) {
   searchQuery.value = (event.target as HTMLInputElement).value
 }
@@ -523,6 +585,8 @@ function handleDisconnected() {
   isConnected.value = false
 }
 
+let resizeObserver: ResizeObserver | null = null
+
 onMounted(() => {
   backendWsService.on('tickers', handleTickersUpdate)
   backendWsService.on('connected', handleConnected)
@@ -536,6 +600,17 @@ onMounted(() => {
       console.warn('[Screener] Failed to connect to backend:', err)
     })
   }
+
+  // Setup resize observer for virtual scroll
+  nextTick(() => {
+    updateContainerHeight()
+    if (scrollContainer.value) {
+      resizeObserver = new ResizeObserver(() => {
+        updateContainerHeight()
+      })
+      resizeObserver.observe(scrollContainer.value)
+    }
+  })
 })
 
 onBeforeUnmount(() => {
@@ -543,6 +618,19 @@ onBeforeUnmount(() => {
   backendWsService.off('connected', handleConnected)
   backendWsService.off('disconnected', handleDisconnected)
   backendWsService.unsubscribeTickersSummary()
+
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+})
+
+// Reset scroll position when filters change
+watch([searchQuery, sortBy, sortOrder, timeframe], () => {
+  if (scrollContainer.value) {
+    scrollContainer.value.scrollTop = 0
+    scrollTop.value = 0
+  }
 })
 </script>
 
@@ -594,6 +682,21 @@ onBeforeUnmount(() => {
   flex: 1;
   overflow: auto;
   min-height: 0;
+  position: relative;
+}
+
+.screener-virtual-container {
+  position: relative;
+  width: 100%;
+  contain: strict;
+}
+
+.screener-virtual-table {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  will-change: transform;
 }
 
 .screener-table {
@@ -636,8 +739,9 @@ onBeforeUnmount(() => {
 
   tbody tr {
     cursor: pointer;
-    transition: all 0.15s $ease-out-expo;
+    transition: background-color 0.15s $ease-out-expo;
     position: relative;
+    height: 26px; // Must match ROW_HEIGHT constant
 
     &:hover {
       background: var(--theme-background-100);

@@ -772,6 +772,9 @@ function getColors(amount: number, side: string, type: TradeType) {
 }
 
 function clear() {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TradesLite.vue:774',message:'clear() called',data:{paneId:props.paneId,hasCtx:!!ctx,tradesHistoryLength:tradesHistory.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,E'})}).catch(()=>{});
+  // #endregion
   if (!ctx) return
 
   ctx.resetTransform()
@@ -789,6 +792,9 @@ function clear() {
 }
 
 function reset() {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TradesLite.vue:791',message:'reset() called',data:{paneId:props.paneId,tradesHistoryLength:tradesHistory.length,tradesRenderingLength:tradesRendering.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,E'})}).catch(()=>{});
+  // #endregion
   if (ctx) {
     clear()
   }
@@ -1155,7 +1161,16 @@ async function prepareEverything() {
 _onStoreMutation = store.subscribe(mutation => {
   switch (mutation.type) {
     case 'panes/SET_PANE_MARKETS':
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TradesLite.vue:1157',message:'SET_PANE_MARKETS received',data:{mutationPaneId:mutation.payload.id,thisPaneId:props.paneId,newMarkets:mutation.payload.markets,tradesHistoryLength:tradesHistory.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C'})}).catch(()=>{});
+      // #endregion
       if (mutation.payload.id === props.paneId) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'TradesLite.vue:1159',message:'clearing pane and preparing markets',data:{paneId:props.paneId,tradesHistoryLengthBefore:tradesHistory.length,newMarketsCount:mutation.payload.markets?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,E'})}).catch(()=>{});
+        // #endregion
+        // Clear tradesHistory when markets change to avoid rendering old trades
+        tradesHistory = []
+        tradesRendering = []
         clear()
         prepareMarkets()
         renderHistory()

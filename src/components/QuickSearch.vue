@@ -79,11 +79,15 @@ const isExpanded = ref(false)
 const isClosing = ref(false)
 const isLoading = ref(false)
 const activeIndex = ref(0)
+// Reactive trigger to force re-computation when indexedProducts changes
+const productsTrigger = ref(0)
 
 const MAX_RESULTS = 10
 
 // Get all products flattened from all exchanges
 const allProducts = computed(() => {
+  // Access productsTrigger to make this computed reactive to manual triggers
+  productsTrigger.value
   const products: any[] = []
   for (const exchangeId in indexedProducts) {
     if (indexedProducts[exchangeId]) {
@@ -100,6 +104,9 @@ const results = computed(() => {
   }
 
   const searchQuery = query.value.toUpperCase()
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'QuickSearch.vue:97',message:'results computed running',data:{searchQuery,allProductsCount:allProducts.value.length,indexedProductsKeys:Object.keys(indexedProducts)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'QS2'})}).catch(()=>{});
+  // #endregion
   const groups: {
     [localPair: string]: { markets: string[]; exchanges: Set<string> }
   } = {}
@@ -156,7 +163,16 @@ async function expand() {
   isLoading.value = true
 
   // Ensure products are indexed
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'QuickSearch.vue:154',message:'expand() called, about to ensureIndexedProducts',data:{indexedProductsKeys:Object.keys(indexedProducts)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'QS1'})}).catch(()=>{});
+  // #endregion
   await ensureIndexedProducts()
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'QuickSearch.vue:159',message:'ensureIndexedProducts completed',data:{indexedProductsKeys:Object.keys(indexedProducts),productCounts:Object.fromEntries(Object.entries(indexedProducts).map(([k,v])=>[k,(v as any[])?.length||0]))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'QS1'})}).catch(()=>{});
+  // #endregion
+  
+  // Trigger re-computation of allProducts since indexedProducts is not reactive
+  productsTrigger.value++
 
   isLoading.value = false
 

@@ -284,10 +284,20 @@ _onStoreMutation = store.subscribe(mutation => {
       break
     case 'panes/SET_PANE_MARKETS':
     case props.paneId + '/SET_THRESHOLD_MULTIPLIER':
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Trades.vue:285',message:'SET_PANE_MARKETS received in Trades.vue',data:{mutationType:mutation.type,mutationPaneId:mutation.payload?.id,thisPaneId:props.paneId,newMarkets:mutation.payload?.markets},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C'})}).catch(()=>{});
+      // #endregion
       if (
         mutation.type !== 'panes/SET_PANE_MARKETS' ||
         mutation.payload.id === props.paneId
       ) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Trades.vue:291',message:'refreshing Trades feed',data:{paneId:props.paneId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        // Clear existing trades when markets change
+        if (mutation.type === 'panes/SET_PANE_MARKETS') {
+          feed.clear()
+        }
         feed.cachePaneMarkets()
         refreshList()
       }

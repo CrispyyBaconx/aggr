@@ -330,6 +330,9 @@ const actions = {
     return dispatch('refreshMarketsListeners', { id, markets })
   },
   async switchInstrument({ dispatch, state }, localPair: string) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'panes.ts:332',message:'switchInstrument called',data:{localPair},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     // Ensure products are indexed
     await ensureIndexedProducts()
 
@@ -434,12 +437,16 @@ const actions = {
         }
       }
 
-      // Update pane markets if we found any
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/c5368add-026e-4de9-a227-c4487bde0016',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'panes.ts:437',message:'pane market mapping result',data:{paneId,paneType:pane.type,oldMarkets:pane.markets,newMarkets,newMarketsFound:newMarkets.length>0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
+      // #endregion
+
+      // Always update pane markets - even if empty (to clear the pane when ticker unavailable)
+      await dispatch('refreshMarketsListeners', {
+        id: paneId,
+        markets: newMarkets
+      })
       if (newMarkets.length) {
-        await dispatch('refreshMarketsListeners', {
-          id: paneId,
-          markets: newMarkets
-        })
         switchedCount++
       }
     }

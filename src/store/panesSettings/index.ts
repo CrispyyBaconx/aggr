@@ -6,6 +6,7 @@ import counters from './counters'
 import website from './website'
 import alerts from './alerts'
 import screener from './screener'
+import positionflow from './positionflow'
 
 export default {
   chart,
@@ -16,5 +17,6 @@ export default {
   website,
   alerts,
   screener,
+  positionflow,
   'trades-lite': trades
 }

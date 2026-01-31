@@ -82,6 +82,11 @@ const paneComponents = {
   ),
   screener: markRaw(
     defineAsyncComponent(() => import('@/components/screener/Screener.vue'))
+  ),
+  positionflow: markRaw(
+    defineAsyncComponent(
+      () => import('@/components/positionflow/PositionFlow.vue')
+    )
   )
 }
 

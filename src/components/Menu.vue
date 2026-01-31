@@ -117,6 +117,16 @@
           </div>
           <i class="icon-plus" />
         </button>
+        <button
+          class="dropdown-item dropdown-item--space-between"
+          @click="addPane('positionflow')"
+        >
+          <div>
+            <div>Position Flow</div>
+            <div class="dropdown-item__subtitle">OI vs Price scatter</div>
+          </div>
+          <i class="icon-plus" />
+        </button>
       </dropdown>
 
       <dropdown

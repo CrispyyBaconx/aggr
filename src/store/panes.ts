@@ -20,7 +20,8 @@ import dialogService from '@/services/dialogService'
 enum StaticPaneType {
   website = 'website',
   alerts = 'alerts',
-  screener = 'screener'
+  screener = 'screener',
+  positionflow = 'positionflow'
 }
 
 export enum PaneType {
@@ -32,6 +33,7 @@ export enum PaneType {
   website = 'website',
   alerts = 'alerts',
   screener = 'screener',
+  positionflow = 'positionflow',
   'trades-lite' = 'trades-lite'
 }
 
